@@ -1,5 +1,6 @@
 #include "core/ComputeDispatch.hpp"
 #include "Benchmark.hpp"
+#include "ResourceUsage.hpp"
 #include "core/TimingSummary.hpp"
 #include <SDL3/SDL.h>
 #include <fstream>
@@ -42,6 +43,7 @@ void Benchmark::write(const std::filesystem::path& assets,int width,int height,b
     char model[256]{};std::size_t length=sizeof(model);
     if(sysctlbyname("machdep.cpu.brand_string",model,&length,nullptr,0)==0) cpuModel=model;
 #endif
+    const auto resources=resourceUsage(options_.capacity,uint32_t(materialSource.at("materials").size()),bool(caps.supported&BGFX_CAPS_DRAW_INDIRECT));
     Json report={
         {"build",build},{"material_source",materialSource},{"generated_at_unix_ms",std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()},{"schema_version",1},{"scene","seed42_mixed_solids_gravity_analytic_box"},{"seed",42},
         {"capacity",options_.capacity},{"final_active_count",alive},{"final_visible_count",visible},{"final_image_pixels_different_from_corner",nonBackgroundPixels},
@@ -51,7 +53,8 @@ void Benchmark::write(const std::filesystem::path& assets,int width,int height,b
         {"ticks_per_frame",1},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},
         {"backend",bgfx::getRendererName(caps.rendererType)},
         {"machine",{{"platform",SDL_GetPlatform()},{"cpu_model",cpuModel},{"logical_cpus",SDL_GetNumLogicalCPUCores()},{"ram_mb",SDL_GetSystemRAM()},{"gpu_vendor_id",caps.vendorId},{"gpu_device_id",caps.deviceId}}},
-        {"particle_buffer_bytes_estimate",std::uint64_t(options_.capacity)*200+32+(indirect?32:0)},
+        {"particle_buffer_bytes_estimate",resources.particleBuffers()},
+        {"resources",resourceReport(resources,*bgfx::getStats())},
         {"shader_fingerprints",manifests},{"submit_frame_wall",summary(wall)},{"gpu_frame",summary(gpu)},
         {"gpu_sample_coverage",double(gpu.size())/samples_.size()},
         {"completed_wall_ms",completedWallMs_},

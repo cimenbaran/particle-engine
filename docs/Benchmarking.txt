@@ -59,3 +59,10 @@ This local sample is within 16.7 ms under the report's timing checks. It does
 not certify the design's M1 Pro/Windows reference machines, on-screen frame
 pacing, thermal stability or ten-minute soak. Repeated controlled runs and long-duration every-tick ownership/finite-state
 validation remain required before release.
+
+Resource reports
+The resources object separates requested persistent payload from temporary
+seed uploads and renderer estimates; see Resource_Usage.txt for scope. The
+legacy particle_buffer_bytes_estimate now includes an allocated indirect
+command even when --no-indirect selects fallback drawing. Resource snapshots
+are taken after image validation and are outside the measured frame window.

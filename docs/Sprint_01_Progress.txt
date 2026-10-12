@@ -209,8 +209,9 @@ S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.
 S1-12: Timings, delayed counters, benchmark JSON/CSV, build provenance and
-       particle-buffer estimates implemented. Broader memory accounting,
-       diagnostic panels and Windows package/device checks remain.
+       allocation panel and payload/renderer resource reports implemented. Peak
+       memory tracking, whole-GPU budget verification and Windows package/device
+       checks remain.
 
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
@@ -229,5 +230,5 @@ Next implementation order
    capture validation.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
-3. Add cosmetic pools and broader resource accounting; run the
+3. Add cosmetic pools and peak resource tracking; run the
    remaining foundation/core gates on Metal and D3D11.

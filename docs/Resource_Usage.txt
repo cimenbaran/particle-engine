@@ -1,0 +1,50 @@
+RESOURCE USAGE AND ALLOCATION DIAGNOSTICS
+
+The Allocations window shows requested GPU payload sizes, renderer estimates,
+transient frame usage and live bgfx handle counts. Benchmark, soak and replay
+JSON reports include the same data in a versioned resources object.
+
+Requested payload is based on configured capacity, not the number of alive or
+visible particles. Emptying the scene keeps the buffers allocated. There are
+2 x 64-byte state records and 2 x 32-byte render records per slot, plus two
+32-bit slot lists. Pool and visibility counters add 32 bytes. The pinned bgfx
+indirect command adds 32 bytes when allocated. Turning off indirect drawing
+selects the masked rendering path but does not release that buffer.
+
+The persistent payload total additionally includes the material table, static
+billboard geometry, diagnostic export/readback textures and, in audit modes,
+ownership/result buffers and the audit readback ring. Each diagnostic ring
+requests four 1x1 RGBA32U textures (64 bytes of pixel payload) and holds 48 bytes
+of host readback results. Interactive/benchmark modes have two rings; replay
+and soak have three. Driver texture allocation can be far larger than its
+pixel payload, so the tiny requested texture sizes are not residency claims.
+
+One reset requests a temporary 64-byte-per-slot GPU seed upload. Its host seed
+vector and bgfx upload copy can coexist. Old state buffers may remain alive
+until deferred destruction, and old material/shader resources can overlap
+replacements. Neither the persistent total nor the seed-upload number is a
+peak-memory estimate. Host container capacity, GUI/font allocations, shader and
+uniform storage, allocator pages/alignment, render targets and driver copies
+are outside the requested persistent total. Renderer handle counts may include
+internal backing resources and pending destruction.
+
+Renderer estimates are the current bgfx Stats snapshot and may lag submission.
+Texture, render-target and GPU usage fields can overlap requested payload and
+each other; do not add them to the payload total. Negative unsupported counters
+are shown as unavailable and serialized as null. The pinned Metal renderer
+reports total GPU used/available as unsupported. Transient vertex/index values
+are the previous reported frame's used payload, not reserved pool capacity.
+Benchmark resource snapshots are taken after final image validation; they also
+include the offscreen target and image-readback resources outside timed frames.
+
+The design's provisional budgets are represented as decimal bytes: 512,000,000
+for particle working memory and 1,500,000,000 for total GPU allocations. No
+budget pass/fail is inferred from a partial requested-payload total. Whole-GPU
+budget certification and peak tracking remain open.
+
+Validation on Metal: all six CTests passed; native UI displayed the allocation
+breakdown and retained the same requested total/steady dynamic-buffer counts
+after emptying the scene. Replay reports at capacities 1, 129 and 1,048,576
+passed GPU audits and arithmetic checks; unsupported GPU memory remained null.
+A short masked-fallback benchmark retained its allocated indirect command in
+the estimate. Windows runtime validation remains open.

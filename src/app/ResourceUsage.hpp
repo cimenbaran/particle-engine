@@ -1,0 +1,16 @@
+#pragma once
+#include <bgfx/bgfx.h>
+#include <nlohmann/json.hpp>
+#include <cstdint>
+namespace pw {
+// Requested payload sizes, not physical/resident driver allocations.
+struct ResourceUsage {
+    std::uint64_t state{},instances{},lists{},counters{},indirect{},materials{},geometry{};
+    std::uint64_t diagnosticTextures{},diagnosticHost{},auditBuffers{},seedUpload{};
+    std::uint64_t particleBuffers() const {return state+instances+lists+counters+indirect;}
+    std::uint64_t persistentPayload() const {return particleBuffers()+materials+geometry+diagnosticTextures+auditBuffers;}
+};
+ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit=false);
+nlohmann::json resourceReport(const ResourceUsage& usage,const bgfx::Stats& stats);
+void drawResourceUsage(const ResourceUsage& usage,const bgfx::Stats& stats);
+}

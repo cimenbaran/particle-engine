@@ -1,6 +1,7 @@
 #include "core/ComputeDispatch.hpp"
 #include "platform/Window.hpp"
 #include "Benchmark.hpp"
+#include "ResourceUsage.hpp"
 #include "core/RunOptions.hpp"
 #include "core/FixedStep.hpp"
 #include "core/FlyCamera.hpp"
@@ -418,6 +419,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
         {"recording",std::filesystem::absolute(options.replay).string()},
         {"input",nlohmann::json::parse(pw::encodeRecording(recording,particles.materials))},{"capacity",particles.particleCount},
         {"requested_ticks",recording.ticks},{"completed_ticks",ticks},{"applied_commands",applied},
+        {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},
         {"recorded_workgroup_size",recording.workgroupSize},{"workgroup_size",pw::workgroupSize},
         {"materials_hash",recording.materialsHash},{"audit_every_tick",true},{"build",build},
         {"backend",bgfx::getRendererName(caps->rendererType)},{"indirect",indirect},
@@ -530,6 +532,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     if(failure.empty() && (ticks<256 || !sawFull || !sawEmpty || !sawOverflow)) failure="Soak did not complete required full/empty/overflow coverage";
     const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
     Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+        {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
         {"slot_checks",ticks*options.capacity},{"completed_cycles",ticks/256},{"spawn_requests",spawnRequests},
         {"intentional_cpu_rejections",rejectedCommands},{"saw_full",sawFull},{"saw_empty",sawEmpty},{"saw_overflow",sawOverflow},
@@ -798,6 +801,7 @@ int main(int argc, char** argv) {
             ImGui::TextWrapped("%s",particles.session.message().c_str());
             if(!recordingMessage.empty()) ImGui::TextWrapped("%s",recordingMessage.c_str());
             ImGui::End();
+            pw::drawResourceUsage(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect()),*stats);
             const auto& input=ImGui::GetIO();
             const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
             if(freeCamera && focused && !cancelCamera) {
