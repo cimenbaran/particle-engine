@@ -132,3 +132,8 @@ The **Allocations** window separates requested buffer payload from renderer
 estimates and shows resource handle counts. An unavailable driver counter is
 shown explicitly. Benchmark, soak and replay reports include a resource
 breakdown; see [memory accounting](docs/Resource_Usage.txt) for exclusions.
+
+Windows CI can run D3D11 correctness checks through an explicitly created WARP
+software device using `--software-gpu --gpu-test`. This option is restricted to
+tests/capability reporting and does not certify hardware performance. See
+[Windows validation](docs/Windows_Validation.txt) for software and device gates.

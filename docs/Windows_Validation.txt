@@ -1,0 +1,45 @@
+WINDOWS BUILD AND EXECUTION VALIDATION
+
+The Native build workflow compiles Windows/D3D11 and macOS/Metal packages with
+128- and 256-thread compute variants and runs CPU/schema/shader-cache tests.
+Compilation alone does not verify GPU execution. A Windows MSVC ambiguity in
+the recording profile comparison was found by CI and fixed by extracting the
+JSON string explicitly; the malformed-type regression is also covered.
+
+D3D11 software validation
+The explicit --software-gpu option is restricted to --gpu-test or --capabilities:
+  ParticleWorld.exe --software-gpu --capabilities warp-capabilities.json
+  ParticleWorld.exe --software-gpu --gpu-test
+
+The app creates a feature-level 11.0 D3D11 WARP device with D3D11CreateDevice and
+supplies it as bgfx's external device context. It owns the creation reference
+until initialization completes; bgfx retains/releases its own reference. This
+avoids relying on the pinned DXGI enumerator's software vendor hint, which can
+be overridden when adapter zero is selected. VSync is disabled in this mode.
+Capability reports mark software_renderer_requested, and test output identifies
+WARP explicitly. This flag records the selected application mode; ordinary
+hardware-selection behavior is unchanged. macOS rejects the option.
+
+The Windows CI jobs run this mode from the installed package after CPU tests,
+with a ten-minute timeout, and retain capability JSON and GPU-suite output in
+WARP-validation-wg128 / WARP-validation-wg256 artifacts. A test failure fails
+the job. Initial CI execution of this new software mode is still pending.
+WARP can exercise HLSL execution, buffer/image access, readback, ownership,
+visibility and shader reload, but it is not hardware performance certification
+or proof of all vendor-driver behavior. No benchmark accepts --software-gpu.
+
+Hardware acceptance remains open
+On a supported Windows 11 x64 machine, use a clean installed package without
+--software-gpu and retain its build.json plus the following results:
+  ParticleWorld.exe --capabilities device.json
+  ParticleWorld.exe --gpu-test
+  ParticleWorld.exe --capacity 1000000 --soak 600 --report million-soak.json
+  ParticleWorld.exe --capacity 1000000 --benchmark million --warmup 120 --frames 600
+
+Also run the dual-pool ballistic benchmark with --capacity 100000 and
+--cosmetic-capacity 150000; this still has no water solver. Record the exact
+GPU/driver, OS, CPU and RAM. Validate native resize/minimize/restore, focus loss,
+held-button camera capture/release, pause/step, physical/cosmetic isolation,
+record/save/replay and invalid-file recovery. Check both indirect and masked
+rendering and both workgroup variants. Retain output and the binary hash for
+each tested package. Software results must never be relabeled hardware results.

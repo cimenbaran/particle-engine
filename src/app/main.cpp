@@ -37,16 +37,35 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <d3d11.h>
+#endif
 
 namespace {
 struct Graphics {
-    Graphics(pw::Window& window,bool vsync=true) {
+    Graphics(pw::Window& window,bool vsync=true,bool software=false) {
         int w, h; window.drawable(w,h);
         bgfx::Init init;
 #if defined(__APPLE__)
+        if(software) throw std::runtime_error("--software-gpu requires Windows D3D11/WARP");
         init.type = bgfx::RendererType::Metal;
 #else
         init.type = bgfx::RendererType::Direct3D11;
+        auto releaseDevice=[](ID3D11Device* device) {if(device) device->Release();};
+        std::unique_ptr<ID3D11Device,decltype(releaseDevice)> softwareDevice(nullptr,releaseDevice);
+        if(software) {
+            // Supply a real WARP device: the pinned adapter enumeration can
+            // override its software vendor hint while choosing adapter zero.
+            ID3D11Device* device=nullptr;const D3D_FEATURE_LEVEL feature=D3D_FEATURE_LEVEL_11_0;
+            const HRESULT result=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_WARP,nullptr,
+                D3D11_CREATE_DEVICE_BGRA_SUPPORT,&feature,1,D3D11_SDK_VERSION,&device,nullptr,nullptr);
+            softwareDevice.reset(device);
+            if(FAILED(result)) throw std::runtime_error("Cannot create D3D11 WARP feature-level 11 device");
+            init.platformData.context=device; // bgfx retains its own COM reference.
+        }
 #endif
         init.swapChain.nwh = window.nativeHandle();
         init.fallback = false;
@@ -647,10 +666,12 @@ int main(int argc, char** argv) {
         const bool gpuTestOnly=options.gpuTest,allowIndirect=options.indirect;
         const bool benchmarking=!options.benchmark.empty();
         pw::Window window;
-        Graphics graphics(window,!benchmarking && !options.soakSeconds && options.replay.empty());
+        Graphics graphics(window,!benchmarking && !options.soakSeconds && options.replay.empty() && !options.softwareGpu,options.softwareGpu);
         const auto* caps=bgfx::getCaps();
         auto capabilities=pw::capabilityReport(*caps,allowIndirect);
         capabilities["backend"]=bgfx::getRendererName(caps->rendererType);
+        capabilities["software_renderer_requested"]=options.softwareGpu;
+        if(options.softwareGpu) std::cout<<"Execution mode: explicitly requested D3D11 WARP software validation; not hardware certification\n";
         std::cout << "Backend: " << capabilities["backend"] << "; capability status: " << capabilities["status"] << '\n';
         for(const auto& check:capabilities["checks"])
             if(check["status"]!="supported") std::cout << check["feature"] << ": " << check["action"] << '\n';

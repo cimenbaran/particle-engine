@@ -34,9 +34,26 @@ jobs:
         run: ctest --preset ${{ matrix.preset }}
       - name: Package
         run: cmake --install build/${{ matrix.preset }} --prefix out/${{ matrix.preset }}
+      - name: D3D11 WARP correctness (software, not hardware certification)
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $executable = Join-Path $PWD "out/${{ matrix.preset }}/ParticleWorld.exe"
+          & $executable --software-gpu --capabilities "out/warp-capabilities.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $executable --software-gpu --gpu-test 2>&1 | Tee-Object -FilePath "out/warp-gpu-test.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows' && always()
+        with:
+          name: WARP-validation-wg${{ matrix.workgroup }}
+          path: |
+            out/warp-capabilities.json
+            out/warp-gpu-test.txt
       - uses: actions/upload-artifact@v4
         with:
           name: ParticleWorld-${{ matrix.preset }}-wg${{ matrix.workgroup }}
           path: out/${{ matrix.preset }}
-# Hosted compilation does not certify GPU execution. Run --gpu-test and native
-# interaction/soak checks separately on Metal and D3D11 reference hardware.
+# Hosted WARP execution is software correctness evidence, not hardware certification.
+# Run native interaction/soak checks separately on Metal and D3D11 reference hardware.

@@ -73,7 +73,7 @@ if(BUILD_TESTING)
 endif()
 
 if(WIN32)
-  target_link_libraries(ParticleWorld PRIVATE bcrypt)
+  target_link_libraries(ParticleWorld PRIVATE bcrypt d3d11)
 endif()
 
 file(GLOB PW_SCENES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/assets/scenes/*.json)
