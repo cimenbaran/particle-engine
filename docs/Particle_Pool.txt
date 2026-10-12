@@ -35,12 +35,29 @@ recording and deterministic replay are not yet implemented.
 
 Rebuilding before each spawn batch favors simple ownership and safe reuse.
 It is O(capacity) per spawn command and is not the final million-particle
-allocation optimization. No steady-state particle or pool readback occurs yet;
-UI shows capacity and CPU queue counts, not a delayed live GPU count. Compact
-indices exist, but rendering does not consume them until indirect/culling work.
+allocation optimization. Compact indices exist, but rendering does not consume
+them until indirect/culling work.
+
+Live diagnostics sample only the four uint32 counters (16 bytes). Compute view
+6 exports a 1x1 image; view 7 copies it to a free slot in a three-slot staging
+ring. Sampling normally happens every eight app frames, plus single-step and
+initial/reset requests. Polling adopts data only after bgfx's ready frame; a
+full ring skips the request. Snapshots show their simulation tick. Reset starts
+a new epoch and discards older results without recycling their storage early.
+Shutdown drains pending requests before freeing destination memory. The app
+never waits for a diagnostic during normal operation; bgfx's Metal read API can
+still synchronize internally on its render thread. Counts never control draws
+or simulation dispatch. No steady-state full-particle readback occurs.
+
+All compute exports precede copies in the fixed graph. Tests exposed a pinned
+Metal renderer limitation when a copy interrupts two compute passes: its later
+compute export returned zero data. Keeping export passes before the copy phase
+avoids that path. Revisit this constraint before adding mixed copy/compute work.
 
 GPU tests read back state and membership explicitly. They cover capacities
 1, 127, 128, 129, 16,384; zero/full pools; zero/excess spawns; unique ownership;
 1/32 impulse commands and spatial/material misses; duplicate removal; reuse;
 lifetime expiry; masked render records; and generation wrap rejection.
+Diagnostic tests also cover full-ring rejection, recycling, reset epochs,
+latest-sample selection, per-state values, and shutdown with a pending request.
 Metal passes locally. D3D11, million-slot and ten-minute soak gates remain open.

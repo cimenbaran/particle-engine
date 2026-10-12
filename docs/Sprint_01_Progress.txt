@@ -16,7 +16,8 @@ Implemented and locally exercised
 - An ImGui SDL3 platform backend and project bgfx renderer with font texture,
   scissor, index offsets, framebuffer scaling and deferred resource destruction.
 - GPU reset, ping-pong gravity/drag/analytic box contacts and instanced rendering
-  of 16,384 seeded particles. Compute views 0-4 precede draw views 10 and 20.
+  of 16,384 seeded particles. Simulation views 0-4 precede diagnostic export/
+  copy views 6-7 and draw views 10 and 20.
 - A 64-byte particle ABI, 32-byte packed render record, stable ID/generation
   authoring fields, CPU command validation and fixed 1/60-second scheduling.
 - Pause, single tick, seeded reset, orbit controls and CPU/GPU frame-time display.
@@ -34,6 +35,9 @@ Implemented and locally exercised
   friction, restitution and color; density determines reset-time particle mass.
 - Solid-material scene selection and tick-boundary material reload retain the
   previous valid table on errors and reject incompatible live-material edits.
+- Delayed GPU active/free/rejected-spawn statistics use a three-slot, 16-byte
+  readback ring. Scene epochs discard stale results; normal operation never
+  waits for the ring. Diagnostics do not control simulation or draw counts.
 - CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
   The workflow is authored locally; it has not run on a remote CI service.
@@ -69,6 +73,14 @@ Verified evidence
   on tick 2, and spawned again into freed slots on tick 3.
 - Native command UI check: paused tick 1099 retained one queued command; single
   tick advanced to 1100 and consumed it. Reset discarded a later queued command.
+- Diagnostic GPU tests passed values at every pool state, full-ring rejection,
+  recycling, reset invalidation, latest-sample selection and pending shutdown.
+- Native stats UI showed 16,384 active/0 free, then 1,024 rejected spawns when
+  spawning into the full pool. Empty reset showed 0 active/16,384 free and zero
+  rejections; single-step spawn showed 1,024 active/15,360 free at tick 1.
+- Fixed graph keeps all compute exports before copies. An interleaved copy/
+  compute test returned zero data on the pinned Metal backend; reordering the
+  exports before copies passed. This ordering constraint is documented.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
@@ -80,6 +92,8 @@ Verified evidence
   build sources; all seven shader binary hashes match the packaged manifests.
 - Pool-enabled package completed 600 frames from /tmp with clean shutdown.
   All 12 packaged shader hashes and both material assets match build outputs.
+- Diagnostic-enabled package completed 600 frames from /tmp and exited cleanly
+  after 298 ticks. All 13 packaged shader hashes match their manifests.
 - Local package: out/macos-release/ParticleWorld.app (not distribution-signed
   or notarized). Source build and package both use bundle Resources/assets.
 - Native visual inspection showed particles and readable ImGui controls.
@@ -116,20 +130,21 @@ S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
        cosmetic pools remain.
 S1-11: GPU-written fixed-capacity instances mask inactive slots; material
        classes are packed. Frustum culling, compact draws and indirect draws remain.
-S1-12: Basic timings, native test mode and CI files exist. Full diagnostic panels,
-       benchmark JSON/CSV, memory accounting and Windows package checks remain.
+S1-12: Timings, delayed pool counters, native test mode and CI files exist.
+       More diagnostic panels, benchmark JSON/CSV, memory accounting and
+       Windows package checks remain.
 
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
 - Zero/full/current-capacity pool tests passed on Metal. Ten-minute soak and
   million-particle validation/benchmark have not been completed.
 - No baseline p95 target is claimed. The current demo has no pair contacts.
-- Readback is limited to explicit startup/GPU tests; the steady-state scene
-  performs no full-particle readback.
+- Full-particle readback is limited to explicit startup/GPU tests. Steady-state
+  diagnostics read only 16-byte counters and never determine draws or dispatches.
 
 Next implementation order
 1. Complete shader cache/reload and the platform capability report.
-2. Add delayed GPU pool diagnostics, compact/indirect drawing and culling,
+2. Add compact/indirect drawing and culling,
    then scale capacity under ownership and performance tests.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.

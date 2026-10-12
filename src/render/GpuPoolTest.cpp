@@ -1,5 +1,6 @@
 #include "GpuPoolTest.hpp"
 #include "ParticlePool.hpp"
+#include "PoolDiagnostics.hpp"
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
 #include "core/ParticleTypes.hpp"
@@ -32,6 +33,8 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
     Owned materials(bgfx::createDynamicVertexBuffer(bgfx::copy(packed.data(),uint32_t(packed.size()*sizeof(MaterialGpu))),lanes,BGFX_BUFFER_COMPUTE_READ));
     for(uint32_t capacity:{1u,127u,128u,129u,16384u}) {
         ParticlePool pool(assets,capacity);
+        PoolDiagnostics diagnostics(assets);
+        uint64_t snapshotTick=0;
         Owned state(bgfx::createDynamicVertexBuffer(capacity*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE));
         Owned next(bgfx::createDynamicVertexBuffer(capacity*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE));
         Owned instances(bgfx::createDynamicVertexBuffer(capacity*2,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE));
@@ -63,7 +66,14 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
             bgfx::blit(2,dst,src);auto ready=bgfx::read(dst,membership.data());
             dst.handle=particleStaging.value;src.handle=particleOut.value;
             bgfx::blit(2,dst,src);ready=std::max(ready,bgfx::read(dst,particles.data()));
-            while(bgfx::frame()<ready) SDL_PumpEvents();
+            const auto tag=snapshotTick++;
+            // Keep every compute export before the first copy on the pinned Metal backend.
+            require(diagnostics.request(1,pool.counts(),tag),"Diagnostic request unexpectedly blocked");
+            uint32_t frame;
+            do {frame=bgfx::frame();diagnostics.poll(frame);SDL_PumpEvents();} while(frame<ready || diagnostics.pending());
+            const auto& snapshot=diagnostics.latest();
+            if(!snapshot.valid || snapshot.tick!=tag || snapshot.active!=alive || snapshot.free!=capacity-alive || snapshot.rejected!=rejected)
+                throw std::runtime_error("Delayed diagnostic mismatch at capacity "+std::to_string(capacity)+" tick "+std::to_string(tag)+": got "+std::to_string(snapshot.active)+"/"+std::to_string(snapshot.free)+"/"+std::to_string(snapshot.rejected)+" at tick "+std::to_string(snapshot.tick)+", expected "+std::to_string(alive)+"/"+std::to_string(capacity-alive)+"/"+std::to_string(rejected));
             const auto counts=membership[capacity];
             require(counts[0]==alive && counts[1]==capacity-alive && counts[3]==rejected,"Pool count/overflow mismatch");
             std::vector<unsigned> owners(capacity);
@@ -80,6 +90,16 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
             for(auto ownersForSlot:owners) require(ownersForSlot==1,"Orphan pool slot");
         };
         check(0,0);
+        if(capacity==1) {
+            for(unsigned i=0;i<3;++i) require(diagnostics.request(1,pool.counts(),100+i),"Diagnostic ring did not accept a free slot");
+            require(!diagnostics.request(1,pool.counts(),999),"Diagnostic ring overwrote a pending destination");
+            diagnostics.beginEpoch();
+            while(diagnostics.pending()) diagnostics.poll(bgfx::frame());
+            require(!diagnostics.latest().valid,"Scene reset adopted a stale snapshot");
+            for(unsigned i=0;i<3;++i) require(diagnostics.request(1,pool.counts(),200+i),"Diagnostic ring failed to recycle slots");
+            while(diagnostics.pending()) diagnostics.poll(bgfx::frame());
+            require(diagnostics.latest().valid && diagnostics.latest().tick==202,"Diagnostic latest-sample ordering failed");
+        }
         Command spawn;spawn.type=CommandType::SpawnBrush;spawn.minimum={-1,5,-1};spawn.maximum={1,6,1};
         spawn.parameters={0,0,0,0};spawn.count=1;
         uint64_t sequence=0;
@@ -137,7 +157,8 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
             pool.rebuild(0,state.value,true);spawn.count=1;apply(spawn);pool.rebuild(0,state.value);check(0,1);
             require(particles[0].identity[3]==0xffffffffu,"Slot generation wrapped");
         }
-        std::cout<<"GPU pool ownership/full/duplicate-remove/reuse/lifetime passed: "<<capacity<<" slots\n";
+        require(diagnostics.request(1,pool.counts(),snapshotTick++),"Shutdown diagnostic request failed");
+        std::cout<<"GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: "<<capacity<<" slots\n";
     }
 }
 }

@@ -7,6 +7,7 @@
 #include "render/Shaders.hpp"
 #include "render/GpuLayoutTest.hpp"
 #include "render/ParticlePool.hpp"
+#include "render/PoolDiagnostics.hpp"
 #include "render/GpuPoolTest.hpp"
 #include <memory>
 #include <SDL3/SDL_main.h>
@@ -62,6 +63,7 @@ struct Particles {
     pw::CommandQueue commands;
     std::string commandMessage;
     std::unique_ptr<pw::ParticlePool> pool;
+    std::unique_ptr<pw::PoolDiagnostics> diagnostics;
     pw::MaterialLibrary materials;
     bgfx::DynamicVertexBufferHandle materialBuffer=BGFX_INVALID_HANDLE;
     std::filesystem::path materialPath;
@@ -87,6 +89,7 @@ struct Particles {
             materials=pw::loadMaterials(materialPath);
             uploadMaterials(materials);
             pool=std::make_unique<pw::ParticlePool>(assets,particleCount);
+            diagnostics=std::make_unique<pw::PoolDiagnostics>(assets);
             reset();
         } catch (...) { release(); throw; }
     }
@@ -111,6 +114,7 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
+        diagnostics.reset();
         pool.reset();
         if(bgfx::isValid(materialBuffer)) bgfx::destroy(materialBuffer);
         for (auto h: state) if(bgfx::isValid(h)) bgfx::destroy(h);
@@ -124,6 +128,7 @@ struct Particles {
     }
     ~Particles() { release(); }
     void reset(uint32_t initialCount=particleCount) {
+        diagnostics->beginEpoch();
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
         commands.reset(); commandMessage.clear();
         for (auto& h: state) { if(bgfx::isValid(h)) bgfx::destroy(h); h = BGFX_INVALID_HANDLE; }
@@ -244,12 +249,13 @@ int main(int argc, char** argv) {
         Particles particles(assets);
         pw::FixedStep clock;
         bool running=true,paused=false;
-        uint64_t ticks=0; uint32_t frames=0; double lag=0;
+        uint64_t ticks=0; uint32_t frames=0, completedFrame=0; double lag=0;
         int width=0,height=0;
         float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
         int spawnCount=1024;
         auto previous=std::chrono::steady_clock::now();
         while(running) {
+            particles.diagnostics->poll(completedFrame);
             SDL_Event event;
             while(SDL_PollEvent(&event)) {
                 // A button event carries its own position. Preserve it before queuing
@@ -278,6 +284,12 @@ int main(int argc, char** argv) {
             ImGui::Begin("Particle World - foundation");
             ImGui::Text("Backend: %s",bgfx::getRendererName(caps->rendererType));
             ImGui::Text("Capacity: %u | Seed: 42",particleCount);
+            const auto& poolStats=particles.diagnostics->latest();
+            if(poolStats.valid) {
+                ImGui::Text("Active: %u | Free: %u",poolStats.active,poolStats.free);
+                ImGui::Text("Rejected spawns: %u",poolStats.rejected);
+                ImGui::TextDisabled("GPU snapshot at tick %llu",static_cast<unsigned long long>(poolStats.tick));
+            } else ImGui::TextDisabled("Waiting for GPU pool snapshot...");
             ImGui::Text("Tick: %llu",static_cast<unsigned long long>(ticks));
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
             bool step=ImGui::Button("Single tick"); if(step) paused=true;
@@ -307,7 +319,7 @@ int main(int argc, char** argv) {
             ImGui::SliderFloat("Lifetime (s)",&spawnLifetime,0,30);
             if(ImGui::IsItemHovered()) ImGui::SetTooltip("Zero keeps particles alive until removed; positive values expire after that many simulation seconds.");
             if(ImGui::Button("Spawn particles")) particles.queueBrush(pw::CommandType::SpawnBrush,0,uint32_t(spawnCount),spawnLifetime);
-            ImGui::Text("Queued: %u | Rejected: %llu",unsigned(particles.commands.pending()),static_cast<unsigned long long>(particles.commands.rejected()));
+            ImGui::Text("Queued: %u | Rejected commands: %llu",unsigned(particles.commands.pending()),static_cast<unsigned long long>(particles.commands.rejected()));
             if(!particles.commandMessage.empty()) ImGui::TextWrapped("%s",particles.commandMessage.c_str());
             ImGui::SliderFloat("Orbit",&yaw,-3.14f,3.14f);
             ImGui::SliderFloat("Distance",&distance,8,45);
@@ -320,6 +332,8 @@ int main(int argc, char** argv) {
             ImGui::End();
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
             for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
+            if(frames%8==0 || step || !particles.diagnostics->latest().valid)
+                particles.diagnostics->request(6,particles.pool->counts(),ticks);
             float view[16],projection[16];
             bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
             bx::mtxProj(projection,55,float(width)/float(height),0.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
@@ -328,8 +342,9 @@ int main(int argc, char** argv) {
             bgfx::setViewTransform(10,view,projection); bgfx::touch(10);
             particles.render(10);
             ImGui::Render(); guiRenderer.render(ImGui::GetDrawData(),20);
-            bgfx::frame();
-            if(frameLimit && ++frames>=frameLimit) running=false;
+            completedFrame=bgfx::frame();
+            ++frames;
+            if(frameLimit && frames>=frameLimit) running=false;
         }
         std::cout << "Clean shutdown after " << ticks << " ticks\n";
         return 0;

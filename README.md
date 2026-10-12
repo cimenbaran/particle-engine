@@ -61,7 +61,9 @@ The foundation has a 16,384-slot GPU pool with a common particle radius. Use
 Set a lifetime in simulation seconds (zero means infinite). **Remove center
 particles** frees slots inside the same box used by the lift control. Spawning
 and removal target the selected material, or Stone in a mixed scene. Full pools
-reject excess spawns. Active particles bounce inside analytic bounds and do not yet collide with each other.
+reject excess spawns. The panel shows delayed GPU active/free counts and rejected
+spawns, labeled with their snapshot tick. CPU command rejections are separate.
+Active particles bounce inside analytic bounds and do not yet collide with each other.
 
 The current submission uses a known, initialized instance count. GPU active/free
 lists are rebuilt after ticks; rendering masks inactive slots.
