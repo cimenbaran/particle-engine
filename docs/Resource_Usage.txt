@@ -48,3 +48,8 @@ after emptying the scene. Replay reports at capacities 1, 129 and 1,048,576
 passed GPU audits and arithmetic checks; unsupported GPU memory remained null.
 A short masked-fallback benchmark retained its allocated indirect command in
 the estimate. Windows runtime validation remains open.
+
+Packaged maximum-capacity evidence is retained in
+tests/results/m3-max-resource-capacity-limit.json. It embeds its zero-tick
+recording input and identifies clean implementation commit 1592979. The app
+was launched from /tmp with packaged assets; binary SHA256 matched build.json.

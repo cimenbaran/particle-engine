@@ -1,0 +1,114 @@
+{
+  "applied_commands": 0,
+  "audit_every_tick": true,
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "b13c7be0fa299099fcd4b9ec86a9884b1444c6c548f16f74ee5e207299aa9b1f",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "1592979e7a1a6daebbdba28ccb91b60b34e2166e",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "capacity": 1048576,
+  "completed_ticks": 0,
+  "failure": "",
+  "final_snapshot": {
+    "active": 0,
+    "checked_slots": 1048576,
+    "free": 1048576,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 0,
+    "state_error": false
+  },
+  "indirect": true,
+  "input": {
+    "capacity": 1048576,
+    "commands": [],
+    "materials_hash": "6e2d0ad62cc37279",
+    "scene": {
+      "count": 0,
+      "materials": [
+        "Stone",
+        "Sand",
+        "Wood",
+        "Ash"
+      ],
+      "maximum": [
+        6.0,
+        11.0,
+        6.0
+      ],
+      "minimum": [
+        -6.0,
+        1.0,
+        -6.0
+      ],
+      "name": "Empty workspace",
+      "schema_version": 1,
+      "seed": 42
+    },
+    "schema_version": 1,
+    "simulation_profile": "ballistic_pool_v1",
+    "tick_hz": 60,
+    "ticks": 0,
+    "workgroup_size": 256
+  },
+  "materials_hash": 7939013633114337913,
+  "note": "Replays configuration and input; does not assert identical particle trajectories across GPUs.",
+  "passed": true,
+  "recorded_workgroup_size": 256,
+  "recording": "/Users/cimen/particleengine/out/resource-check/zero-1048576.json",
+  "requested_ticks": 0,
+  "resources": {
+    "handles": {
+      "dynamic_index_buffers": 6,
+      "dynamic_vertex_buffers": 5,
+      "framebuffers": 0,
+      "index_buffers": 10,
+      "programs": 24,
+      "shaders": 27,
+      "textures": 13,
+      "uniforms": 13,
+      "vertex_buffers": 11
+    },
+    "host_diagnostic_payload_bytes": 144,
+    "notes": [
+      "Payload is requested data size; excludes alignment, allocator pages, driver copies, shaders and uniforms.",
+      "Reset can retain old buffers until deferred destruction; seed upload is temporary and is not a peak-memory estimate.",
+      "Host seed vectors, bgfx upload copies, GUI/font resources and render targets are outside the requested persistent total.",
+      "Renderer estimates overlap payload categories; do not add them together. Negative/unavailable counters are null.",
+      "This snapshot does not certify either provisional memory budget."
+    ],
+    "provisional_budget_bytes": {
+      "particle_working_memory": 512000000,
+      "total_gpu_allocations": 1500000000
+    },
+    "renderer_estimates_bytes": {
+      "gpu_available": null,
+      "gpu_used": null,
+      "render_targets": 0,
+      "textures": 49344,
+      "transient_indices_used": 0,
+      "transient_vertices_used": 0
+    },
+    "requested_payload_bytes": {
+      "active_free_lists": 8388608,
+      "audit_buffers": 4194320,
+      "billboard_geometry": 60,
+      "diagnostic_textures": 192,
+      "indirect_arguments": 32,
+      "material_table": 448,
+      "particle_buffers": 209715264,
+      "particle_state": 134217728,
+      "persistent_total": 213910284,
+      "pool_visibility_counters": 32,
+      "render_instances": 67108864
+    },
+    "schema_version": 1,
+    "temporary_seed_upload_payload_bytes": 67108864
+  },
+  "schema_version": 1,
+  "workgroup_size": 128
+}
