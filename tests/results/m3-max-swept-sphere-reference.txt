@@ -1,0 +1,9 @@
+CPU INTERIOR SPHERE SWEEP REFERENCE
+Source worktree based on 8a96738 with accompanying oracle and tests.
+All 9 core-only tests and 14 macOS tests passed. No GPU physics change.
+4608 seeded restitution/friction combinations with analytic chord geometry,
+nonpenetration/energy checks, transformed inputs and elastic time reversal.
+Additional grazing, endpoint, surface, fast-shot, near-root, extreme-scale and invalid cases.
+
+out/swept-sphere-core-tests.log sha256=eb993a7b578897580abd8de5a9ca90ee54d834703d8c26a32a68d4422ebf974b
+out/swept-sphere-native-tests.log sha256=e3a12e60a5f59fc178ba04a9a1830f23b51a44a54029550a0472c6ff95afdfda

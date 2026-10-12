@@ -1,0 +1,47 @@
+INTERIOR SPHERE SWEEP REFERENCE
+
+This is CPU reference preparation for S2-08 interior analytic terrain. It does
+not add an interior obstacle to the running application. The existing GPU sweep
+still handles only the six enclosing planes. No terrain or fluid gate is closed.
+
+The oracle sweeps a moving sphere against one fixed sphere using their summed
+radii. Forces are already applied; the path is linear over dt in [0,1] seconds.
+It validates finite float-range positions, velocities and positive radii, plus
+restitution/friction in [0,1] and a nonnegative bounce threshold. An initially
+overlapping sphere is rejected, including for dt=0. Initial overlap recovery
+will need an explicit production policy; it is not hidden inside time of impact.
+
+For an approaching ray, decompose its offset into distance along the velocity
+and a perpendicular miss distance. A miss distance at or beyond the summed radius
+has no inward impact; exact tangency changes no velocity. The entry time uses
+(distance-radius)*(distance+radius) divided by speed*(approach+chord), avoiding
+near-surface root cancellation. Impact geometry is reconstructed from the chord
+and perpendicular offset rather than subtracting large world-space flight terms.
+A distant head-on regression checks that the radius is not lost in the latter
+subtraction. This remains floating-point geometry, not exact predicates for
+arbitrarily close tangencies or unlimited scale ratios.
+
+At an impact inside or at the end of the interval, split velocity into normal and
+tangent components. Suppress normal rebound below the bounce threshold; otherwise
+apply restitution. Remove no more than friction times the normal velocity change
+from tangential speed, without reversing it. Integrate the unused interval using
+the new velocity. With one fixed convex sphere and no further forces, the outgoing
+linear path cannot produce another inward collision with that same sphere.
+Return state, hit flag, impact time and outward normal. Input state is immutable.
+
+CTest swept_sphere_reference checks analytic entries, endpoint and initial-contact
+cases, tangencies, misses, zero time, fast shots through the entire obstacle,
+near-surface roots, distant head-on motion and minimum-normal-float scales.
+512 seeded impact parameters across nine restitution/friction combinations give
+4608 cases. Checks include analytic chord time/normal, no kinetic energy growth,
+final nonpenetration, signed axis permutation and translation covariance. Elastic
+frictionless cases reverse to their initial state when run backward. Invalid
+profiles, nonfinite state and initial penetration are rejected.
+
+GPU integration must select the earliest event among enclosing planes and interior
+colliders, preserve remaining substep time, handle ties deliberately, enforce an
+event budget, and report failure through whole-tick rollback. Position correction
+must also respect interior obstacles, not only predicted motion. Material contact
+response, settling support, debug normals, scene configuration/rendering, repeatable
+stability fixtures and both backends must cover the same collider profile. Those
+requirements remain open; a CPU oracle alone does not satisfy S2-08.

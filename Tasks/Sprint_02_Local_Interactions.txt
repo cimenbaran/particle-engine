@@ -23,7 +23,9 @@ remains unchanged. Positional static friction is now integrated for pairs and
 walls (static_traction_v1), and all seven scenes pass on Metal 128/256.
 Resolution of the Windows failure awaits validation of source 6dad618.
 These fixtures do not complete the broad stability or ten-minute soak gates.
-Interior terrain, detailed debug views/metrics,
+Interior terrain has a tested CPU sphere-sweep oracle in
+../docs/Swept_Sphere_Reference.txt; GPU collision/constraint/support integration
+remains open. Detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in
