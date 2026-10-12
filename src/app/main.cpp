@@ -17,6 +17,7 @@
 #include "render/GpuLayoutTest.hpp"
 #include "render/GpuPrefixScan.hpp"
 #include "render/GpuRadixSort.hpp"
+#include "render/GpuSpatialKeys.hpp"
 #include "render/ParticlePool.hpp"
 #include "render/PoolDiagnostics.hpp"
 #include "render/ParticleVisibility.hpp"
@@ -699,7 +700,7 @@ int main(int argc, char** argv) {
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
-        if(gpuTestOnly) {pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
+        if(gpuTestOnly) {pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runGpuSpatialKeysTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
         std::optional<pw::CommandRecording> replay;
         if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));
         Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:nullptr);

@@ -1,0 +1,67 @@
+GPU CELL-KEY GENERATION FOR THE INITIAL GRANULAR PROFILE
+
+GpuSpatialKeys emits an initialized (cellKey, physicalSlot) record for every
+configured slot. It currently runs only in explicit GPU tests, together with
+GpuRadixSort. It is not connected to live simulation or physical neighbor queries.
+GPU cell ranges, complete-index gating and domain-exit resolution remain open.
+
+The first granular profile fixes origin (0,0,0), cell width 0.125 m, signed
+minimum cell (-64,0,-64) and dimensions (128,128,128). This covers the half-open
+box [-8,8) x [0,16) x [-8,8) and 2,097,152 collision-free keys. The cell width
+covers a proposed common 0.05 m contact radius's 0.10 m centre support. This
+is a deliberate first-profile configuration, not general arbitrary-origin or
+arbitrary-width GPU coordinate support. CPU SpatialGrid remains more general.
+
+Only the physical pool may be bound. Cosmetic pools must never be passed to this
+interface, even when they use a solid-looking material. Dead slots, liquids and
+gases are excluded from this granular index. Active solid particles require a
+valid material index/phase, matching stable slot, nonzero generation and finite
+xyz position. This validates indexing inputs, not velocity, radius, temperature
+or the complete particle state; whole-pool auditing remains a separate concern.
+
+Before conversion to signed cells, the shader checks finite values and domain
+bounds, so huge finite inputs never overflow float-to-int conversion. Multiplying
+by eight is exact for the bounded normal inputs. Bit-level handling preserves
+floor(-tiny)=-1 for negative subnormals even if backend arithmetic flushes them
+to zero. Positive subnormals and both signed zeros map to zero. Upper faces are
+excluded and lower faces included; no wrapping or clamping aliases an outside
+particle into the valid domain. Flattening is x + 128*(y + 128*z) after shifting
+x/z by 64. Original particle state is only bound for reads.
+
+Every slot first receives key UINT32_MAX and its actual storage slot number.
+Valid solids then receive a cell key. Invalid/excluded records retain the
+sentinel and stable slot payload, so the sorter moves them to the end without
+uninitialized records or loss of slot identity. The GPU status buffer contains:
+  [0] emitted solid records
+  [1] excluded dead or non-solid records
+  [2] invalid position, material, phase or identity records
+  [3] out-of-domain solid records
+These counters sum to capacity and are explicitly cleared for every submission.
+Either nonzero error count ([2] or [3]) invalidates the index epoch. A future
+physics consumer MUST gate itself on those counters before using the ranges;
+it must report the failure and resolve the exit/reset/rebuild. Sorting a bad
+epoch for diagnostics is safe; treating its missing cells as empty space is not.
+No runtime physics consumer exists yet, so this is not a completed failure gate.
+
+The constructor accepts 0..1,048,576 slots. submit requires valid read-only
+ParticleGpu/material buffers large enough for the declared capacity and material
+count. Output records and four status words belong to the object and remain
+GPU-resident. Clear, emit and sort run in sequential compute order. Per-submit
+allocation and synchronous count readback are absent. Readback below occurs
+only in --gpu-test, after all compute exports and before the diagnostic copy
+view, preserving the pinned Metal ordering requirement.
+
+Tests compare both raw key records and sorted key/slot pairs with the CPU grid
+reference plus stable_sort, and compare all four status counters independently.
+Counts are 0,1,127,128,129,255,256,257,16385,1048576. Each object first processes
+mixed valid/excluded/invalid/outside data, then valid data, proving that rebuilds
+clear error counters and stale keys. Inputs cover exact/adjacent domain faces,
+positive/negative subnormals, signed zero, NaN, infinity, huge finite values,
+bad material IDs/phases, wrong slot IDs, zero generations, gas and liquid phases.
+These tests do not certify domain reflection, a complete neighborhood index,
+particle contact stability or performance.
+
+Local Apple M3 Max/Metal validation passed all 20 key-emission/sort cases in
+each workgroup variant, all nine CTests and the complete GPU suite. Evidence:
+tests/results/m3-max-spatial-keys.txt. The development base was 60105c0 with
+these key changes uncommitted. Windows execution remains pending.

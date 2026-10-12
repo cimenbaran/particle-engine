@@ -1,0 +1,29 @@
+GPU spatial key development validation
+Apple M3 Max, Metal
+Base commit: 60105c0; spatial key changes were uncommitted.
+No Windows execution, complete index, contact solver or performance claim.
+
+Workgroup 128: mixed then valid epoch at each size.
+GPU spatial keys + sort passed: 0 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 1 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 127 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 128 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 129 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 255 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 256 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 257 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 16385 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 1048576 slots, mixed errors then valid rebuild
+
+Workgroup 256: mixed then valid epoch at each size.
+GPU spatial keys + sort passed: 0 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 1 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 127 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 128 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 129 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 255 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 256 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 257 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 16385 slots, mixed errors then valid rebuild
+GPU spatial keys + sort passed: 1048576 slots, mixed errors then valid rebuild
+
