@@ -1,0 +1,43 @@
+GRANULAR PARTICLE DEBUG VIEWS
+
+With particle collisions enabled, the Particle view menu offers Material, Speed,
+Spatial cells and Settling. Selection changes presentation immediately while
+paused. It does not advance simulation, commands, age, settling history or pool
+membership. Switching back to Material restores current material colors.
+
+Speed maps 0..12 m/s from blue (32,96,255) to red (255,0,0); speeds above 12 clamp
+to red. Nonfinite velocity is magenta. Speed is magnitude, not direction. The
+existing sphere-lighting shader shades these colors, so rendered pixels are not
+a raw numeric color scale. The UI shows the scale endpoints.
+
+Spatial cells assigns a deterministic color from the full flattened grid key.
+Cell width is 0.125 m. Signed floor coordinates match key emission, including
+negative subnormal values and values just below boundaries. The bounded grid is
+[-8,8) x [0,16) x [-8,8). Finite positions outside it are magenta. Colors are a
+visual grouping aid, not a collision-free encoding of keys or an occupancy count.
+This is geometric cell membership; it does not claim a successful hash insertion.
+
+Settling uses live per-slot GPU history: gray for ordinary active matter, yellow
+for acquisition, green for candidates and orange for candidates inside contact-loss
+grace. A tracker fault makes this view magenta. Mismatched generations display gray
+so recycled slots cannot display the previous occupant's state. All these particles
+remain active. See Settling_Candidates.txt for thresholds and lifecycle behavior.
+
+GpuParticleDebug reads immutable particle/material/history/status buffers and
+rewrites only the existing 32-byte render instances. It preserves position/radius,
+material render class, stable ID and flags. Dead particles, invalid material IDs,
+and invalid positions/radii produce empty instances. Material mode reproduces the
+normal render color. The pass uses five bindings and no additional particle-sized
+buffers. It runs in view 5 immediately before visibility compaction, after all
+physics ticks in views 1..4. It also runs on paused frames, avoiding stale debug
+colors after scene reset or material reload. Cosmetic particles are unchanged.
+
+--gpu-test checks 42 mode changes across seven workgroup-edge capacities, including
+returning to material colors without a tick. Full render instances are compared,
+not only colors. Tests cover speed scale points and overflow, negative/subnormal
+cell boundaries, domain exits, all settling colors, stale generations and tracker
+faults. Original particle and history bytes are checked unchanged after all modes.
+
+These views do not complete S2-10: collision-normal visualization, occupancy/probe/
+pair instrumentation and per-pass timing remain open. Windows results must be
+verified separately; local Metal coverage is recorded in tests/results.

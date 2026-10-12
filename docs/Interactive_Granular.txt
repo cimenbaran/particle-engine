@@ -82,3 +82,6 @@ Application-path tests verify a candidate remains in the active list with valid
 free-list ownership, an impulse releases it without deleting it, and scene/empty
 resets cannot inherit stale history. These checks complement the 45 isolated GPU
 tracker fixtures. Deposition and terrain ownership transfer remain Sprint 3 work.
+
+Particle view selects material, speed, spatial-cell or settling colors, including
+while paused. See Particle_Debug_Views.txt for legends and validation limits.

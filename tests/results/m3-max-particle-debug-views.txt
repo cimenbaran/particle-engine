@@ -1,0 +1,36 @@
+PARTICLE DEBUG VIEWS - METAL
+Date: 2026-10-13; Apple M3 Max, 48 GB
+Base: b30abb6d47f6401ee1978c5dde79635894880853 plus debug views in this commit.
+Full --gpu-test and 12/12 CTests passed at both 128 and 256 threads.
+Default workgroup restored to 128.
+
+Native UI --granular --capacity 129: paused at tick 997.
+Switched Material -> Settling -> Speed -> Spatial cells -> Material.
+Observed green candidates, blue low-speed particles, varied cell colors, and
+restored sand material color. Mode legends were visible and readable.
+Tick remained 997; active=129, visible=129, candidates=129 throughout.
+Normal window close completed with zero solver/tracking errors.
+No Windows, soak or performance certification inferred.
+
+out/debug-views128.log
+SHA256: 8263c9667cf9ab6af0cf7fc73a836ae7828340b5a75d61e4de3aed4e903154c4
+GPU particle debug passed: 42 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history
+
+out/debug-views256.log
+SHA256: 801f0d380f9aa74df33ce46c848fe569eeb42dca3112ab667ee35ccb30af45f3
+GPU particle debug passed: 42 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history
+
+out/debug-views-ctest128.log
+SHA256: 6e84ddffb630546f4774734ed1dbca6ca00e696986102c00ff77b2aaf064689b
+100% tests passed, 0 tests failed out of 12
+
+out/debug-views-ctest256.log
+SHA256: 226e7ec93e70dd9bc909908ba9580d480bfb41b84344b06f92e0a2405de03b37
+100% tests passed, 0 tests failed out of 12
+
+out/debug-views-ui.log
+SHA256: 7da6876126baafff90c422a0c886f846385a7ba3367e686c2c2c0689d1f63a8a
+Granular final status: error=0, caps=0, contacts=4, boundary_events=516
+Settling final status: error=0, candidates=129, acquiring=0, contact_grace=0
+Clean shutdown after 997 ticks
+
