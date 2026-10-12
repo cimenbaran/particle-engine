@@ -119,6 +119,11 @@ Verified evidence
 - Capability JSON reports passed on Metal for supported and forced-fallback
   modes. Four CTests and the full GPU suite passed after shader cache changes;
   all 19 version-2 shader manifests match their compiled binary hashes.
+- Transactional shader reload passed missing/corrupt/invalid-manifest/backend
+  failures, duplicate targets, failed-transaction commit refusal, repeated
+  swaps and post-reload GPU execution. Native reload preserved paused tick
+  1993 after failure/recovery. A compiled color change and restoration both
+  applied at paused tick 460, preserving 16,384 particles and the scene.
 - Ten-minute packaged Metal soak passed: 600.022 seconds, 71,661 ticks,
   279 complete cycles, 71.661 billion slot checks, 2,251 retained snapshots
   and no audit errors. Full/empty/overflow and 280 expected CPU rejections
@@ -164,8 +169,10 @@ S1-03: Structured supported/degraded/unavailable JSON and actionable startup
        128 threads.
 S1-04: Shader compilation, packaging, shared content-addressed cache and SHA-256
        provenance manifests implemented. Compiler tests cover reuse, changed
-       inputs, corrupt entries and failed-build output retention. Runtime
-       retain-last-good program reload remains.
+       inputs, corrupt entries and failed-build output retention. Transactional
+       live program reload retains the working set on detectable load failure;
+       Metal GPU and native failure/recovery/color-change checks passed.
+       Windows verification remains.
 S1-05: Ordered compute/draw path and deferred handle destruction implemented.
        Expand ownership/resize tests and fixed-graph declarations as needed.
 S1-06: ImGui and fixed-box spawn/remove/impulse controls implemented. Free-fly
@@ -202,7 +209,7 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Complete runtime shader reload and the 256-thread workgroup variant.
+1. Implement and validate the 256-thread workgroup variant.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
 3. Add cosmetic pools, presets and real-device benchmark output; run the

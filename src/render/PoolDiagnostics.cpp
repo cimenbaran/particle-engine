@@ -49,4 +49,7 @@ bool PoolDiagnostics::request(std::uint16_t view,bgfx::DynamicIndexBufferHandle 
     }
     return false; // Never wait for or overwrite an in-flight destination.
 }
+void PoolDiagnostics::stageShaders(ShaderReload& reload) {
+    reload.compute(program_,"cs_pool_stats");
+}
 }

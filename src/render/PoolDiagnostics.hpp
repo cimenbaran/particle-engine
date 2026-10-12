@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 namespace pw {
+class ShaderReload;
 struct PoolSnapshot {
     std::uint32_t active{},free{},reserved{},rejected{};
     std::uint64_t tick{},sequence{};
@@ -23,6 +24,7 @@ public:
     void beginEpoch();
     const PoolSnapshot& latest() const {return latest_;}
     unsigned pending() const;
+    void stageShaders(ShaderReload& reload);
 private:
     struct Slot {
         bgfx::TextureHandle staging=BGFX_INVALID_HANDLE;

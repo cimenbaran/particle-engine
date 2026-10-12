@@ -104,6 +104,12 @@ struct Particles {
             reset();
         } catch (...) { release(); throw; }
     }
+    void stageShaders(pw::ShaderReload& reload) {
+        reload.compute(compute,"cs_particles");reload.compute(initialize,"cs_reset");
+        reload.graphics(draw,"vs_particles","fs_particles");
+        pool->stageShaders(reload);diagnostics->stageShaders(reload);
+        visibility->stageShaders(reload);visibleDiagnostics->stageShaders(reload);
+    }
     void uploadMaterials(const pw::MaterialLibrary& candidate) {
         const auto packed=candidate.packed();
         bgfx::VertexLayout lanes;
@@ -459,13 +465,15 @@ int main(int argc, char** argv) {
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
-        if(gpuTestOnly) return 0;
+        if(gpuTestOnly) {pw::runShaderReloadTest(assets);return 0;}
         Particles particles(assets,options.capacity);
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         if(benchmarking) return runBenchmark(window,particles,assets,options);
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
 
+        std::string shaderMessage;
+        bool reloadShaders=false;
         pw::FixedStep clock;
         bool running=true,paused=false,cull=true;
         bool indirect=allowIndirect && particles.visibility->supportsIndirect();
@@ -531,6 +539,8 @@ int main(int argc, char** argv) {
                 }
                 ImGui::EndCombo();
             }
+            if(ImGui::Button("Reload shaders")) reloadShaders=true;
+            if(!shaderMessage.empty()) ImGui::TextWrapped("%s",shaderMessage.c_str());
             if(ImGui::Button("Reload materials")) particles.reloadPending=true;
             if(ImGui::IsItemHovered()) ImGui::SetTooltip("Reloads %s",particles.materialPath.string().c_str());
             if(particles.reloadPending) ImGui::TextWrapped("Reload queued for next tick (step when paused).");
@@ -557,6 +567,14 @@ int main(int argc, char** argv) {
             ImGui::Text("Dropped wall time: %.3f s",lag);
             ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
             ImGui::End();
+            if(reloadShaders) {
+                reloadShaders=false;
+                try {
+                    pw::ShaderReload reload(assets);
+                    particles.stageShaders(reload);guiRenderer.stageShaders(reload);reload.commit();
+                    shaderMessage="Shaders reloaded; scene preserved.";
+                } catch(const std::exception& error) {shaderMessage=std::string("Reload rejected; working shaders retained: ")+error.what();}
+            }
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
             for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)

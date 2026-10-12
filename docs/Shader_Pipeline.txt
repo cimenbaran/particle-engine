@@ -30,7 +30,40 @@ The shader_cache CTest uses the actual compiler to verify cache hits, source
 and include invalidation, defines, output/source relocation, corrupt binary
 and malformed manifest recovery, and retention after invalid shader source.
 
-Runtime program reload with retain-last-good handles is still pending. Build
-failure retention does not implement live reload, and a successful shaderc
-invocation does not replace backend execution tests. Windows shader compilation
-and cache behavior still require a Windows run.
+LIVE PROGRAM RELOAD
+
+The interactive app's Reload shaders button reads precompiled assets from its
+executable-relative shaders directory. Rebuild/copy shader binaries together
+with their JSON manifests before requesting a reload. The runtime does not
+invoke shaderc. Shader-only build edits refresh build-app assets; installed
+packages require installation or explicit copying of the rebuilt assets.
+
+Reload stages particle integration/reset/draw, pool management, visibility,
+counter export and ImGui programs in one main-thread transaction. All programs
+must load successfully before any live handle changes. Adoption occurs before
+the next simulation batch and draw submission, including while paused. Existing
+particle buffers, commands, camera and tick are preserved. bgfx defers old-handle
+destruction so previously submitted work retains its resources. A transaction
+that fails cannot subsequently commit even if its caller catches the exception.
+
+Loading verifies the bounded binary size, manifest schema/backend/profile/stage,
+shader name, SHA-256 and pinned bgfx header version before creating shader and
+program handles. SHA-256 uses platform system libraries (CommonCrypto on macOS,
+BCrypt on Windows). Missing files, stale manifests, corrupt bytes, backend
+mismatch, API-reported shader/program rejection and duplicate targets reject
+the entire candidate set. Pending candidates are destroyed; working programs
+remain active. The UI displays the error and permits another reload after repair.
+
+Reload edits must preserve the engine's resource bindings, uniforms, particle
+ABI and workgroup contract. Hash validation checks integrity, not shader
+semantics. Asynchronous driver/compiler failures and device loss are not exposed
+as recoverable program-creation results by the pinned bgfx API. Those failures
+are outside the retain-last-good guarantee; Windows execution remains untested.
+
+--gpu-test covers late missing/corrupt/invalid-manifest/backend failures,
+duplicate targets, refusal to commit a failed transaction, successful program
+replacement, repeated same-handle swaps, and GPU execution after replacement.
+Native Metal UI checks retained 16,384 particles at paused tick 1993 after a
+missing-manifest failure and recovery. A separately compiled green fragment
+shader changed the live image at paused tick 460; restoring the production
+shader recovered its original colors at the same tick. Test assets were restored.

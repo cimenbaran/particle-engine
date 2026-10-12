@@ -58,4 +58,10 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
         bgfx::dispatch(view,spawn_,(command.count+127)/128);
     } else bgfx::dispatch(view,brush_,(capacity_+127)/128);
 }
+void ParticlePool::stageShaders(ShaderReload& reload) {
+    reload.compute(clear_,"cs_pool_clear");
+    reload.compute(classify_,"cs_pool_classify");
+    reload.compute(spawn_,"cs_pool_spawn");
+    reload.compute(brush_,"cs_pool_brush");
+}
 }

@@ -76,4 +76,7 @@ void ImGuiRenderer::render(ImDrawData* data, std::uint16_t view) {
         }
     }
 }
+void ImGuiRenderer::stageShaders(ShaderReload& reload) {
+    reload.graphics(program_,"vs_gui","fs_gui");
+}
 }

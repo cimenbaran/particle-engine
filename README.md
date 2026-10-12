@@ -81,11 +81,16 @@ Use `--capacity 1000000 --soak 600 --report out/soak/million.json` for an
 audit on every tick and repeated spawn/remove/expiry stress. See
 [soak testing](docs/Soak_Testing.txt) for coverage and results.
 
-The local ten-minute Metal soak passed at one million slots. Shader reload,
-scene/command recording and
+The local ten-minute Metal soak passed at one million slots. Scene/command
+recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
 
 Use `--capabilities out/device.json` to export advertised GPU support and the
 selected draw fallback without running the particle scene. See
 [capability reporting](docs/Capabilities.txt) for requirements and limitations.
+
+Use **Reload shaders** in the app after rebuilding shader assets. Reload keeps
+the scene and paused tick, and retains the working programs on detectable load
+failure. See [shader reload](docs/Shader_Pipeline.txt) for the asset workflow and
+compatibility limits.

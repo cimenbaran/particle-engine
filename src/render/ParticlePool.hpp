@@ -3,6 +3,7 @@
 #include <bgfx/bgfx.h>
 #include <filesystem>
 namespace pw {
+class ShaderReload;
 // Ordered main-thread submission; all pool membership and allocation stays on GPU.
 class ParticlePool {
 public:
@@ -16,6 +17,7 @@ public:
     bgfx::DynamicIndexBufferHandle counts() const {return counts_;}
     bgfx::DynamicIndexBufferHandle freeSlots() const {return free_;}
     bgfx::DynamicIndexBufferHandle activeSlots() const {return active_;}
+    void stageShaders(ShaderReload& reload);
 private:
     void release();
     std::uint32_t capacity_;

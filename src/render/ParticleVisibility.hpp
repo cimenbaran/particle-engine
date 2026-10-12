@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <cstdint>
 namespace pw {
+class ShaderReload;
 class ParticleVisibility {
 public:
     ParticleVisibility(const std::filesystem::path& assets,std::uint32_t capacity,bool allowIndirect=true);
@@ -17,6 +18,7 @@ public:
     bgfx::DynamicIndexBufferHandle counts() const {return counts_;}
     bgfx::IndirectBufferHandle arguments() const {return indirect_;}
     bool supportsIndirect() const {return bgfx::isValid(indirect_);}
+    void stageShaders(ShaderReload& reload);
 private:
     void release();
     std::uint32_t capacity_;

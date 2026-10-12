@@ -43,4 +43,9 @@ void ParticleVisibility::prepare(std::uint16_t view,bgfx::DynamicVertexBufferHan
         bgfx::setBuffer(1,indirect_,bgfx::Access::Write);bgfx::dispatch(view,args_,1);
     }
 }
+void ParticleVisibility::stageShaders(ShaderReload& reload) {
+    reload.compute(clear_,"cs_visible_clear");
+    reload.compute(cull_,"cs_visible");
+    if(supportsIndirect()) reload.compute(args_,"cs_visible_args");
+}
 }
