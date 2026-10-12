@@ -12,6 +12,8 @@ Pause/single-step and brush controls work during capture. Stop session pauses
 and retains applied commands; queued but unconsumed commands are excluded.
 Save recording replaces the chosen file. Replay in memory or Load replay file
 starts paused at tick zero. Resume or single-step to play it; completion pauses.
+Starting capture or playback clears the separate cosmetic pool; cosmetic
+emission is disabled throughout the session and is not part of version 1.
 Scene/material/shader changes are locked while a session is active, and new
 brush commands are blocked during replay. Reaching the tick or command quota
 ends capture and pauses automatically. In-app playback requires matching pool

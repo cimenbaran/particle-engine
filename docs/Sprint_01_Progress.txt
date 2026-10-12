@@ -204,7 +204,9 @@ S1-10: Seeded, versioned scene presets, named material lists, capacity checks,
        and schema fingerprints implemented. CPU repeatability and native Metal
        load/failure/recovery checks passed. A bounded command recording codec
        and atomic replacement writer pass CPU tests. Native capture/save/replay
-       passed on Metal; cosmetic pools and Windows validation remain.
+       passed on Metal. An independent cosmetic spark pool now passes Metal
+       isolation, overflow, expiry and native UI checks. Windows validation
+       and mixed physical/cosmetic reference benchmarks remain.
 S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.
@@ -230,5 +232,6 @@ Next implementation order
    capture validation.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
-3. Add cosmetic pools and peak resource tracking; run the
+3. Extend cosmetic profiles, mixed-scene benchmarking and peak resource
+   tracking; run the
    remaining foundation/core gates on Metal and D3D11.

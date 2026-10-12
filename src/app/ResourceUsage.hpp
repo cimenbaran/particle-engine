@@ -7,6 +7,7 @@ namespace pw {
 struct ResourceUsage {
     std::uint64_t state{},instances{},lists{},counters{},indirect{},materials{},geometry{};
     std::uint64_t diagnosticTextures{},diagnosticHost{},auditBuffers{},seedUpload{};
+    ResourceUsage& operator+=(const ResourceUsage& other);
     std::uint64_t particleBuffers() const {return state+instances+lists+counters+indirect;}
     std::uint64_t persistentPayload() const {return particleBuffers()+materials+geometry+diagnosticTextures+auditBuffers;}
 };

@@ -3,6 +3,12 @@
 #include "assets/Materials.hpp"
 #include <imgui.h>
 namespace pw {
+ResourceUsage& ResourceUsage::operator+=(const ResourceUsage& r) {
+    state+=r.state;instances+=r.instances;lists+=r.lists;counters+=r.counters;indirect+=r.indirect;
+    materials+=r.materials;geometry+=r.geometry;diagnosticTextures+=r.diagnosticTextures;
+    diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;return *this;
+}
+
 ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit) {
     const std::uint64_t n=capacity;
     ResourceUsage r;
@@ -44,7 +50,7 @@ void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s) {
     ImGui::SetNextWindowPos(ImVec2(492,248),ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(420,420),ImGuiCond_FirstUseEver);
     ImGui::Begin("Allocations");
-    ImGui::TextUnformatted("Requested GPU payload (decimal MB)");
+    ImGui::TextUnformatted("Requested GPU payload: all pools (MB)");
     if(ImGui::BeginTable("payload",2,ImGuiTableFlags_SizingStretchProp)) {
         auto row=[](const char* name,std::uint64_t bytes) {
             ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextUnformatted(name);

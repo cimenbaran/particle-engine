@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 
 namespace {
@@ -278,6 +279,72 @@ struct Particles {
         else bgfx::submit(view,draw);
     }
 };
+void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
+    pw::ScenePreset effectScene;effectScene.name="Cosmetic isolation test";effectScene.count=0;effectScene.materials={"Wood"};
+    Particles physical(assets,129),cosmetic(assets,127,{},&effectScene);
+    pw::ParticleAudit physicalAudit(assets,129),cosmeticAudit(assets,127);
+    bgfx::frame();
+    auto require=[](bool condition,const char* message) {if(!condition) throw std::runtime_error(message);};
+    auto snapshot=[&](Particles& particles) {
+        struct Export {
+            bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;
+            bgfx::TextureHandle output=BGFX_INVALID_HANDLE,staging=BGFX_INVALID_HANDLE;
+            ~Export() {if(bgfx::isValid(program)) bgfx::destroy(program);if(bgfx::isValid(output)) bgfx::destroy(output);if(bgfx::isValid(staging)) bgfx::destroy(staging);}
+        } resources;
+        resources.program=pw::loadCompute(assets,"cs_export");
+        resources.output=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE);
+        resources.staging=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
+        require(bgfx::isValid(resources.output) && bgfx::isValid(resources.staging),"Isolation readback allocation failed");
+        const float params[]{0,float(particles.particleCount),0,0};
+        bgfx::setUniform(particles.uniform,params);bgfx::setBuffer(0,particles.state[particles.current],bgfx::Access::Read);
+        bgfx::setImage(1,resources.output,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
+        bgfx::dispatch(6,resources.program,pw::dispatchGroups(particles.particleCount));
+        bgfx::TextureRegion dst;dst.handle=resources.staging;bgfx::TextureRegion src;src.handle=resources.output;
+        bgfx::blit(7,dst,src);std::vector<pw::ParticleGpu> result(particles.particleCount);
+        const auto ready=bgfx::read(dst,result.data());while(bgfx::frame()<ready) SDL_PumpEvents();
+        return result;
+    };
+    const auto original=snapshot(physical);
+    auto check=[&](uint32_t physicalAlive,uint32_t cosmeticAlive,uint32_t dropped) {
+        for(auto pair:{std::pair{&physical,&physicalAudit},std::pair{&cosmetic,&cosmeticAudit}}) {
+            auto& p=*pair.first;auto& a=*pair.second;
+            a.prepare(4,p.state[p.current],p.pool->activeSlots(),p.pool->freeSlots(),p.pool->counts(),uint32_t(p.materials.entries.size()));
+            require(a.request(6,p.commands.nextTick()),"Isolation audit request failed");
+            require(p.diagnostics->request(6,p.pool->counts(),p.commands.nextTick()),"Isolation counts request failed");
+        }
+        while(physicalAudit.pending() || cosmeticAudit.pending() || physical.diagnostics->pending() || cosmetic.diagnostics->pending()) {
+            const auto frame=bgfx::frame();physicalAudit.poll(frame);cosmeticAudit.poll(frame);
+            physical.diagnostics->poll(frame);cosmetic.diagnostics->poll(frame);SDL_PumpEvents();
+        }
+        for(auto pair:{std::pair{&physical,&physicalAudit},std::pair{&cosmetic,&cosmeticAudit}}) {
+            const auto& a=pair.second->latest();
+            require(a.valid && a.active==pair.first->particleCount && !a.free && !a.reserved && !a.rejected,"Independent pool audit failed");
+        }
+        const auto& p=physical.diagnostics->latest();const auto& c=cosmetic.diagnostics->latest();
+        require(p.valid && p.active==physicalAlive && p.free==129-physicalAlive && !p.rejected,"Cosmetics consumed physical capacity");
+        require(c.valid && c.active==cosmeticAlive && c.free==127-cosmeticAlive && c.rejected==dropped,"Cosmetic capacity/drop accounting failed");
+    };
+    check(129,0,0);
+    cosmetic.queueBrush(pw::CommandType::SpawnBrush,6,128,float(2*pw::FixedStep::tickSeconds));
+    cosmetic.tick(1);check(129,127,1);
+    cosmetic.tick(1);check(129,0,1);
+    cosmetic.queueBrush(pw::CommandType::SpawnBrush,6,1,2);cosmetic.tick(1);check(129,1,1);
+    cosmetic.reset(0);check(129,0,0);
+    const auto unchanged=snapshot(physical);
+    require(std::memcmp(original.data(),unchanged.data(),original.size()*sizeof(pw::ParticleGpu))==0,"Cosmetic operations modified physical state bytes");
+    cosmetic.queueBrush(pw::CommandType::SpawnBrush,6,1,2);cosmetic.tick(1);check(129,1,0);
+    const auto cosmeticBefore=snapshot(cosmetic);
+    physical.reset(0);check(0,1,0);
+    const auto cosmeticAfter=snapshot(cosmetic);
+    require(std::memcmp(cosmeticBefore.data(),cosmeticAfter.data(),cosmeticBefore.size()*sizeof(pw::ParticleGpu))==0,"Physical reset modified cosmetic state bytes");
+    cosmetic.queueBrush(pw::CommandType::SpawnBrush,6,128,2);cosmetic.tick(1);check(0,127,2);
+    const auto fullCosmetic=snapshot(cosmetic);
+    physical.queueBrush(pw::CommandType::SpawnBrush,0,129,0);physical.tick(1);check(129,127,2);
+    const auto stillFullCosmetic=snapshot(cosmetic);
+    require(std::memcmp(fullCosmetic.data(),stillFullCosmetic.data(),fullCosmetic.size()*sizeof(pw::ParticleGpu))==0,"Physical spawn modified cosmetic state bytes");
+    std::cout<<"GPU physical/cosmetic isolation, independent overflow, expiry, reuse and reset passed\n";
+}
+
 int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
     constexpr int width=1920,height=1080;
     int windowWidth,windowHeight;window.drawable(windowWidth,windowHeight);
@@ -578,13 +645,19 @@ int main(int argc, char** argv) {
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
-        if(gpuTestOnly) {pw::runShaderReloadTest(assets);return 0;}
+        if(gpuTestOnly) {pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
         std::optional<pw::CommandRecording> replay;
         if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));
         Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:nullptr);
         if(replay) {particles.beginReplay(std::move(*replay),false);return runReplay(window,particles,assets,options);}
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         if(benchmarking) return runBenchmark(window,particles,assets,options);
+        std::unique_ptr<Particles> cosmetics;
+        if(options.cosmeticCapacity) {
+            pw::ScenePreset sparks; sparks.name="Cosmetic sparks";sparks.count=0;sparks.materials={"Wood"};
+            cosmetics=std::make_unique<Particles>(assets,options.cosmeticCapacity,std::filesystem::path{},&sparks);
+        }
+        int cosmeticBurst=1024;float cosmeticLifetime=2,cosmeticLift=6;
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
 
@@ -621,6 +694,7 @@ int main(int argc, char** argv) {
         while(running) {
             particles.diagnostics->poll(completedFrame);
             particles.visibleDiagnostics->poll(completedFrame);
+            if(cosmetics) {cosmetics->diagnostics->poll(completedFrame);cosmetics->visibleDiagnostics->poll(completedFrame);}
             SDL_Event event;
             float lookX=0,lookY=0;
             std::optional<ImVec2> brushClick;
@@ -737,6 +811,23 @@ int main(int argc, char** argv) {
                 ImGui::SliderFloat("Brush plane Y (m)",&brushHeight,0,12);
                 ImGui::TextWrapped("Left click the scene once per brush. Uses spawn count/lifetime or lift speed above; step to apply while paused. The wire box shows the affected region on the chosen horizontal plane.");
             }
+            if(ImGui::CollapsingHeader("Cosmetic sparks")) {
+                if(cosmetics) {
+                    const auto& counts=cosmetics->diagnostics->latest();
+                    ImGui::Text("Independent capacity: %u",cosmetics->particleCount);
+                    if(counts.valid) ImGui::Text("Alive: %u | Free: %u | Dropped: %u",counts.active,counts.free,counts.rejected);
+                    ImGui::Text("Queued: %u | Rejected commands: %llu",unsigned(cosmetics->commands.pending()),static_cast<unsigned long long>(cosmetics->commands.rejected()));
+                    ImGui::BeginDisabled(particles.session.active());
+                    ImGui::SliderInt("Sparks per burst",&cosmeticBurst,1,4096,"%d",ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::SliderFloat("Spark lifetime (s)",&cosmeticLifetime,.1f,10,"%.3f",ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::SliderFloat("Spark lift (m/s)",&cosmeticLift,0,20,"%.3f",ImGuiSliderFlags_AlwaysClamp);
+                    if(ImGui::Button("Emit cosmetic sparks")) cosmetics->queueBrush(pw::CommandType::SpawnBrush,cosmeticLift,uint32_t(cosmeticBurst),cosmeticLifetime);
+                    ImGui::SameLine();if(ImGui::Button("Clear sparks")) cosmetics->reset(0);
+                    ImGui::EndDisabled();
+                    if(!cosmetics->commandMessage.empty()) ImGui::TextWrapped("%s",cosmetics->commandMessage.c_str());
+                    ImGui::TextWrapped("Visual effects only. Overflow drops sparks without consuming physical slots. Recording/replay clears sparks and disables emission.");
+                } else ImGui::TextWrapped("Disabled by --cosmetic-capacity 0.");
+            }
             ImGui::Checkbox("Frustum culling",&cull);
             if(particles.visibility->supportsIndirect()) {ImGui::SameLine();ImGui::Checkbox("Indirect draw",&indirect);}
             if(ImGui::Checkbox("Free camera",&freeCamera)) {
@@ -768,7 +859,7 @@ int main(int argc, char** argv) {
             ImGui::InputText("File",recordingPath,sizeof(recordingPath));
             ImGui::BeginDisabled(particles.session.active());
             if(ImGui::Button("Record preset from reset")) {
-                particles.captureFromReset();reloadShaders=false;clock.reset();ticks=0;lag=0;recordingMessage.clear();
+                particles.captureFromReset();if(cosmetics) cosmetics->reset(0);reloadShaders=false;clock.reset();ticks=0;lag=0;recordingMessage.clear();
             }
             ImGui::EndDisabled();
             if(particles.session.active() && ImGui::Button("Stop session")) {particles.session.stop();paused=true;}
@@ -783,7 +874,7 @@ int main(int argc, char** argv) {
                 try {pw::validateRecording(particles.session.recording(),particles.materials);valid=true;}
                 catch(const std::exception& error) {recordingMessage=error.what();}
                 if(valid) {
-                    particles.beginReplay(particles.session.recording());clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();
+                    particles.beginReplay(particles.session.recording());if(cosmetics) cosmetics->reset(0);clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();
                 }
             }
             ImGui::EndDisabled();
@@ -794,14 +885,16 @@ int main(int argc, char** argv) {
                     candidate=pw::loadRecording(recordingPath,particles.materials);
                     if(candidate->capacity!=particles.particleCount) throw std::runtime_error("Capacity differs; use --replay to allocate the recorded capacity");
                 } catch(const std::exception& error) {recordingMessage=error.what();candidate.reset();}
-                if(candidate) {particles.beginReplay(std::move(*candidate));clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();}
+                if(candidate) {particles.beginReplay(std::move(*candidate));if(cosmetics) cosmetics->reset(0);clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();}
             }
             ImGui::EndDisabled();
             if(particles.session.hasRecording()) ImGui::Text("%llu ticks | %u applied commands",static_cast<unsigned long long>(particles.session.recording().ticks),unsigned(particles.session.recording().commands.size()));
             ImGui::TextWrapped("%s",particles.session.message().c_str());
             if(!recordingMessage.empty()) ImGui::TextWrapped("%s",recordingMessage.c_str());
             ImGui::End();
-            pw::drawResourceUsage(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect()),*stats);
+            auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
+            if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
+            pw::drawResourceUsage(resources,*stats);
             const auto& input=ImGui::GetIO();
             const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
             if(freeCamera && focused && !cancelCamera) {
@@ -825,7 +918,7 @@ int main(int argc, char** argv) {
                 reloadShaders=false;
                 try {
                     pw::ShaderReload reload(assets);
-                    particles.stageShaders(reload);guiRenderer.stageShaders(reload);reload.commit();
+                    particles.stageShaders(reload);if(cosmetics) cosmetics->stageShaders(reload);guiRenderer.stageShaders(reload);reload.commit();
                     shaderMessage="Shaders reloaded; scene preserved.";
                 } catch(const std::exception& error) {shaderMessage=std::string("Reload rejected; working shaders retained: ")+error.what();}
             }
@@ -871,7 +964,7 @@ int main(int argc, char** argv) {
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
             for(unsigned i=0;i<batch.count;++i) {
                 const bool sessionWasActive=particles.session.active();
-                particles.tick(uint16_t(i+1));++ticks;
+                particles.tick(uint16_t(i+1));if(cosmetics && !sessionWasActive) cosmetics->tick(uint16_t(i+1));++ticks;
                 if(sessionWasActive && !particles.session.active()) {paused=true;clock.reset();break;}
             }
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)
@@ -879,10 +972,17 @@ int main(int argc, char** argv) {
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
                 particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
             particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
+            if(cosmetics) {
+                cosmetics->visibility->prepare(5,cosmetics->instances,cosmetics->pool->activeSlots(),cosmetics->pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
+                if(frames%8==0 || step || !cosmetics->diagnostics->latest().valid) {
+                    cosmetics->diagnostics->request(6,cosmetics->pool->counts(),cosmetics->commands.nextTick());
+                    cosmetics->visibleDiagnostics->request(6,cosmetics->visibility->counts(),cosmetics->commands.nextTick());
+                }
+            }
             bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
             bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
             bgfx::setViewTransform(10,view,projection); bgfx::touch(10);
-            particles.render(10,indirect);
+            particles.render(10,indirect);if(cosmetics) cosmetics->render(10,indirect);
             ImGui::Render(); guiRenderer.render(ImGui::GetDrawData(),20);
             completedFrame=bgfx::frame();
             ++frames;

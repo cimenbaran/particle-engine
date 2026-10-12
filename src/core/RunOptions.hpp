@@ -6,12 +6,12 @@
 #include <string_view>
 namespace pw {
 struct RunOptions {
-    std::uint32_t capacity=16384,frames=0,warmup=120,soakSeconds=0;
+    std::uint32_t capacity=16384,cosmeticCapacity=16384,frames=0,warmup=120,soakSeconds=0;
     bool gpuTest=false,indirect=true;
     std::string benchmark,report,capabilities,scene,replay;
 };
 inline RunOptions parseOptions(int argc,char** argv) {
-    RunOptions options;bool specifiedWarmup=false,specifiedCapacity=false;
+    RunOptions options;bool specifiedWarmup=false,specifiedCapacity=false,specifiedCosmetics=false;
     auto value=[&](int& index) -> std::string_view {
         if(++index>=argc) throw std::runtime_error("Missing option value");return argv[index];
     };
@@ -24,6 +24,7 @@ inline RunOptions parseOptions(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string_view arg=argv[i];
         if(arg=="--capacity") {options.capacity=number(value(i),1,1048576);specifiedCapacity=true;}
+        else if(arg=="--cosmetic-capacity") {options.cosmeticCapacity=number(value(i),0,150000);specifiedCosmetics=true;}
         else if(arg=="--frames") options.frames=number(value(i),1,1000000);
         else if(arg=="--warmup") {options.warmup=number(value(i),0,100000);specifiedWarmup=true;}
         else if(arg=="--benchmark") {options.benchmark=value(i);if(options.benchmark.empty()) throw std::runtime_error("Empty benchmark prefix");}
@@ -34,8 +35,10 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--replay") {options.replay=value(i);if(options.replay.empty()) throw std::runtime_error("Empty replay path");}
         else if(arg=="--no-indirect") options.indirect=false;
         else if(arg=="--gpu-test") options.gpuTest=true;
-        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
+        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
+    if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.benchmark.empty() || !options.capabilities.empty()))
+        throw std::runtime_error("--cosmetic-capacity is for interactive or bounded-frame runs only");
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||
        !options.capabilities.empty() || !options.scene.empty() || options.frames || specifiedWarmup || specifiedCapacity))
         throw std::runtime_error("--replay uses recorded capacity/ticks and cannot combine with other execution modes");

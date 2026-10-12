@@ -73,12 +73,18 @@ int main() {
     };
     CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
+    CHECK(parse({"app","--cosmetic-capacity","0"}).cosmeticCapacity==0);
+    CHECK(parse({"app","--cosmetic-capacity","150000","--capacity","1","--frames","2"}).cosmeticCapacity==150000);
     CHECK(parse({"app","--replay","capture.json","--report","result.json","--no-indirect"}).replay=="capture.json");
     CHECK(parse({"app","--capabilities","device.json"}).capabilities=="device.json");
     CHECK(parse({"app","--soak","600","--report","soak.json"}).soakSeconds==600);
     const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
+        {"app","--cosmetic-capacity","150001"},{"app","--cosmetic-capacity","-1"},
+        {"app","--cosmetic-capacity","1","--replay","x"},{"app","--cosmetic-capacity","1","--benchmark","x"},
+        {"app","--cosmetic-capacity","1","--gpu-test"},{"app","--cosmetic-capacity","1","--capabilities","x"},
+        {"app","--cosmetic-capacity","1","--soak","1","--report","x"},
         {"app","--replay",""},{"app","--replay","x","--capacity","129"},
         {"app","--replay","x","--frames","1"},{"app","--replay","x","--warmup","0"},
         {"app","--replay","x","--scene","y"},{"app","--replay","x","--gpu-test"},
