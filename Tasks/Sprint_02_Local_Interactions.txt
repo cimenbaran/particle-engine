@@ -5,6 +5,10 @@ Planning window: Weeks 5-6; extend if the granular correctness gate fails.
 Dependencies: Sprint 1 foundation and core gates.
 Source: Particle_World_Design.docx, sections 3-6 and 11-13.
 
+Preparation status: CPU coordinate/key reference and boundary/overflow tests
+are available in ../docs/Spatial_Grid_Reference.txt. Live GPU indexing, exit
+resolution and all Sprint 2 completion gates remain open.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

@@ -1,0 +1,52 @@
+BOUNDED SPATIAL GRID CPU REFERENCE
+
+Status: preparatory reference for Sprint 2. The live simulation is still the
+ballistic foundation profile. No GPU neighborhood index or particle contacts
+are enabled, and the cross-platform foundation gates remain open.
+
+SpatialGrid takes a finite float origin, positive finite float cell width,
+three signed minimum cell coordinates and three positive cell dimensions.
+Coordinates are floor((position - origin) / width); truncating negative values
+is incorrect. The CPU oracle evaluates the quotient in double precision from
+its float inputs. A future GPU implementation must test rounding near boundaries
+explicitly; matching most randomly sampled points is not sufficient evidence.
+Power-of-two widths simplify this comparison for the initial bounded fixture.
+
+A valid cell has offsets in [0, dimension) relative to the signed minimum.
+Its collision-free uint32 key is x + dimensionX * (y + dimensionY * z).
+UINT32_MAX is reserved as the invalid/inactive sort key. At most UINT32_MAX
+cells are supported, with the final valid key one less than that sentinel.
+Construction rejects zero dimensions, cell-coordinate overflow and excessive
+key space before multiplying into an overflowing product. Decode rejects keys
+outside the configured space. Slot IDs are separate payloads; keys do not
+identify particles and must never replace stable slot/generation handles.
+
+The world domain is half-open: the lower face belongs to its first cell; the
+upper face does not belong to the domain. Out-of-domain cells never wrap,
+clamp or alias a valid key. Non-finite positions and coordinates outside signed
+32-bit range fail coordinate conversion. Callers must distinguish invalid
+state from a legitimate domain exit and report both explicitly; failed key
+conversion must not silently turn an incomplete index into empty physics space.
+
+The query radius is ceil(maximum centre-to-centre support / cellWidth).
+Support includes the sum of contact radii, not just one sphere radius. Support
+must be finite and nonnegative; excessive search radii are rejected rather
+than truncated. The reference does not enumerate or cap neighbors yet.
+
+Proposed first granular fixture (not a live configuration change): common
+radius 0.05 m, support 0.10 m, cell width 0.125 m, origin (0,0,0), minimum cell
+(-64,0,-64), dimensions (128,128,128). This covers [-8,8) x [0,16) x [-8,8),
+uses 2,097,152 possible keys and searches one cell each way on every axis.
+Six analytic planes should reflect sphere centers into the radius-inset domain
+before indexing, with restitution/friction and swept-motion handling verified
+by the future solver. No automatic wrap or unreported particle removal is
+allowed. Exit resolution, GPU key emission/sorting/ranges, hash-table failure
+handling, neighbor membership and the contact solver are still unimplemented.
+The existing ballistic profile and recordings retain their current behavior.
+
+Validation: spatial_grid_reference runs in CPU-only and full builds. Fixtures
+check negative floor behavior, exact boundaries and adjacent representable
+floats, nonzero origin, inclusive/exclusive faces, all 60 keys of a signed
+3x4x5 domain, independent known keys, inverse decoding, reserved sentinel,
+maximum key capacity, invalid configurations and support search radii. These
+are CPU topology results, not GPU correctness or granular stability evidence.
