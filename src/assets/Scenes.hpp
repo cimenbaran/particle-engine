@@ -11,6 +11,7 @@ struct ScenePreset {
     std::vector<std::string> materials{"Stone","Sand","Wood","Ash"};
 };
 ScenePreset parseScene(std::string_view text);
+std::string encodeScene(const ScenePreset& scene);
 ScenePreset loadScene(const std::filesystem::path& path);
 std::vector<std::uint32_t> sceneMaterials(const ScenePreset& scene,const MaterialLibrary& library);
 void validateSceneCapacity(const ScenePreset& scene,std::uint32_t capacity);

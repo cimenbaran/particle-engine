@@ -2,6 +2,7 @@
 #include "Commands.hpp"
 #include <algorithm>
 #include <limits>
+#include <optional>
 #include <vector>
 
 namespace pw {
@@ -10,7 +11,12 @@ class CommandQueue {
 public:
     static constexpr std::size_t maxPerTick=32, maxPending=256;
     static constexpr std::uint64_t maxFutureTicks=120;
-    std::string_view enqueue(Command command, const CommandLimits& limits) {
+    std::string_view enqueue(Command command, const CommandLimits& limits) {return insert(command,limits,{});}
+    // Replay validates unique sequences across the complete file before feeding
+    // one tick at a time. Preserve IDs because GPU spawn randomness uses them.
+    std::string_view enqueueRecorded(Command command,const CommandLimits& limits) {return insert(command,limits,command.sequence);}
+private:
+    std::string_view insert(Command command,const CommandLimits& limits,std::optional<std::uint64_t> recordedSequence) {
         auto reject=[&](std::string_view reason) { ++rejected_; return reason; };
         if(auto reason=validate(command,limits,nextTick_);!reason.empty()) return reject(reason);
         if(command.tick-nextTick_>maxFutureTicks) return reject("command is too far in the future");
@@ -23,11 +29,13 @@ public:
         }
         if(count>=maxPerTick) return reject("tick command quota exceeded");
         if(spawns>limits.spawnPerTick) return reject("tick spawn quota exceeded");
-        if(sequence_==std::numeric_limits<std::uint64_t>::max()) return reject("command sequence exhausted");
-        command.sequence=sequence_++;
+        if((!recordedSequence && sequence_==std::numeric_limits<std::uint64_t>::max()) || recordedSequence==std::numeric_limits<std::uint64_t>::max()) return reject("command sequence exhausted");
+        command.sequence=recordedSequence.value_or(sequence_);
+        sequence_=std::max(sequence_,command.sequence+1);
         pending_.push_back(command);
         return {};
     }
+public:
     // Consume exactly one tick. Future entries stay queued; reset starts a new epoch.
     std::vector<Command> consume() {
         std::vector<Command> batch;

@@ -46,6 +46,12 @@ ScenePreset parseScene(std::string_view text) {
         throw std::runtime_error("Scene material names must be nonempty and unique");
     return scene;
 }
+std::string encodeScene(const ScenePreset& scene) {
+    nlohmann::json json={{"schema_version",1},{"name",scene.name},{"seed",scene.seed},
+        {"count",scene.count?nlohmann::json(*scene.count):nlohmann::json("capacity")},
+        {"minimum",scene.minimum},{"maximum",scene.maximum},{"materials",scene.materials}};
+    const auto text=json.dump(2);parseScene(text);return text;
+}
 ScenePreset loadScene(const std::filesystem::path& path) {
     std::ifstream file(path,std::ios::binary|std::ios::ate);
     if(!file || file.tellg()<0 || file.tellg()>65536) throw std::runtime_error("Cannot read scene or file exceeds 64 KiB: "+path.string());

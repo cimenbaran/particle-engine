@@ -1,0 +1,50 @@
+COMMAND RECORDING FORMAT AND QUEUE SUPPORT
+
+Status: the validated file codec, replacement writer and sequence-preserving
+queue entry point are implemented. Application capture controls, replay driving,
+CLI execution and real-device replay verification are still pending. This file
+does not describe a recording feature already available in the packaged UI.
+
+Version 1 is a lightweight input/configuration recording for ballistic_pool_v1.
+It embeds a version-1 starting scene plus capacity, material-table content hash,
+60 Hz tick rate, recorded workgroup size, total tick count and applied commands.
+Only spawn, remove and impulse commands are supported. Material names resolve
+against the current table, whose content hash must match exactly. Workgroup
+size records the authoring configuration; both 128 and 256 are accepted so that
+input replay need not require identical GPU dispatch grouping.
+
+Limits: 16 MiB per file, 16,384 commands, 216,000 completed ticks (one simulation
+hour), 32 commands and 8,192 spawn requests per tick, 4,096 spawns per command.
+A zero-tick recording must have no commands. Each command tick precedes the
+recording's total tick count. Bounds, finite numeric parameters, material phase,
+spawn lifetime and impulse limits are validated before replay allocation.
+Unknown fields, profiles, versions, command types and materials are rejected.
+
+Commands are ordered by tick and by their original sequence within a tick.
+Sequence IDs are unique across the file. They may decrease between ticks: a
+future command can have been submitted before an earlier-tick command. Queue
+replay preserves those IDs because spawn randomness uses them; normal enqueues
+continue beyond the highest used ID. The caller must validate the whole file
+before using enqueueRecorded and feed only due commands into the bounded queue.
+Rejected CPU submissions and commands not yet consumed are not part of this
+applied-command format. Tick zero denotes commands applied by the first step.
+
+Saving validates the complete recording, creates an exclusive sibling temporary
+directory, writes and closes its payload, then replaces the destination on the
+same filesystem. POSIX rename is used on macOS and MoveFileExW replacement on
+Windows. Invalid records and failed writes do not truncate an existing file;
+failed replacement removes the temporary payload. This is atomic publication,
+not a power-loss durability guarantee. Windows behavior remains unverified.
+
+The format does not contain a GPU snapshot, terrain edits, camera movement or
+fluid state. Replay is intended to reproduce inputs and configuration; it does
+not promise identical floating-point trajectories or allocation order across
+GPU hardware. Capture must start from the recorded scene at tick zero and keep
+its material table and simulation profile fixed for the recorded epoch.
+
+Validation: six full-build CTests and CPU-only core tests passed. Recording
+checks cover round-trip fields, future-command ordering, original sequence IDs,
+sequence exhaustion, invalid profiles/materials/numeric fields, per-tick and
+whole-file quotas, the maximum accepted command count, file replacement,
+preservation after validation failure, concurrent saves and temporary cleanup.
+GPU replay and capture/replay round trips await application integration.
