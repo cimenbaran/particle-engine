@@ -1,0 +1,106 @@
+CONTACT VELOCITY RESPONSE - CPU REFERENCE AND GPU IMPLEMENTATION CONTRACT
+
+Scope
+tests/reference/ContactVelocity.hpp is a double-precision, all-pairs reference
+for the next GPU restitution/friction pass. It is test-only and is not called
+by live simulation. S2-07 remains open. It complements position-only Jacobi
+contacts and position-derived velocity reconstruction; it does not replace them.
+
+Snapshots and contact set
+An active reference point represents a compatible physical solid of radius
+0.0625 m. It carries predicted position/incoming velocity (before position
+correction), corrected position/reconstructed velocity, inverse mass and material
+restitution/friction. Inputs are immutable. Slot IDs are unique and determine
+coincident normals independently of array order.
+
+A pair participates if either its predicted centres are within diameter 0.125 m
+or its corrected centres are within diameter plus contact slop (default 0.0001 m).
+This retains initially overlapping/touching pairs that separate under correction,
+and includes contacts introduced by corrections. Both-static pairs are excluded.
+Inactive points are excluded and retain their velocity. Material coefficients
+must be finite in [0,1]; inverse mass must be zero or within the positive normal
+float range, matching the GPU contact profile.
+
+The caller supplies a conservative maximum displacement from prediction to
+correction, default 0.25 m. Validation includes a 1e-5 m numerical allowance.
+The future GPU query support must be at least
+ max(0.125 + 2*(maxDisplacement + 1e-5), 0.125 + slop).
+Validate the displacement bound before allowing publication; do not silently
+miss predicted contacts when the bound is exceeded. The all-pairs reference
+never uses this search bound to drop pairs. A GPU implementation must continue
+using exact cell keys, bounded hash probes and explicit index failure gates.
+
+Normal response
+The normal points outward from the neighbor toward the query. Use corrected
+separation if squared distance exceeds 1e-12 m^2, otherwise predicted separation,
+otherwise the same deterministic antisymmetric slot-ID axis as position contacts.
+Let cn be current relative normal speed and vn the incoming relative normal
+speed (negative means approaching). Pair restitution is min(e_i,e_j).
+
+If vn<=0, target normal speed is -e*vn when vn < -bounceThreshold (default 0.5
+m/s), otherwise zero. The requested relative normal change is target-cn. This
+uses impact velocity rather than position-correction separation as bounce energy;
+it can remove separation caused solely by penetration correction.
+If vn>0 and cn<0, resolve the newly introduced approach inelastically to zero.
+If both are separating, request no normal change and no friction. This avoids
+pulling already separating particles together.
+
+Friction
+Pair coefficient is sqrt(mu_i*mu_j). For original approach/rest, the normal
+support budget is max(abs(cn-vn), target-vn), incorporating contact impulses and
+position-correction support. For newly introduced approach it is -cn. The
+relative tangential change opposes the current tangential velocity and has
+magnitude min(tangentialSpeed, coefficient*supportBudget). It cannot reverse
+an isolated pair's tangent. Other simultaneous contacts can still change the
+pair's final relative motion; this is not a claim about every dense-graph edge.
+
+Mass and simultaneous contacts
+Apply the pair's relative change in inverse-mass proportions with equal and
+opposite impulses. Normalize masses before dividing to avoid overflow. Count
+participating edges first, then multiply each pair update by
+ 1 / max(dynamicDegree_i, dynamicDegree_j).
+A static endpoint has effective degree zero for this weight, even if it touches
+many moving particles. Dynamic endpoints use their complete incident degree.
+The edge weight is symmetric, so it preserves pair momentum, and incident weights
+at each dynamic body sum to at most one. This limits simultaneous Jacobi
+overshoot while preserving all contacts; it is not a neighbor cap.
+
+Validated invariants
+The reference test includes 192 isolated-pair combinations of restitution,
+friction, inverse mass and tangential speed. It checks energy non-increase,
+momentum conservation and tangential non-reversal. Analytic cases cover elastic/
+inelastic response, low-speed bounce suppression, material mixing, static bodies,
+unequal masses, correction-induced separation, retained/new contacts and degree
+normalization in a three-body chain.
+
+128 seeded multi-contact graphs (2..65 dynamic bodies) have incoming velocity
+equal to current velocity. They verify non-increasing kinetic energy, momentum
+conservation, immutable inputs and storage-order invariance. These conditions
+matter: they validate the collision response in isolation, not a complete PBD
+step with gravity, position correction, terrain or repeated simulation. Resting
+piles, closed-world energy and long-soak gates remain open. Empty/inactive and
+invalid profile/ID/displacement cases are also checked.
+
+Planned GPU implementation (not implemented here)
+Preserve the predicted and reconstructed snapshots rather than overwriting the
+incoming velocity. A packed compute snapshot can use eight vec4 lanes per slot:
+0..3 reconstructed ParticleGpu, 4 predicted position/radius, 5 incoming velocity/
+inverse mass, 6 immutable validation/material fields, 7 degree/error diagnostics.
+The spatial index is built from the ordinary reconstructed ParticleGpu buffer.
+The shared visitor would need a configurable state stride (currently four),
+while still addressing corrected positions in lane zero.
+
+A pack/validate pass can stay within six compute bindings using predicted,
+reconstructed, materials, upstream status, packed state and aggregate status.
+A degree pass writes only lane seven; it must read immutable validation in lane
+six, never another thread's changing degree/error row. A response pass reads
+those frozen degrees and writes separate candidate velocities/diagnostics.
+Reduction then controls a whole-pool apply pass: any error preserves the entire
+reconstructed input and remains visible to the time-step owner. Only velocity xyz
+may change; static/excluded state and all other fields retain their bits.
+
+Use the validated key/sort/range/hash pipeline, reject invalid snapshots or
+non-finite intermediate/output values, and preserve the six-binding capability
+floor. The GPU response must be tested against this independent reference before
+connecting it to live granular time stepping. No GPU restitution/friction result
+is claimed by this document.

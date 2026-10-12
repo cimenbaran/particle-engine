@@ -1,0 +1,34 @@
+CONTACT VELOCITY CPU REFERENCE - VALIDATION EVIDENCE
+Date: 2026-10-13 Europe/Istanbul
+Host: Apple M3 Max; C++20 CPU tests, not GPU or reference-hardware certification.
+
+contact_velocity_reference passes:
+- 192 analytic pair combinations: 4 restitution values x 4 friction values x
+  3 inverse masses x 4 tangential speeds.
+- Pair kinetic-energy non-increase, momentum conservation and tangential
+  non-reversal, including strong friction that stops sliding exactly.
+- 128 seeded multi-contact graphs, each with 2..65 dynamic bodies, varying
+  materials/masses, incoming=current velocities, and no external impulses.
+- Graph kinetic-energy non-increase, momentum conservation, input immutability
+  and invariance under reversing storage order while retaining slot IDs.
+- Targeted elastic/inelastic/low-speed response, separating pairs, material
+  mixing, static/unequal masses, correction-induced separation, retained/new
+  contacts, three-body degree weighting, empty/excluded data and invalid inputs.
+
+Random seed: 7123. Pair checks use 1e-10 tolerances; graph momentum/energy
+checks use 1e-8, and permutation checks use 1e-10.
+
+The separate HLSL loop correction passes the complete existing Metal GPU suite
+at both workgroup sizes (including 38 Jacobi and 43 reconstruction fixtures).
+It adds runtime-loop annotations, without changing traversal bounds or results.
+Windows validation of that correction is still pending.
+
+Local ignored logs:
+out/contact-response-core-final-ctest.log
+out/contact-response-final-ctest.log
+out/contact-loop-128-gpu.log
+out/contact-loop-256-gpu.log
+
+Limitations: no GPU restitution/friction implementation yet. These isolated
+collision invariants do not prove full-step energy stability, resting piles,
+terrain behavior or long soaks. See docs/Contact_Velocity_Reference.txt.
