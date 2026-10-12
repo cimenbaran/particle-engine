@@ -686,23 +686,49 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     uint64_t ticks=0,rejectedCommands=0,spawnRequests=0,discardedSamples=0;
     uint64_t lastSample=UINT64_MAX;
     double nextSample=0,nextProgress=0;
-    bool sawFull=false,sawEmpty=false,sawOverflow=false;
+    bool sawFull=false,sawEmpty=false,sawOverflow=false,sawSettling=false;
     std::string failure;
     Json samples=Json::array();
     auto collect=[&](uint32_t frame) {
         memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));
         audit.poll(frame);particles.diagnostics->poll(frame);
+        if(particles.granularDiagnostics) {
+            particles.granularDiagnostics->poll(frame);particles.settlingDiagnostics->poll(frame);
+            const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
+            if((g.valid && g.active) || (h.valid && h.active)) failure="Latched granular solver or settling fault";
+        }
         const auto& a=audit.latest();const auto& pool=particles.diagnostics->latest();
         if(!a.valid || !pool.valid || a.tick!=pool.tick || a.sequence==lastSample) return;
+        if(particles.granularDiagnostics && (!particles.granularDiagnostics->latest().valid || !particles.settlingDiagnostics->latest().valid ||
+            particles.granularDiagnostics->latest().tick!=a.tick || particles.settlingDiagnostics->latest().tick!=a.tick)) return;
         lastSample=a.sequence;
-        const bool valid=a.active==options.capacity && !a.free && !a.reserved && !a.rejected;
+        const bool valid=a.active==options.capacity && !a.free && !a.reserved && !a.rejected && uint64_t(pool.active)+pool.free==options.capacity;
         if(!valid) failure="GPU ownership, numeric state or identity audit failed";
         sawFull=sawFull || pool.active==options.capacity;sawEmpty=sawEmpty || pool.active==0;sawOverflow=sawOverflow || pool.rejected>0;
         if(samples.size()<8192) samples.push_back({{"tick",a.tick},{"elapsed_seconds",elapsed()},{"checked_slots",a.active},
             {"ownership_error",bool(a.free)},{"state_error",bool(a.reserved)},{"identity_error",bool(a.rejected)},
             {"active",pool.active},{"free",pool.free},{"rejected_spawns",pool.rejected}});
         else ++discardedSamples;
+        if(particles.granularDiagnostics) {
+            const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
+            sawSettling|=h.free>0;
+            if(uint64_t(h.free)+h.reserved>pool.active || h.rejected>h.free) failure="Settling counts exceed active matter";
+            if(samples.size() && samples.back()["tick"]==a.tick) samples.back()["granular"]={{"solver_error",g.active},{"speed_caps",g.free},{"maximum_contact_degree",g.reserved},{"boundary_events",g.rejected},
+                {"tracking_error",h.active},{"settling_candidates",h.free},{"acquiring",h.reserved},{"contact_grace",h.rejected}};
+        }
     };
+    auto request=[&] {
+        const bool accepted=audit.request(6,ticks);
+        if(particles.diagnostics->request(6,particles.pool->counts(),ticks)!=accepted)
+            throw std::runtime_error("Soak snapshot rings lost synchronization");
+        if(particles.granularDiagnostics) {
+            const bool g=particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
+            const bool h=particles.settlingDiagnostics->request(6,particles.settling->status(),ticks);
+            if(g!=accepted || h!=accepted) throw std::runtime_error("Granular soak snapshot rings lost synchronization");
+        }
+    };
+    auto pending=[&]{return audit.pending() || particles.diagnostics->pending() ||
+        (particles.granularDiagnostics && (particles.granularDiagnostics->pending() || particles.settlingDiagnostics->pending()));};
     pw::CommandLimits limits;limits.materialCount=uint32_t(particles.materials.entries.size());
     auto enqueue=[&](pw::Command command) {
         command.tick=particles.commands.nextTick();
@@ -739,9 +765,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         audit.prepare(4,particles.state[particles.current],particles.pool->activeSlots(),particles.pool->freeSlots(),particles.pool->counts(),uint32_t(particles.materials.entries.size()));
         particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
         if(elapsed()>=nextSample || phase==0 || phase==1 || phase==129 || phase==130 || phase==131 || phase==215) {
-            const bool requested=audit.request(6,ticks);
-            const bool poolRequested=particles.diagnostics->request(6,particles.pool->counts(),ticks);
-            if(requested!=poolRequested) throw std::runtime_error("Soak snapshot rings lost synchronization");
+            request();
             if(elapsed()>=nextSample) nextSample=elapsed()+1;
         }
         bgfx::touch(10);particles.render(10,indirect);collect(bgfx::frame());
@@ -750,14 +774,20 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
             nextProgress=elapsed()+30;
         }
     }
-    while(audit.pending() || particles.diagnostics->pending()) collect(bgfx::frame());
-    audit.request(6,ticks);particles.diagnostics->request(6,particles.pool->counts(),ticks);
-    while(audit.pending() || particles.diagnostics->pending()) collect(bgfx::frame());
+    while(pending()) collect(bgfx::frame());
+    request();
+    while(pending()) collect(bgfx::frame());
     if(particles.commands.rejected()!=rejectedCommands) failure="Unexpected CPU rejection count";
     if(failure.empty() && (ticks<256 || !sawFull || !sawEmpty || !sawOverflow)) failure="Soak did not complete required full/empty/overflow coverage";
+    if(failure.empty() && particles.granular && !sawSettling) failure="Granular soak did not observe settling candidates";
     const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
-    Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
-        {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},
+    if(failure.empty() && (!finalAudit.valid || !finalPool.valid || finalAudit.tick!=ticks || finalPool.tick!=ticks ||
+        (particles.granularDiagnostics && (particles.granularDiagnostics->latest().tick!=ticks || particles.settlingDiagnostics->latest().tick!=ticks))))
+        failure="Soak final snapshots do not match the final tick";
+    auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true);
+    if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=128;resources.diagnosticHost+=96;}
+    Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v1":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+        {"resources",pw::resourceReport(resources,*bgfx::getStats())},
         {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
         {"slot_checks",ticks*options.capacity},{"completed_cycles",ticks/256},{"spawn_requests",spawnRequests},
@@ -767,6 +797,13 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         {"backend",bgfx::getRendererName(caps->rendererType)},{"resolution",{{"width",width},{"height",height}}},
         {"indirect",indirect},{"vsync",false},{"build",build},{"shader_fingerprints",shaderFingerprints},{"materials",materials},{"samples",samples},{"discarded_samples",discardedSamples},
         {"notes",Json::array({"One 1/60-second tick per frame; duration is wall-clock time.","Every tick audits every slot; error flags remain latched across readback intervals.","256-tick cycles cover fill/overflow, duplicate removal, reuse, short lifetimes and impulses.","This is a correctness soak, not a performance benchmark or reference-machine certification."})}};
+    if(particles.granular) {
+        const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
+        report["granular"]={{"radius",0.0625},{"speed_limit",12},{"substeps",4},{"iterations",4},{"saw_settling_candidates",sawSettling},
+            {"solver_error",g.active},{"tracking_error",h.active},{"final_candidates",h.free},{"final_acquiring",h.reserved},{"final_contact_grace",h.rejected},
+            {"initial_scene",{{"name",particles.scene.name},{"count",particles.scene.count},{"minimum",particles.scene.minimum},{"maximum",particles.scene.maximum},{"materials",particles.scene.materials}}}};
+        report["notes"].push_back("Granular solver and settling faults latch every tick; synchronized samples check candidates remain bounded by active matter.");
+    }
     std::filesystem::path path=options.report;if(!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());
     std::ofstream output(path);output<<report.dump(2)<<'\n';output.close();if(!output) throw std::runtime_error("Cannot write soak report");
     std::cout<<"Soak "<<(failure.empty()?"passed":"failed")<<": "<<options.report<<std::endl;

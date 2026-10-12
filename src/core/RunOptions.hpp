@@ -45,13 +45,13 @@ inline RunOptions parseOptions(int argc,char** argv) {
        options.frames || specifiedWarmup || specifiedCapacity || specifiedCosmetics))
         throw std::runtime_error("--granular-check requires --report and uses fixed validation fixtures");
     if(options.granular) {
-        if(options.gpuTest || options.soakSeconds || !options.benchmark.empty() || !options.replay.empty() || !options.capabilities.empty())
-            throw std::runtime_error("--granular currently supports interactive/bounded-frame runs only");
+        if(options.gpuTest || !options.benchmark.empty() || !options.replay.empty() || !options.capabilities.empty())
+            throw std::runtime_error("--granular supports interactive, bounded-frame and soak runs");
         if(!specifiedCapacity) options.capacity=512;
         if(!specifiedCosmetics) options.cosmeticCapacity=0;
     }
-    if(options.softwareGpu && !options.gpuTest && !options.granularCheck && options.capabilities.empty() && options.replay.empty())
-        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests, granular checks, replay or capability reporting");
+    if(options.softwareGpu && !options.gpuTest && !options.granularCheck && !(options.granular && options.soakSeconds) && options.capabilities.empty() && options.replay.empty())
+        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests, granular checks/soaks, replay or capability reporting");
     if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.capabilities.empty()))
         throw std::runtime_error("--cosmetic-capacity is for interactive, bounded-frame or benchmark runs only");
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||

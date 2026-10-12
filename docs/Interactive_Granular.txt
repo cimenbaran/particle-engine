@@ -36,7 +36,7 @@ Pause, single tick, reset, remove, solid spawn and impulse brushes are supported
 The Recording panel explains and disables ballistic capture/replay while granular
 mode is active. Shader reload is disabled in this mode until the whole solver can
 participate in a single reload transaction. Material reload retains existing
-validation. --granular rejects benchmark, soak, replay, GPU-test and capability
+validation. --granular rejects benchmark, replay, GPU-test and capability
 report modes rather than labelling their old reports as granular results.
 
 Resource accounting
@@ -85,3 +85,6 @@ tracker fixtures. Deposition and terrain ownership transfer remain Sprint 3 work
 
 Particle view selects material, speed, spatial-cell or settling colors, including
 while paused. See Particle_Debug_Views.txt for legends and validation limits.
+
+--granular --soak now runs a separate granular lifecycle workload; see
+Granular_Soak.txt. Its reports include solver and settling faults and coverage.

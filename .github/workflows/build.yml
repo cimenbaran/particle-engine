@@ -63,6 +63,14 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 7
         run: python tests/replay_regression.py out/${{ matrix.preset }}/ParticleWorld.exe out/replay-regression --software-gpu
+      - name: D3D11 WARP ten-minute granular soak
+        if: runner.os == 'Windows'
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          $executable = Join-Path $PWD "out/${{ matrix.preset }}/ParticleWorld.exe"
+          & $executable --software-gpu --granular --capacity 129 --soak 600 --report "out/granular-soak.json" 2>&1 | Tee-Object -FilePath "out/granular-soak.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows' && always()
         with:
@@ -72,6 +80,8 @@ jobs:
             out/warp-gpu-test.txt
             out/granular-stability.json
             out/granular-stability.txt
+            out/granular-soak.json
+            out/granular-soak.txt
             out/replay-regression/
       - uses: actions/upload-artifact@v4
         with:

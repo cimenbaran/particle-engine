@@ -1,0 +1,29 @@
+GRANULAR SOAK HARNESS SMOKE VALIDATION
+Date: 2026-10-13; Apple M3 Max, 48 GB
+Base: 203d0eef717ec73ceee33944ebc2076bf2fc4b4a plus soak extension in this commit.
+Short smoke tests only: these do not satisfy the ten-minute soak gate.
+12/12 CTests passed at 128 and 256 threads; default restored to 128.
+
+out/granular-soak-smoke.json
+SHA256: af7a9203d89da424020d8e5726fb5be0b7496a3690e200839c936cd4ad220fb0
+workload=granular_256_tick_pool_cycle_v1; WG=128; indirect=True; ticks=319; cycles=1; elapsed=5.072437s
+full=True; empty=True; overflow=True; samples=13
+settling=True; solver_error=0; tracking_error=0
+
+out/granular-soak-masked.json
+SHA256: e4ee4d0a9474bbbb374442c520e05d429ff17a6a91624b394bdd0258d8a56a4b
+workload=granular_256_tick_pool_cycle_v1; WG=128; indirect=False; ticks=320; cycles=1; elapsed=5.075543s
+full=True; empty=True; overflow=True; samples=13
+settling=True; solver_error=0; tracking_error=0
+
+out/granular-soak256.json
+SHA256: 6d8ad273d28c51a6823bed3fca15a0d40594a229b57e6dd0f9212a6f88865ee7
+workload=granular_256_tick_pool_cycle_v1; WG=256; indirect=True; ticks=374; cycles=1; elapsed=5.052376s
+full=True; empty=True; overflow=True; samples=13
+settling=True; solver_error=0; tracking_error=0
+
+out/ballistic-soak-regression.json
+SHA256: e0604ad2bc55b67fb6acbfd4af3d6a8f9058e205a0c037d1ecb0a9d6fe377d3f
+workload=bounded_256_tick_pool_cycle_v1; WG=128; indirect=True; ticks=598; cycles=2; elapsed=5.017685s
+full=True; empty=True; overflow=True; samples=19
+

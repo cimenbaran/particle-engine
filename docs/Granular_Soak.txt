@@ -1,0 +1,42 @@
+GRANULAR LIFECYCLE SOAK
+
+Run the installed executable with:
+  --granular --capacity 129 --soak 600 --report out/granular-soak.json
+On Windows add --software-gpu to request D3D11 WARP. The Windows CI matrix runs
+this 600-second check at both workgroup sizes and uploads JSON plus console logs.
+Physical GPU certification remains separate from WARP software correctness.
+Use --no-indirect to exercise the masked-draw path. Short runs are useful smoke
+tests but do not satisfy the ten-minute gate. Even a short run must complete at
+least one 256-tick cycle and observe full/empty/overflow and settling coverage.
+
+--granular --soak uses the live granular solver and settling tracker. It preserves
+the interactive default capacity of 512 unless --capacity is given. Cosmetics,
+custom scene files, frame limits, warmup, benchmark and replay options are rejected.
+The original --soak workload remains ballistic unless --granular is specified.
+The workload name is granular_256_tick_pool_cycle_v1 so reports cannot be confused.
+
+The fixed initial scene is the seeded sand drop, count min(256, capacity). Each
+256-tick cycle stresses bounded spawn overflow, repeated removal, slot reuse,
+infinite and short lifetimes, and impulses. Spawns use Sand and the existing box
+[-6,1,-6]..[6,11,6]. The inherited command schedule emits up to 8192 requested
+particles per tick, subject to pool capacity. Rendering and visibility compaction
+continue; debug colors are not part of this workload. One fixed 1/60-second tick
+is submitted per frame with VSync disabled. Requested duration is wall-clock time,
+not simulated time. Do not compare raw ticks/second as a controlled benchmark.
+
+Every tick audits all slots for unique ownership, valid identity and finite state.
+Solver and tracking errors latch every tick. Four synchronized diagnostic rings
+sample the audit, allocation counts, solver status and settling counts at matching
+ticks. Samples assert active+free=capacity, candidates+acquiring<=active and
+contact-grace<=candidates. The final readbacks must match the final submitted tick.
+Reports include solver/tracking fault masks, caps, contact degree, boundary events,
+settling coverage and counts, seed/initial scene, material data, shader fingerprints,
+build identity, requested resource payload and sampled driver memory estimates.
+
+This extends lifecycle coverage to the granular pipeline; it does not replace the
+fixed pile penetration and closed-energy fixtures. It does not prove arbitrary
+scene stability, continuous particle-particle collision, interior terrain, or the
+reference-hardware frame-time budget. Geometric candidate support is local evidence,
+not terrain deposition. A fault, invalid audit or missing coverage returns failure.
+Closing, resizing or minimizing the test window cancels the soak. Exceptions during
+startup/submission may prevent JSON creation; retain the console log as well.

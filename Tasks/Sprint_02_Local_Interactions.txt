@@ -32,6 +32,10 @@ Material, speed, spatial-cell and settling debug views are available in the live
 granular UI; see ../docs/Particle_Debug_Views.txt. Collision normals and detailed
 occupancy/probe/pair/timing instrumentation remain open.
 
+A live granular lifecycle soak is available through --granular --soak and is
+scheduled for 600 seconds in Windows CI; see ../docs/Granular_Soak.txt. Smoke tests
+do not complete the ten-minute gate. Long-run results remain to be inspected.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

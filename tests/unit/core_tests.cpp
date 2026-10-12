@@ -92,6 +92,8 @@ int main() {
     CHECK(parse({"app","--granular-check","--report","check.json","--software-gpu"}).granularCheck);
     CHECK(parse({"app","--granular"}).granular && parse({"app","--granular"}).capacity==512 && parse({"app","--granular"}).cosmeticCapacity==0);
     CHECK(parse({"app","--granular","--capacity","129","--frames","8"}).capacity==129);
+    CHECK(parse({"app","--granular","--soak","600","--report","x","--software-gpu"}).softwareGpu);
+    CHECK(parse({"app","--granular","--soak","600","--report","x"}).capacity==512);
     CHECK(parse({"app","--gpu-test","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--replay","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--capabilities","x","--software-gpu"}).softwareGpu);
@@ -121,7 +123,8 @@ int main() {
         {"app","--granular-check"},{"app","--granular-check","--report","x","--frames","2"},
         {"app","--granular-check","--report","x","--capacity","64"},{"app","--granular-check","--report","x","--granular"},
         {"app","--granular-check","--report","x","--gpu-test"},{"app","--granular","--gpu-test"},{"app","--granular","--replay","x"},
-        {"app","--granular","--benchmark","x"},{"app","--granular","--soak","10","--report","x"},
+        {"app","--granular","--benchmark","x"},{"app","--granular","--soak","10"},
+        {"app","--granular","--software-gpu"},{"app","--granular","--soak","10","--report","x","--frames","1"},
         {"app","--scene",""},{"app","--scene","x","--benchmark","y"},
         {"app","--scene","x","--soak","10","--report","x"},{"app","--scene","x","--capabilities","x"},
         {"app","--scene","x","--gpu-test"},{"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},
