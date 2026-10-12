@@ -1,0 +1,87 @@
+GPU SUPPORT-AWARE NEIGHBOR TRAVERSAL - SPRINT 2 PREPARATION
+
+Implementation
+shaders/compute/neighbors.sh provides a visitor for consumers such as the next
+Jacobi contact pass. It imports cell_lookup.sh, which is also used by the hash
+query kernel; there is one exact-key lookup implementation. The test consumer
+records full membership bitmaps. Those bitmaps are validation-only storage,
+not a proposed production neighbor list or a neighbor-count cap.
+
+The consumer binds six compute resources: frozen ParticleGpu state, sorted
+key/slot records, occupied ranges, hash table, hash metadata, and its output.
+GpuCellHash exposes read-only table/configuration accessors for this purpose.
+The consumer defines PW_VISIT_NEIGHBOR(queryIndex, slot, delta, distanceSquared).
+Invocation IDs identify sorted records; the stored slot identifies persistent
+particle state. Consumers must not mistake sorted indices for persistent IDs.
+
+Correctness contract
+Use the exact physical state snapshot that emitted the index. Do not move
+particles or alter alive/material/identity data between key emission and neighbor
+consumption. A later Jacobi iteration must rebuild from its own immutable input
+unless a separate conservative reuse bound is established. Only alive solids
+are indexed by the initial profile; all solid material IDs are compatible.
+Liquid/gas/dead slots are excluded, and cosmetic state must not be bound to the
+physical index pipeline. This is not a liquid or multiphase neighbor policy.
+
+Check hash readiness before examining query records. Failed indexes yield
+status 2 for every query, including excluded slots. Valid sentinel records are
+excluded queries. The query's full key decodes its cell, and the search radius
+is ceil(support / 0.125). Each axis is clipped to [0,127] before flattening; no
+negative offsets wrap into other cells. Every matching range is traversed, with
+no candidate or accepted-neighbor cap. Self is excluded by persistent slot ID.
+Exact Euclidean support filtering follows the cell search. Membership callbacks
+run only for accepted neighbors, and no state mutation is permitted.
+
+Return words: accepted count, candidate count (including self), lookup probes,
+status. Status 0 success, 1 excluded query, 2 failed index, 3 corrupt/configuration
+error. A consumer must discard its whole result on an error, even if callbacks
+ran before detecting corrupt input. The test exercises upstream and hash-build
+failures before visitation. Corrupt-payload guards are defense in depth, not
+permission to mutate the frozen index. Rebuilding/resetting a failed live index
+and exposing its error remain integration work.
+
+Numerical behavior
+Support must be finite and nonnegative; negative subnormals are rejected by
+bits, rather than a comparison that may flush them to zero. Signed zero is
+accepted. Large finite supports saturate at 32 m, above this grid's diameter,
+so saturation does not change membership. Search radii saturate at 127 cells,
+which covers every possible cell offset in the bounded grid. Any positive
+support has radius at least one, including subnormal supports.
+
+Zero support compares position bits, treating signed zeros as equal. For support
+below 2^-32 m, membership uses normalized distances after lifting coordinates by
+2^64; subnormal coordinates are reconstructed from their mantissas. This avoids
+squared-distance underflow merging distinct positions. Ordinary supports use
+float squared distances. As with any float solver, arbitrary values extremely
+near the support boundary are subject to float rounding; fixtures use binary
+positions/supports for exact ordinary-distance comparisons. The visitor's delta
+and distanceSquared arguments still use ordinary float arithmetic; contact
+consumers must handle zero/coincident directions explicitly.
+
+Bounds and cost
+Each query visits at most 128^3 distinct cells. Each lookup has the hash's bounded
+probe limit (<=256), so the per-query probe counter fits uint32. Candidates never
+exceed particle capacity on a valid index. Very large supports are correct but
+expensive: there is no hidden work truncation. The intended granular support is
+small compared with the domain. This work establishes membership correctness;
+it is not a neighbor-throughput benchmark.
+
+Validation
+--gpu-test runs the complete GPU keys -> stable sort -> occupied ranges -> hash
+-> neighbor visitor pipeline, then checks every membership bit against an
+independent CPU all-pairs distance oracle. Candidate counts use a separate CPU
+cell-coordinate check. Tests also validate accepted counts, statuses and bounded
+probe counts. GPU state is read-only during traversal.
+
+Cases cover slot/workgroup and bitmap-word boundaries, different compatible
+solid materials, dead NaN slots, liquid/gas exclusions, support radii 0 through
+four cells, grid edges without wrapping, exact support distances, a 1,024-slot
+coincident cell (1,023 neighbors each), whole-domain support, FLT_MAX support,
+invalid supports, zero/subnormal/tiny separations, failed key emission, failed
+hash construction and an all-dead pool. See tests/results/m3-max-neighbors.txt.
+
+Scope remaining
+The shared visitor currently runs only through the GPU test consumer. Live
+simulation remains ballistic. Jacobi corrections, velocity reconstruction,
+contact/friction stability, index error recovery and performance measurements
+are still required. D3D11 runtime confirmation remains pending.

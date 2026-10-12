@@ -25,6 +25,11 @@ public:
                 bgfx::DynamicIndexBufferHandle results,std::uint32_t count);
     // ready, inserted, failed insertions, error bits. Only ready==1 permits use.
     bgfx::DynamicIndexBufferHandle metadata() const {return meta_;}
+    // Read-only bindings for fused neighbor/contact consumers. They must check
+    // metadata readiness before using the table and obey the epoch lifetime.
+    bgfx::DynamicIndexBufferHandle table() const {return table_;}
+    std::uint32_t tableSlots() const {return slots_;}
+    std::uint32_t probeLimit() const {return limit_;}
     // total probes, maximum probes, reserved zero, reserved zero.
     bgfx::DynamicIndexBufferHandle metrics() const {return metrics_;}
 private:

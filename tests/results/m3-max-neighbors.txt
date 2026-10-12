@@ -1,0 +1,31 @@
+GPU NEIGHBOR TRAVERSAL - LOCAL METAL EVIDENCE
+Date: 2026-10-12
+Host: Apple M3 Max, 48 GB; not reference M1 Pro hardware.
+
+PW_WORKGROUP_SIZE=128 and 256 both passed:
+- Full --gpu-test process exited 0, including all existing regression tests.
+- 78 neighbor fixtures and 10,105 queries per variant; every membership bit
+  matched an independent all-pairs CPU distance oracle.
+- Slot counts 1,31,32,33,127,128,129,255,256,257 with six supports each:
+  0,0.0625,0.125,0.25,0.375,0.5 metres.
+- Dense 1024-particle cell at support 0 and 0.125: all 1023 other particles
+  accepted per query, no truncation or duplicate membership count.
+- Compatible solid material IDs, dead slots containing NaN, liquid/gas exclusion.
+- First/last grid cells, no boundary wrapping, exact binary support boundaries.
+- Whole-grid support 32 and FLT_MAX; negative, NaN and infinite supports rejected.
+- Distinct zero/subnormal/tiny positions, subnormal positive support and negative
+  subnormal rejection; zero support does not merge distinct positions.
+- Invalid active position/domain exit and full hash failures block all queries.
+- Valid all-dead pool yields excluded queries without stale memberships.
+- Accepted/candidate counts, statuses and bounded probe counters checked.
+- All nine CTests passed for each workgroup variant.
+
+Local ignored logs:
+out/neighbors-128-final-gpu.log
+out/neighbors-256-final-gpu.log
+out/neighbors-128-ctest.log
+out/neighbors-256-ctest.log
+
+Scope: shared shader visitor exercised by a bitmap test consumer through the
+complete GPU key/sort/range/hash pipeline. No live contact solver or neighbor
+performance claim. D3D11 runtime result for this component remains pending.
