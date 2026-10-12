@@ -50,13 +50,17 @@ uvec4 visitNeighbors(uint queryIndex,vec4 config) {
   ivec3 low=max(cell-ivec3(radius,radius,radius),ivec3(0,0,0));
   ivec3 high=min(cell+ivec3(radius,radius,radius),ivec3(127,127,127));
   uint accepted=0u,candidates=0u,probes=0u;
-  for(int z=low.z;z<=high.z;++z) for(int y=low.y;y<=high.y;++y) for(int x=low.x;x<=high.x;++x) {
+  // Contact callbacks make this body too large for HLSL's automatic unroll.
+  // Bounds are runtime grid/support data; retain bounded loops on every axis.
+  LOOP for(int z=low.z;z<=high.z;++z)
+  LOOP for(int y=low.y;y<=high.y;++y)
+  LOOP for(int x=low.x;x<=high.x;++x) {
     uint cellKey=uint(x+128*(y+128*z)),begin,end,cellProbes;
     uint status=lookupCell(cellKey,capacity,slots,limit,begin,end,cellProbes);
     probes+=cellProbes;
     if(status==3u) return uvec4(accepted,candidates,probes,3u);
     if(status==0u) continue;
-    for(uint i=begin;i<end;++i) {
+    LOOP for(uint i=begin;i<end;++i) {
       uint slot=b_sorted[i*2u+1u];++candidates;
       if(slot>=capacity || b_sorted[i*2u]!=cellKey) return uvec4(accepted,candidates,probes,3u);
       if(slot==querySlot) continue;

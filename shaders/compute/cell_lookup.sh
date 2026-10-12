@@ -5,7 +5,7 @@ uint lookupCell(uint key,uint capacity,uint slots,uint limit,out uint begin,out 
   begin=0u;end=0u;probes=0u;
   if(key>=2097152u) return 0u;
   uint mask=slots-1u,start=cellHash(key)&mask;
-  for(uint i=0u;i<limit;++i) {
+  LOOP for(uint i=0u;i<limit;++i) {
     uint slot=(start+i)&mask,found=b_table[slot*2u];probes=i+1u;
     if(found==0xffffffffu) return 0u;
     if(found==key) {

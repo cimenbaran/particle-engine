@@ -127,3 +127,18 @@ Downloaded logs/reports and hashes are recorded in
  tests/results/ci-38307203532-warp.txt.
 This extends software D3D11 evidence through neighbor traversal. Jacobi contacts
 and velocity reconstruction were added later and need separate confirmation.
+
+Jacobi HLSL runtime-loop correction
+Both Windows variants in run 38308444614 (source e0fbb86) failed compiling
+cs_contacts with D3DCompile X3511: forced loop unrolling failed at the nested
+neighbor-cell traversal. The contact callback made the shared loop body larger
+than in the earlier neighbor-only kernel. Neither WARP suite nor replay ran for
+that revision; macOS build jobs succeeded.
+
+The shared neighbor loops (three cell axes and each occupied interval) and the
+inlined cell-hash probe loop now use bgfx's LOOP annotation. On HLSL this requests
+runtime [loop] control flow rather than automatic unrolling. Runtime bounds,
+probe limits and failure behavior remain the same. Complete local Metal GPU
+suites passed with both workgroup sizes after this change. Windows confirmation
+of the correction is pending. Full failure output is retained locally at
+out/ci-38308444614-failed.log.
