@@ -3,6 +3,7 @@
 #include "Benchmark.hpp"
 #include "core/RunOptions.hpp"
 #include "core/FixedStep.hpp"
+#include "core/FlyCamera.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/ParticleTypes.hpp"
 #include "assets/Materials.hpp"
@@ -483,17 +484,37 @@ int main(int argc, char** argv) {
         int width=0,height=0;
         float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
         int spawnCount=1024;
+        pw::FlyCamera flyCamera;
+        bool freeCamera=false,cameraCaptured=false;
+        float cameraSpeed=8;
+        std::string cameraError;
+        auto releaseCamera=[&] {
+            if(cameraCaptured) SDL_SetWindowRelativeMouseMode(window.get(),false);
+            cameraCaptured=false;
+        };
         auto previous=std::chrono::steady_clock::now();
         while(running) {
             particles.diagnostics->poll(completedFrame);
             particles.visibleDiagnostics->poll(completedFrame);
             SDL_Event event;
+            float lookX=0,lookY=0;
+            std::array<bool,SDL_SCANCODE_COUNT> keyPressed{};
+            bool cancelCamera=false;
             while(SDL_PollEvent(&event)) {
                 // A button event carries its own position. Preserve it before queuing
                 // the button, including synthetic clicks without a preceding motion event.
                 if((event.type==SDL_EVENT_MOUSE_BUTTON_DOWN || event.type==SDL_EVENT_MOUSE_BUTTON_UP) &&
                     event.button.windowID==SDL_GetWindowID(window.get()))
                     ImGui::GetIO().AddMousePosEvent(event.button.x,event.button.y);
+                if(event.type==SDL_EVENT_WINDOW_FOCUS_LOST || event.type==SDL_EVENT_WINDOW_MINIMIZED ||
+                   (event.type==SDL_EVENT_KEY_DOWN && event.key.scancode==SDL_SCANCODE_ESCAPE) ||
+                   (event.type==SDL_EVENT_MOUSE_BUTTON_UP && event.button.button==SDL_BUTTON_RIGHT)) {
+                    releaseCamera();cancelCamera=true;lookX=lookY=0;
+                }
+                if(event.type==SDL_EVENT_MOUSE_MOTION && cameraCaptured) {lookX+=event.motion.xrel;lookY+=event.motion.yrel;}
+                if(event.type==SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                   event.key.scancode>=0 && event.key.scancode<SDL_SCANCODE_COUNT)
+                    keyPressed[event.key.scancode]=true;
                 ImGui_ImplSDL3_ProcessEvent(&event);
                 if(std::getenv("PW_TRACE_INPUT") && (event.type==SDL_EVENT_MOUSE_BUTTON_DOWN || event.type==SDL_EVENT_MOUSE_BUTTON_UP))
                     std::cerr << "Mouse " << event.type << " at " << event.button.x << "," << event.button.y << " down=" << event.button.down << '\n';
@@ -504,7 +525,7 @@ int main(int argc, char** argv) {
             double elapsed=std::chrono::duration<double>(now-previous).count(); previous=now;
             int w,h; window.drawable(w,h);
             if(w<=0 || h<=0 || (SDL_GetWindowFlags(window.get())&SDL_WINDOW_MINIMIZED)) {
-                clock.reset(); SDL_Delay(16); continue;
+                releaseCamera();clock.reset(); SDL_Delay(16); continue;
             }
             if(w!=width || h!=height) { width=w;height=h; bgfx::SwapChain swap; swap.nwh=window.nativeHandle(); swap.width=uint32_t(w); swap.height=uint32_t(h); bgfx::reset(BGFX_RESET_VSYNC,&swap); }
             ImGui_ImplSDL3_NewFrame(); ImGui::NewFrame();
@@ -559,15 +580,47 @@ int main(int argc, char** argv) {
             if(!particles.commandMessage.empty()) ImGui::TextWrapped("%s",particles.commandMessage.c_str());
             ImGui::Checkbox("Frustum culling",&cull);
             if(particles.visibility->supportsIndirect()) {ImGui::SameLine();ImGui::Checkbox("Indirect draw",&indirect);}
-            ImGui::SliderFloat("Orbit",&yaw,-3.14f,3.14f);
-            ImGui::SliderFloat("Distance",&distance,8,45);
-            ImGui::SliderFloat("Elevation",&elevation,2,25);
+            if(ImGui::Checkbox("Free camera",&freeCamera)) {
+                releaseCamera();
+                if(freeCamera) flyCamera.fromOrbit(yaw,distance,elevation);
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Reset view")) {yaw=.65f;distance=24;elevation=12;flyCamera.fromOrbit(yaw,distance,elevation);releaseCamera();}
+            if(freeCamera) {
+                ImGui::SliderFloat("Camera speed (m/s)",&cameraSpeed,1,25);
+                ImGui::TextWrapped("Click the scene: WASD move, Q/E down/up, Shift faster. Hold right mouse to look; Esc releases it.");
+                const auto& eye=flyCamera.position();ImGui::Text("Camera: %.2f, %.2f, %.2f m",eye[0],eye[1],eye[2]);
+            } else {
+                ImGui::SliderFloat("Orbit",&yaw,-3.14f,3.14f);
+                ImGui::SliderFloat("Distance",&distance,8,45);
+                ImGui::SliderFloat("Elevation",&elevation,2,25);
+            }
+            if(!cameraError.empty()) ImGui::TextWrapped("%s",cameraError.c_str());
             const auto* stats=bgfx::getStats();
             if(stats->cpuTimerFreq) ImGui::Text("CPU frame: %.2f ms",1000.0*double(stats->cpuTimeFrame)/double(stats->cpuTimerFreq));
             if(stats->gpuTimerFreq) ImGui::Text("GPU frame: %.2f ms",1000.0*double(stats->gpuTimeEnd-stats->gpuTimeBegin)/double(stats->gpuTimerFreq));
             ImGui::Text("Dropped wall time: %.3f s",lag);
             ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
             ImGui::End();
+            const auto& input=ImGui::GetIO();
+            const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
+            if(freeCamera && focused && !cancelCamera) {
+                if(!cameraCaptured && !input.WantCaptureMouse && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                    cameraCaptured=SDL_SetWindowRelativeMouseMode(window.get(),true);
+                    cameraError=cameraCaptured?"":std::string("Cannot capture mouse: ")+SDL_GetError();
+                }
+                if(cameraCaptured) flyCamera.look(lookX,lookY);
+                if(!input.WantCaptureKeyboard && (!input.WantCaptureMouse || cameraCaptured) &&
+                   (!ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) || cameraCaptured)) {
+                    const auto* keys=SDL_GetKeyboardState(nullptr);
+                    // Preserve a tap whose down/up events both arrived before this poll.
+                    auto down=[&](SDL_Scancode key){return keys[key] || keyPressed[key];};
+                    flyCamera.move(float(down(SDL_SCANCODE_W))-float(down(SDL_SCANCODE_S)),
+                        float(down(SDL_SCANCODE_D))-float(down(SDL_SCANCODE_A)),
+                        float(down(SDL_SCANCODE_E))-float(down(SDL_SCANCODE_Q)),float(elapsed),
+                        cameraSpeed*((down(SDL_SCANCODE_LSHIFT) || down(SDL_SCANCODE_RSHIFT))?3.0f:1.0f));
+                }
+            } else releaseCamera();
             if(reloadShaders) {
                 reloadShaders=false;
                 try {
@@ -583,7 +636,10 @@ int main(int argc, char** argv) {
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
                 particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
             float view[16],projection[16];
-            bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
+            if(freeCamera) {
+                const auto& eye=flyCamera.position();const auto target=flyCamera.target();
+                bx::mtxLookAt(view,{eye[0],eye[1],eye[2]},{target[0],target[1],target[2]},{0,1,0},bx::Handedness::Right);
+            } else bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
             bx::mtxProj(projection,55,float(width)/float(height),0.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
             float viewProjection[16];bx::mtxMul(viewProjection,view,projection);
             particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
@@ -596,6 +652,7 @@ int main(int argc, char** argv) {
             ++frames;
             if(frameLimit && frames>=frameLimit) running=false;
         }
+        releaseCamera();
         std::cout << "Clean shutdown after " << ticks << " ticks\n";
         return 0;
     } catch(const std::exception& error) {std::cerr << "Particle World: " << error.what() << '\n';return 1;}

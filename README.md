@@ -99,3 +99,7 @@ Bulk compute supports 128-thread (default) and 256-thread builds. Configure with
 `-DPW_WORKGROUP_SIZE=256` to select the alternate variant; matching shader
 assets are required. Both passed local Metal GPU tests. See
 [capability reporting](docs/Capabilities.txt) for build and validation details.
+
+Enable **Free camera**, click the scene, and use WASD plus Q/E to move; Shift
+boosts speed. Hold right mouse to look, or use **Reset view** to return home.
+Camera movement works while paused. See [camera controls](docs/Camera_Controls.txt).

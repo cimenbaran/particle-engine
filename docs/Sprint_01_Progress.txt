@@ -182,8 +182,10 @@ S1-04: Shader compilation, packaging, shared content-addressed cache and SHA-256
        Windows verification remains.
 S1-05: Ordered compute/draw path and deferred handle destruction implemented.
        Expand ownership/resize tests and fixed-graph declarations as needed.
-S1-06: ImGui and fixed-box spawn/remove/impulse controls implemented. Free-fly
-       camera, pointer-positioned brushes and texture/capacity diagnostics remain.
+S1-06: ImGui, fixed-box spawn/remove/impulse controls and free camera implemented.
+       Camera CPU math and native keyboard/focus/reset checks passed. Physical
+       mouse-look/capture stress, pointer-positioned brushes and texture/capacity
+       diagnostics remain.
 S1-07: Particle/material/render layouts and Metal sentinel tests implemented.
        D3D11 sentinel validation remains.
 S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impulse
@@ -216,7 +218,8 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Add free camera and pointer-positioned brushes, then scene/command recording.
+1. Validate camera mouse capture and add pointer-positioned brushes, then
+   scene/command recording.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
 3. Add cosmetic pools, presets and real-device benchmark output; run the

@@ -1,0 +1,33 @@
+CAMERA CONTROLS
+
+Orbit controls remain the default. Enable Free camera to start from the current
+orbit view. Click the scene to give it keyboard focus, then use:
+- W/S: forward/backward along the viewing direction.
+- A/D: left/right strafe.
+- Q/E: down/up along world Y.
+- Shift: three times the selected travel speed.
+- Hold the right mouse button over the scene: relative mouse look.
+- Escape or release the right mouse button: release mouse capture.
+- Reset view: restore the initial view without resetting particles or ticks.
+
+The control panel takes keyboard focus when clicked and suppresses camera
+movement. ImGui keyboard capture and mouse hover also suppress movement, except
+for an already active camera mouse capture. Short key taps are retained for
+one frame even when both key events arrive before keyboard-state polling.
+Focus loss, minimize, disabling free camera and shutdown release capture.
+
+Camera travel is independent of the fixed simulation clock and works while
+paused. Visibility is rebuilt from the new camera each frame. Diagonal travel
+is normalized; pitch stays short of the poles to avoid look-at singularities.
+Movement time is capped at 0.1 seconds per frame to avoid jumps after a stall.
+The camera stays within x/z [-128,128] and y [0.1,128] metres. Switching back to
+orbit uses the existing orbit controls; enabling free mode again starts from
+that orbit view. Benchmark and soak cameras are unchanged.
+
+CPU checks cover initial direction, forward/diagonal travel, stall bounds,
+rotation direction, pitch limits, non-finite look input and vertical bounds.
+Native Metal checks verified keyboard movement at paused tick 588, suppression
+while the control panel had focus, and Reset view restoring the original
+position without changing the tick or particle count. Physical held-button
+mouse-look and focus/minimize capture stress still need device validation;
+Windows input behavior is unverified.

@@ -2,6 +2,7 @@
 #include "core/ComputeDispatch.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/FixedStep.hpp"
+#include "core/FlyCamera.hpp"
 #include "core/Frustum.hpp"
 #include "core/RunOptions.hpp"
 #include "core/TimingSummary.hpp"
@@ -13,6 +14,19 @@
 #include <limits>
 #define CHECK(x) do { if (!(x)) { std::cerr << "FAIL line " << __LINE__ << ": " #x "\n"; return EXIT_FAILURE; } } while(false)
 int main() {
+    pw::FlyCamera camera;camera.fromOrbit(0,10,3);
+    const auto forward=camera.forward();CHECK(std::abs(forward[0])<1e-6f && forward[1]==0 && forward[2]==-1);
+    camera.move(1,0,0,.1f,10);CHECK(std::abs(camera.position()[2]-9)<1e-6f);
+    camera.fromOrbit(0,10,3);camera.move(1,1,0,.1f,10);
+    const auto diagonal=camera.position();CHECK(std::abs(std::hypot(diagonal[0],diagonal[2]-10)-1)<1e-5f);
+    camera.fromOrbit(0,10,3);camera.move(1,0,0,10,10);CHECK(camera.position()[2]==9); // stall clamp
+    camera.look(100,0);CHECK(camera.forward()[0]>0);
+    camera.look(0,-1e6f);CHECK(camera.forward()[1]<1 && camera.forward()[1]>.99f); // no pole singularity
+    const auto finiteDirection=camera.forward();camera.look(std::numeric_limits<float>::infinity(),0);
+    CHECK(camera.forward()==finiteDirection);
+    for(unsigned i=0;i<1000;++i) camera.move(0,0,-1,.1f,100);
+    CHECK(camera.position()[1]==.1f);
+
     CHECK(pw::dispatchGroups(0)==0);
     CHECK(pw::dispatchGroups(1)==1);
     CHECK(pw::dispatchGroups(pw::workgroupSize-1)==1);
