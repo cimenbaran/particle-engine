@@ -8,6 +8,8 @@
 #include "render/GpuLayoutTest.hpp"
 #include "render/ParticlePool.hpp"
 #include "render/PoolDiagnostics.hpp"
+#include "render/ParticleVisibility.hpp"
+#include "render/GpuVisibilityTest.hpp"
 #include "render/GpuPoolTest.hpp"
 #include <memory>
 #include <SDL3/SDL_main.h>
@@ -64,6 +66,8 @@ struct Particles {
     std::string commandMessage;
     std::unique_ptr<pw::ParticlePool> pool;
     std::unique_ptr<pw::PoolDiagnostics> diagnostics;
+    std::unique_ptr<pw::ParticleVisibility> visibility;
+    std::unique_ptr<pw::PoolDiagnostics> visibleDiagnostics;
     pw::MaterialLibrary materials;
     bgfx::DynamicVertexBufferHandle materialBuffer=BGFX_INVALID_HANDLE;
     std::filesystem::path materialPath;
@@ -90,6 +94,8 @@ struct Particles {
             uploadMaterials(materials);
             pool=std::make_unique<pw::ParticlePool>(assets,particleCount);
             diagnostics=std::make_unique<pw::PoolDiagnostics>(assets);
+            visibility=std::make_unique<pw::ParticleVisibility>(assets,particleCount);
+            visibleDiagnostics=std::make_unique<pw::PoolDiagnostics>(assets);
             reset();
         } catch (...) { release(); throw; }
     }
@@ -114,7 +120,9 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
+        visibleDiagnostics.reset();
         diagnostics.reset();
+        visibility.reset();
         pool.reset();
         if(bgfx::isValid(materialBuffer)) bgfx::destroy(materialBuffer);
         for (auto h: state) if(bgfx::isValid(h)) bgfx::destroy(h);
@@ -129,6 +137,7 @@ struct Particles {
     ~Particles() { release(); }
     void reset(uint32_t initialCount=particleCount) {
         diagnostics->beginEpoch();
+        visibleDiagnostics->beginEpoch();
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
         commands.reset(); commandMessage.clear();
         for (auto& h: state) { if(bgfx::isValid(h)) bgfx::destroy(h); h = BGFX_INVALID_HANDLE; }
@@ -213,42 +222,47 @@ struct Particles {
         current=1-current;
         pool->rebuild(view,state[current]);
     }
-    void render(uint16_t view) {
+    void render(uint16_t view,bool indirect) {
         bgfx::setVertexBuffer(0,vertices); bgfx::setIndexBuffer(indices);
-        bgfx::setInstanceDataBuffer(instances,0,particleCount);
+        bgfx::setInstanceDataBuffer(visibility->instances(),0,particleCount);
         bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A|BGFX_STATE_WRITE_Z|BGFX_STATE_DEPTH_TEST_LESS|BGFX_STATE_MSAA);
-        bgfx::submit(view,draw);
+        if(indirect && visibility->supportsIndirect()) bgfx::submit(view,draw,visibility->arguments(),0,1);
+        else bgfx::submit(view,draw);
     }
 };
 }
 int main(int argc, char** argv) {
     try {
-        uint32_t frameLimit=0; bool gpuTestOnly=false;
+        uint32_t frameLimit=0; bool gpuTestOnly=false,allowIndirect=true;
         for(int i=1;i<argc;++i) {
             if(std::string(argv[i])=="--frames" && i+1<argc) frameLimit=std::stoul(argv[++i]);
+            else if(std::string(argv[i])=="--no-indirect") allowIndirect=false;
             else if(std::string(argv[i])=="--gpu-test") gpuTestOnly=true;
-            else throw std::runtime_error("Usage: ParticleWorld [--frames count] [--gpu-test]");
+            else throw std::runtime_error("Usage: ParticleWorld [--frames count] [--gpu-test] [--no-indirect]");
         }
         pw::Window window;
         Graphics graphics(window);
         const auto* caps=bgfx::getCaps();
         const uint64_t required=BGFX_CAPS_COMPUTE;
         std::cout << "Backend: " << bgfx::getRendererName(caps->rendererType) << '\n';
-        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 4) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
+        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 5) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
         std::cout << "Compute and instancing supported; indirect draws "
             << ((caps->supported&BGFX_CAPS_DRAW_INDIRECT)?"available":"unavailable") << '\n';
-        std::cout << "Submission: fixed initialized instance count; workgroup: 128\n";
+        std::cout << "Submission: compact visible instances; workgroup: 128\n";
         const char* basePath=SDL_GetBasePath();
         if(!basePath) throw std::runtime_error("SDL cannot resolve application assets");
         const std::filesystem::path assets=std::filesystem::path(basePath)/"assets";
         pw::runGpuLayoutTest(assets);
         pw::runGpuPoolTest(assets);
+        pw::runGpuVisibilityTest(assets);
         if(gpuTestOnly) return 0;
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
         Particles particles(assets);
         pw::FixedStep clock;
-        bool running=true,paused=false;
+        bool running=true,paused=false,cull=true;
+        bool indirect=allowIndirect && particles.visibility->supportsIndirect();
+        std::cout<<"Drawing: "<<(indirect?"GPU indirect":"masked fixed-capacity")<<'\n';
         uint64_t ticks=0; uint32_t frames=0, completedFrame=0; double lag=0;
         int width=0,height=0;
         float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
@@ -256,6 +270,7 @@ int main(int argc, char** argv) {
         auto previous=std::chrono::steady_clock::now();
         while(running) {
             particles.diagnostics->poll(completedFrame);
+            particles.visibleDiagnostics->poll(completedFrame);
             SDL_Event event;
             while(SDL_PollEvent(&event)) {
                 // A button event carries its own position. Preserve it before queuing
@@ -290,6 +305,9 @@ int main(int argc, char** argv) {
                 ImGui::Text("Rejected spawns: %u",poolStats.rejected);
                 ImGui::TextDisabled("GPU snapshot at tick %llu",static_cast<unsigned long long>(poolStats.tick));
             } else ImGui::TextDisabled("Waiting for GPU pool snapshot...");
+            const auto& visibleStats=particles.visibleDiagnostics->latest();
+            if(visibleStats.valid) ImGui::Text("Visible (delayed): %u",visibleStats.active);
+            else ImGui::TextDisabled("Waiting for visibility snapshot...");
             ImGui::Text("Tick: %llu",static_cast<unsigned long long>(ticks));
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
             bool step=ImGui::Button("Single tick"); if(step) paused=true;
@@ -321,6 +339,8 @@ int main(int argc, char** argv) {
             if(ImGui::Button("Spawn particles")) particles.queueBrush(pw::CommandType::SpawnBrush,0,uint32_t(spawnCount),spawnLifetime);
             ImGui::Text("Queued: %u | Rejected commands: %llu",unsigned(particles.commands.pending()),static_cast<unsigned long long>(particles.commands.rejected()));
             if(!particles.commandMessage.empty()) ImGui::TextWrapped("%s",particles.commandMessage.c_str());
+            ImGui::Checkbox("Frustum culling",&cull);
+            if(particles.visibility->supportsIndirect()) {ImGui::SameLine();ImGui::Checkbox("Indirect draw",&indirect);}
             ImGui::SliderFloat("Orbit",&yaw,-3.14f,3.14f);
             ImGui::SliderFloat("Distance",&distance,8,45);
             ImGui::SliderFloat("Elevation",&elevation,2,25);
@@ -334,13 +354,17 @@ int main(int argc, char** argv) {
             for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)
                 particles.diagnostics->request(6,particles.pool->counts(),ticks);
+            if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
+                particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
             float view[16],projection[16];
             bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
             bx::mtxProj(projection,55,float(width)/float(height),0.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
+            float viewProjection[16];bx::mtxMul(viewProjection,view,projection);
+            particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
             bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
             bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
             bgfx::setViewTransform(10,view,projection); bgfx::touch(10);
-            particles.render(10);
+            particles.render(10,indirect);
             ImGui::Render(); guiRenderer.render(ImGui::GetDrawData(),20);
             completedFrame=bgfx::frame();
             ++frames;

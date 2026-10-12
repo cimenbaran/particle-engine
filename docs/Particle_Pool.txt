@@ -23,7 +23,11 @@ Ordered tick graph (one sequential bgfx view per tick):
 2. Integrate into the alternate state buffer; expired/dead records preserve
    identity but write zeroed render records. Materials drive ballistic contacts.
 3. Clear classification counts and rebuild active/free lists for the new state.
-4. Draw the fixed-capacity instance buffer, explicitly clipping inactive flags.
+4. Rebuild visible render records in view 5 (also on paused frames): clear the
+   output, traverse active slots, sphere-test six camera planes and atomically
+   compact retained records. Build one indexed indirect argument record.
+5. Draw exactly the visible count using indirect arguments when supported.
+   Otherwise draw fixed capacity with the cleared tail explicitly clipped.
 
 Pool buffers are GPU-owned: uint32 counts[4], freeSlots[capacity], and
 activeSlots[capacity]. At a completed rebuild the counts are active count,
@@ -35,12 +39,14 @@ recording and deterministic replay are not yet implemented.
 
 Rebuilding before each spawn batch favors simple ownership and safe reuse.
 It is O(capacity) per spawn command and is not the final million-particle
-allocation optimization. Compact indices exist, but rendering does not consume
-them until indirect/culling work.
+allocation optimization. Visibility reads active indices but still dispatches
+capacity-sized workgroups and clears the full render output for fallback safety.
+This is not a claim that the million-particle performance gate is met.
 
-Live diagnostics sample only the four uint32 counters (16 bytes). Compute view
+Live diagnostics sample the four uint32 pool counters plus a separate visible
+count record (16 bytes each; 32 bytes per normal sample). Compute view
 6 exports a 1x1 image; view 7 copies it to a free slot in a three-slot staging
-ring. Sampling normally happens every eight app frames, plus single-step and
+ring per source. Sampling normally happens every eight app frames, plus single-step and
 initial/reset requests. Polling adopts data only after bgfx's ready frame; a
 full ring skips the request. Snapshots show their simulation tick. Reset starts
 a new epoch and discards older results without recycling their storage early.
@@ -61,3 +67,27 @@ lifetime expiry; masked render records; and generation wrap rejection.
 Diagnostic tests also cover full-ring rejection, recycling, reset epochs,
 latest-sample selection, per-state values, and shutdown with a pending request.
 Metal passes locally. D3D11, million-slot and ten-minute soak gates remain open.
+
+VISIBILITY AND DRAW CONTRACT
+
+CPU camera extraction uses the actual view-projection matrix and bgfx depth
+convention: near z=0 for zero-to-one depth or z=-w for homogeneous depth.
+Normalized inward planes test world-space particle spheres. Tangent spheres
+remain visible. Culling does not change simulation membership or stable IDs.
+
+The compacted 32-byte record preserves position/radius, packed color, material
+class, stable slot ID and flags exactly. Atomic order is unspecified. All
+materials currently share the same opaque particle shader; transparent/gas
+rendering and class-specific draw bins belong to later material behavior.
+
+Indirect arguments are eight uint32 words: index count=6, visible instance
+count, start index=0, base vertex=0, start instance=0, then three padding zeros.
+The quad uses standalone static geometry buffers starting at index/vertex zero.
+No synchronous visible-count readback controls the draw. --no-indirect starts
+the fixed-capacity fallback; the UI can toggle either draw mode on capable GPUs.
+
+GPU tests cover capacities 1/127/128/129/16,384 with empty, all-outside, partial,
+exact-plane tangent, disabled-culling, full-capacity, and both depth-range
+cases. They verify unique compacted membership, exact metadata, zero stale
+tails and every indirect argument word. Metal native rendering was visually
+compared with the fallback at a close camera. D3D11 remains unverified.

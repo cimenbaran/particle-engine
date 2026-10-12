@@ -29,8 +29,9 @@ ctest --preset windows-release
 ```
 
 The app uses bundle Resources on macOS and assets beside its executable on
-Windows, independent of the current working directory. `--frames 180` runs a bounded native smoke test. `--gpu-test` runs the
-particle/material/render-record ABI, pool ownership, ordered compute and
+Windows, independent of the current working directory. `--frames 180` runs a bounded native smoke test. `--no-indirect` starts with the masked fallback draw. `--gpu-test` runs the
+particle/material/render-record ABI, pool ownership, frustum/compaction,
+indirect arguments, ordered compute and
 material-driven integration checks on a real graphics device
 and exits with a failure code on a mismatch. Startup also runs these checks.
 CPU-only tests need neither a graphics device nor downloaded libraries:
@@ -65,8 +66,11 @@ reject excess spawns. The panel shows delayed GPU active/free counts and rejecte
 spawns, labeled with their snapshot tick. CPU command rejections are separate.
 Active particles bounce inside analytic bounds and do not yet collide with each other.
 
-The current submission uses a known, initialized instance count. GPU active/free
-lists are rebuilt after ticks; rendering masks inactive slots.
-Frustum classification, indirect drawing, the million-particle benchmark,
-shader reload and scene/command recording remain Sprint 1 work. See
+GPU frustum culling compacts visible records every frame, including while paused.
+Supported devices use a GPU-written indirect draw count. The fallback draws at
+fixed capacity and masks unused records. Toggle **Frustum culling** and
+**Indirect draw** to compare; the delayed visible count shows culling results.
+
+The million-particle benchmark, shader reload, scene/command recording and
+Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.

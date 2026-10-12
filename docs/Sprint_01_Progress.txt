@@ -16,7 +16,7 @@ Implemented and locally exercised
 - An ImGui SDL3 platform backend and project bgfx renderer with font texture,
   scissor, index offsets, framebuffer scaling and deferred resource destruction.
 - GPU reset, ping-pong gravity/drag/analytic box contacts and instanced rendering
-  of 16,384 seeded particles. Simulation views 0-4 precede diagnostic export/
+  of 16,384 seeded particles. Simulation views 0-4 and visibility view 5 precede diagnostic export/
   copy views 6-7 and draw views 10 and 20.
 - A 64-byte particle ABI, 32-byte packed render record, stable ID/generation
   authoring fields, CPU command validation and fixed 1/60-second scheduling.
@@ -36,8 +36,12 @@ Implemented and locally exercised
 - Solid-material scene selection and tick-boundary material reload retain the
   previous valid table on errors and reject incompatible live-material edits.
 - Delayed GPU active/free/rejected-spawn statistics use a three-slot, 16-byte
-  readback ring. Scene epochs discard stale results; normal operation never
+  readback ring per counter source (pool and visibility). Scene epochs discard
+  stale results; normal operation never
   waits for the ring. Diagnostics do not control simulation or draw counts.
+- GPU sphere/frustum culling, visible-record compaction and GPU-written indexed
+  indirect drawing. The optional fixed-capacity fallback masks its cleared tail.
+  Camera movement while paused rebuilds visibility without advancing simulation.
 - CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
   The workflow is authored locally; it has not run on a remote CI service.
@@ -81,6 +85,14 @@ Verified evidence
 - Fixed graph keeps all compute exports before copies. An interleaved copy/
   compute test returned zero data on the pinned Metal backend; reordering the
   exports before copies passed. This ordering constraint is documented.
+- Visibility GPU tests passed capacities 1/127/128/129/16,384 on both indirect
+  and forced fallback paths: empty/all-outside/partial/tangent/full/disabled
+  cases, both depth conventions, exact metadata, unique membership, zero tails
+  and exact indirect words. CPU camera-plane extraction checks also passed.
+- Native close-camera comparison preserved the scene between indirect/culling
+  and fallback/no-culling modes; an empty fallback scene showed no stale pixels.
+  The delayed visible count changed from 12,381 to 16,384 with culling disabled
+  at paused tick 0, while active count remained 16,384.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
@@ -94,6 +106,9 @@ Verified evidence
   All 12 packaged shader hashes and both material assets match build outputs.
 - Diagnostic-enabled package completed 600 frames from /tmp and exited cleanly
   after 298 ticks. All 13 packaged shader hashes match their manifests.
+- Visibility-enabled package passed 600 frames using GPU indirect draws and
+  180 frames with --no-indirect from /tmp (298 and 88 ticks, clean shutdown).
+  All 16 packaged shader hashes match their manifests.
 - Local package: out/macos-release/ParticleWorld.app (not distribution-signed
   or notarized). Source build and package both use bundle Resources/assets.
 - Native visual inspection showed particles and readable ImGui controls.
@@ -128,8 +143,9 @@ S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
 S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
        schema fingerprints implemented. Scene files, command recording and
        cosmetic pools remain.
-S1-11: GPU-written fixed-capacity instances mask inactive slots; material
-       classes are packed. Frustum culling, compact draws and indirect draws remain.
+S1-11: GPU frustum culling, compact records and indirect drawing implemented.
+       Fixed-capacity fallback tails are cleared/masked; material classes are
+       preserved. D3D11 validation and later class-specific rendering remain.
 S1-12: Timings, delayed pool counters, native test mode and CI files exist.
        More diagnostic panels, benchmark JSON/CSV, memory accounting and
        Windows package checks remain.
@@ -140,11 +156,12 @@ Open gates
   million-particle validation/benchmark have not been completed.
 - No baseline p95 target is claimed. The current demo has no pair contacts.
 - Full-particle readback is limited to explicit startup/GPU tests. Steady-state
-  diagnostics read only 16-byte counters and never determine draws or dispatches.
+  diagnostics read two 16-byte counter records and never determine draws or
+  dispatches.
 
 Next implementation order
 1. Complete shader cache/reload and the platform capability report.
-2. Add compact/indirect drawing and culling,
-   then scale capacity under ownership and performance tests.
+2. Scale capacity under ownership tests and add a reproducible benchmark
+   harness before claiming the million-particle target.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.
