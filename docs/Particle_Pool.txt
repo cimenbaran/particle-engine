@@ -1,0 +1,46 @@
+GPU PARTICLE POOL - CURRENT IMPLEMENTATION
+
+Capacity: 16,384 slots in the interactive app. The pool class accepts up to
+1,048,576, but the larger capacity is not yet validated or benchmarked.
+
+Each slot keeps the existing 64-byte particle record. Identity is material ID,
+flags (bit zero = alive), stable slot ID, generation. Reset begins a new scene
+epoch and invalidates all prior handles. Empty slots start at generation zero;
+spawning increments generation. Removal and expiry preserve it. A generation
+at UINT32_MAX is never wrapped or reused until scene reset.
+
+The thermal lanes currently hold temperature, fuel fraction, lifetime and age.
+Lifetime zero means infinite. A positive lifetime expires when the next fixed
+tick would reach it. Thermal and combustion behavior are still pending.
+
+Ordered tick graph (one sequential bgfx view per tick):
+1. Apply queued commands in their accepted sequence order.
+   - Impulse changes velocity for matching material IDs inside inclusive bounds.
+   - Removal clears alive flags. Repeated removal of dead slots is a no-op.
+   - Before spawning, clear classification counts and classify all slots into
+     active/free lists. Each spawn atomically reserves a distinct free-list rank.
+     Overflow requests are rejected; the diagnostic rejection counter saturates.
+2. Integrate into the alternate state buffer; expired/dead records preserve
+   identity but write zeroed render records. Materials drive ballistic contacts.
+3. Clear classification counts and rebuild active/free lists for the new state.
+4. Draw the fixed-capacity instance buffer, explicitly clipping inactive flags.
+
+Pool buffers are GPU-owned: uint32 counts[4], freeSlots[capacity], and
+activeSlots[capacity]. At a completed rebuild the counts are active count,
+free count, zero reservations, cumulative rejected spawns. Every slot must
+appear exactly once across active/free lists and agree with its alive flag.
+The lists' atomic append order is unspecified; it is not a cross-device replay
+ordering guarantee. Seeded scene reset remains reproducible. Dynamic command
+recording and deterministic replay are not yet implemented.
+
+Rebuilding before each spawn batch favors simple ownership and safe reuse.
+It is O(capacity) per spawn command and is not the final million-particle
+allocation optimization. No steady-state particle or pool readback occurs yet;
+UI shows capacity and CPU queue counts, not a delayed live GPU count. Compact
+indices exist, but rendering does not consume them until indirect/culling work.
+
+GPU tests read back state and membership explicitly. They cover capacities
+1, 127, 128, 129, 16,384; zero/full pools; zero/excess spawns; unique ownership;
+1/32 impulse commands and spatial/material misses; duplicate removal; reuse;
+lifetime expiry; masked render records; and generation wrap rejection.
+Metal passes locally. D3D11, million-slot and ten-minute soak gates remain open.

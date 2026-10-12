@@ -1,4 +1,5 @@
 #include <bgfx_compute.sh>
+#include "materials.sh"
 BUFFER_RO(b_upload, vec4, 0);
 BUFFER_RW(b_state, vec4, 1);
 BUFFER_RW(b_instances, vec4, 2);
@@ -13,5 +14,7 @@ void main() {
   b_state[base+2u] = b_upload[base+2u];
   b_state[base+3u] = b_upload[base+3u];
   b_instances[id*2u] = b_upload[base];
-  b_instances[id*2u+1u] = uintBitsToFloat(uvec4(0xff388ed9u,0u,id,1u));
+  uvec4 identity=floatBitsToUint(b_upload[base+3u]);
+  if(identity.x>=uint(u_sim.z) || (identity.y&1u)==0u) {b_instances[id*2u]=vec4(0.0); b_instances[id*2u+1u]=vec4(0.0); return;}
+  b_instances[id*2u+1u]=uintBitsToFloat(uvec4(materialColor(identity.x),floatBitsToUint(b_materials[identity.x*4u+3u]).z,identity.z,identity.y));
 }

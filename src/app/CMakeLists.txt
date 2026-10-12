@@ -1,5 +1,5 @@
-add_executable(ParticleWorld MACOSX_BUNDLE main.cpp ../render/ImGuiRenderer.cpp ../render/Shaders.cpp ../render/GpuLayoutTest.cpp)
-target_link_libraries(ParticleWorld PRIVATE pw_core pw_imgui bgfx bx glm::glm nlohmann_json::nlohmann_json)
+add_executable(ParticleWorld MACOSX_BUNDLE main.cpp ../render/ImGuiRenderer.cpp ../render/Shaders.cpp ../render/GpuLayoutTest.cpp ../render/ParticlePool.cpp ../render/GpuPoolTest.cpp)
+target_link_libraries(ParticleWorld PRIVATE pw_core pw_assets pw_imgui bgfx bx glm::glm nlohmann_json::nlohmann_json)
 target_include_directories(ParticleWorld PRIVATE ${bgfx_cmake_SOURCE_DIR}/bgfx/include)
 set_target_properties(ParticleWorld PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER com.particleworld.sandbox MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION})
 include(${PROJECT_SOURCE_DIR}/cmake/Shaders.cmake)
@@ -37,3 +37,15 @@ if(MSVC)
 else()
   target_compile_options(ParticleWorld PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+set(PW_PACKED_MATERIALS ${CMAKE_BINARY_DIR}/materials/default.bin)
+add_custom_command(OUTPUT ${PW_PACKED_MATERIALS}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/materials
+  COMMAND $<TARGET_FILE:pw_asset_builder> ${PROJECT_SOURCE_DIR}/assets/materials/default.json ${PW_PACKED_MATERIALS}
+  DEPENDS pw_asset_builder ${PROJECT_SOURCE_DIR}/assets/materials/default.json VERBATIM)
+add_custom_target(pw_materials DEPENDS ${PW_PACKED_MATERIALS})
+add_dependencies(ParticleWorld pw_materials)
+set_property(TARGET ParticleWorld APPEND PROPERTY LINK_DEPENDS ${PW_PACKED_MATERIALS})
+add_custom_command(TARGET ParticleWorld POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PW_PACKED_MATERIALS} ${PW_RUNTIME_ASSETS}/materials/default.bin)
+install(FILES ${PW_PACKED_MATERIALS} DESTINATION ${PW_ASSET_DEST}/materials)

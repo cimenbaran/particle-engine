@@ -8,8 +8,8 @@ namespace pw {
 struct alignas(16) ParticleGpu {
     float positionRadius[4];
     float velocityInvMass[4];
-    float thermalState[4]; // kelvin, normalized fuel/water, seconds
-    std::uint32_t identity[4]; // material, flags, stable ID, slot generation
+    float thermalState[4]; // kelvin, fuel fraction, lifetime seconds (0=infinite), age seconds
+    std::uint32_t identity[4]; // material, flags (bit 0 alive), stable slot ID, slot generation
 };
 struct alignas(16) RenderInstance {
     float positionRadius[4];

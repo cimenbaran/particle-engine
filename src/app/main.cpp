@@ -1,9 +1,14 @@
 #include "platform/Window.hpp"
 #include "core/FixedStep.hpp"
+#include "core/CommandQueue.hpp"
 #include "core/ParticleTypes.hpp"
+#include "assets/Materials.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include "render/Shaders.hpp"
 #include "render/GpuLayoutTest.hpp"
+#include "render/ParticlePool.hpp"
+#include "render/GpuPoolTest.hpp"
+#include <memory>
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -54,6 +59,16 @@ struct Particles {
     bgfx::ProgramHandle compute = BGFX_INVALID_HANDLE, initialize = BGFX_INVALID_HANDLE, draw = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle uniform = BGFX_INVALID_HANDLE;
     unsigned current{};
+    pw::CommandQueue commands;
+    std::string commandMessage;
+    std::unique_ptr<pw::ParticlePool> pool;
+    pw::MaterialLibrary materials;
+    bgfx::DynamicVertexBufferHandle materialBuffer=BGFX_INVALID_HANDLE;
+    std::filesystem::path materialPath;
+    std::string materialMessage;
+    std::vector<std::uint32_t> liveMaterialIds;
+    int sceneMaterial=-1; // -1 mixes the available solid profiles.
+    bool reloadPending=false;
     explicit Particles(const std::filesystem::path& assets) {
         try {
             compute = pw::loadCompute(assets, "cs_particles");
@@ -68,10 +83,36 @@ struct Particles {
             indices = bgfx::createIndexBuffer(bgfx::copy(triangles, sizeof(triangles)));
             if(!bgfx::isValid(vertices) || !bgfx::isValid(indices) || !bgfx::isValid(uniform))
                 throw std::runtime_error("Particle rendering resources unavailable");
+            materialPath=assets/"materials"/"default.json";
+            materials=pw::loadMaterials(materialPath);
+            uploadMaterials(materials);
+            pool=std::make_unique<pw::ParticlePool>(assets,particleCount);
             reset();
         } catch (...) { release(); throw; }
     }
+    void uploadMaterials(const pw::MaterialLibrary& candidate) {
+        const auto packed=candidate.packed();
+        bgfx::VertexLayout lanes;
+        lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
+        auto replacement=bgfx::createDynamicVertexBuffer(bgfx::copy(packed.data(),uint32_t(packed.size()*sizeof(pw::MaterialGpu))),lanes,BGFX_BUFFER_COMPUTE_READ);
+        if(!bgfx::isValid(replacement)) throw std::runtime_error("Material GPU allocation failed");
+        if(bgfx::isValid(materialBuffer)) bgfx::destroy(materialBuffer);
+        materialBuffer=replacement;
+    }
+    void reloadAtTickBoundary() {
+        if(!reloadPending) return;
+        reloadPending=false;
+        try {
+            auto candidate=pw::loadMaterials(materialPath);
+            pw::validateMaterialReload(materials,candidate,liveMaterialIds);
+            uploadMaterials(candidate);
+            materials=std::move(candidate);
+            materialMessage="Materials reloaded";
+        } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
+    }
     void release() {
+        pool.reset();
+        if(bgfx::isValid(materialBuffer)) bgfx::destroy(materialBuffer);
         for (auto h: state) if(bgfx::isValid(h)) bgfx::destroy(h);
         if(bgfx::isValid(instances)) bgfx::destroy(instances);
         if(bgfx::isValid(vertices)) bgfx::destroy(vertices);
@@ -82,23 +123,33 @@ struct Particles {
         if(bgfx::isValid(uniform)) bgfx::destroy(uniform);
     }
     ~Particles() { release(); }
-    void reset() {
+    void reset(uint32_t initialCount=particleCount) {
+        bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
+        commands.reset(); commandMessage.clear();
         for (auto& h: state) { if(bgfx::isValid(h)) bgfx::destroy(h); h = BGFX_INVALID_HANDLE; }
         if(bgfx::isValid(instances)) bgfx::destroy(instances);
         instances = BGFX_INVALID_HANDLE;
+        liveMaterialIds.clear();
+        for(std::uint32_t id=0;id<materials.entries.size();++id)
+            if(materials.entries[id].gpu.identity[1]==0 && (sceneMaterial<0 || sceneMaterial==int(id))) liveMaterialIds.push_back(id);
+        if(liveMaterialIds.empty()) throw std::runtime_error("Scene requires a solid material profile");
         std::vector<pw::ParticleGpu> initial(particleCount);
         std::mt19937 rng(42);
         // Explicit integer mapping keeps authored initial positions reproducible.
         auto random = [&] { return float(rng() >> 8) / 16777216.0f; };
-        for(uint32_t i=0; i<particleCount; ++i) {
+        for(uint32_t i=0;i<particleCount;++i) initial[i].identity[2]=i;
+        for(uint32_t i=0; i<std::min(initialCount,particleCount); ++i) {
             auto& p=initial[i];
             p.positionRadius[0]=(random()-0.5f)*12;
             p.positionRadius[1]=1+random()*10;
             p.positionRadius[2]=(random()-0.5f)*12;
             p.positionRadius[3]=0.045f;
-            p.velocityInvMass[3]=1;
+            const auto materialId=liveMaterialIds[i%liveMaterialIds.size()];
+            const auto& material=materials.entries[materialId].gpu;
+            const float radius=p.positionRadius[3];
+            p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*radius*radius*radius*material.mechanical[0]);
             p.thermalState[0]=293.15f;
-            p.identity[0]=1; p.identity[1]=1; p.identity[2]=i; p.identity[3]=1;
+            p.identity[0]=materialId; p.identity[1]=1; p.identity[2]=i; p.identity[3]=1;
         }
         bgfx::VertexLayout lanes;
         lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
@@ -112,24 +163,50 @@ struct Particles {
         if(!bgfx::isValid(instances)) throw std::runtime_error("Instance allocation failed");
         auto upload=bgfx::createDynamicVertexBuffer(bgfx::copy(initial.data(), uint32_t(initial.size()*sizeof(pw::ParticleGpu))),lanes,BGFX_BUFFER_COMPUTE_READ);
         if(!bgfx::isValid(upload)) throw std::runtime_error("Seed upload allocation failed");
-        const float params[]{0,float(particleCount),0,0};
+        const float params[]{0,float(particleCount),float(materials.entries.size()),0};
         bgfx::setUniform(uniform,params);
         bgfx::setBuffer(0,upload,bgfx::Access::Read);
         bgfx::setBuffer(1,state[0],bgfx::Access::Write);
         bgfx::setBuffer(2,instances,bgfx::Access::Write);
+        bgfx::setBuffer(3,materialBuffer,bgfx::Access::Read);
         bgfx::dispatch(0,initialize,(particleCount+127)/128);
         bgfx::destroy(upload); // bgfx defers destruction past submitted work.
         current=0;
+        pool->rebuild(0,state[current],true);
+    }
+    void queueBrush(pw::CommandType type,float strength,uint32_t count=0,float lifetime=0) {
+        // One spatial impulse for the chosen scene material; mixed scenes use Stone.
+        pw::Command command;
+        command.tick=commands.nextTick(); command.type=type;
+        command.minimum={-4,0,-4}; command.maximum={4,12,4};
+        command.parameters={0,strength,0,lifetime}; command.count=count;
+        if(type==pw::CommandType::SpawnBrush) {command.minimum={-2,6,-2};command.maximum={2,10,2};}
+        command.material=sceneMaterial<0?0u:unsigned(sceneMaterial);
+        pw::CommandLimits limits; limits.materialCount=uint32_t(materials.entries.size());
+        const auto reason=commands.enqueue(command,limits);
+        commandMessage=reason.empty()?"Brush queued for next tick":std::string(reason);
     }
     void tick(uint16_t view) {
+        reloadAtTickBoundary();
         bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
-        const float params[]{float(pw::FixedStep::tickSeconds),float(particleCount),0,0};
+        const auto batch=commands.consume();
+        for(const auto& command:batch) {
+            pw::CommandLimits limits;limits.materialCount=uint32_t(materials.entries.size());
+            if(!pw::validate(command,limits,command.tick).empty()) {
+                commandMessage="Queued command rejected after material reload";continue;
+            }
+            pool->apply(view,state[current],materialBuffer,uint32_t(materials.entries.size()),command);
+            commandMessage="Brush submitted (spawns limited by free capacity)";
+        }
+        const float params[]{float(pw::FixedStep::tickSeconds),float(particleCount),float(materials.entries.size()),0};
         bgfx::setUniform(uniform, params);
         bgfx::setBuffer(0,state[current],bgfx::Access::Read);
         bgfx::setBuffer(1,state[1-current],bgfx::Access::Write);
         bgfx::setBuffer(2,instances,bgfx::Access::Write);
+        bgfx::setBuffer(3,materialBuffer,bgfx::Access::Read);
         bgfx::dispatch(view,compute,(particleCount+127)/128);
         current=1-current;
+        pool->rebuild(view,state[current]);
     }
     void render(uint16_t view) {
         bgfx::setVertexBuffer(0,vertices); bgfx::setIndexBuffer(indices);
@@ -152,7 +229,7 @@ int main(int argc, char** argv) {
         const auto* caps=bgfx::getCaps();
         const uint64_t required=BGFX_CAPS_COMPUTE;
         std::cout << "Backend: " << bgfx::getRendererName(caps->rendererType) << '\n';
-        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 3) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
+        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 4) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
         std::cout << "Compute and instancing supported; indirect draws "
             << ((caps->supported&BGFX_CAPS_DRAW_INDIRECT)?"available":"unavailable") << '\n';
         std::cout << "Submission: fixed initialized instance count; workgroup: 128\n";
@@ -160,6 +237,7 @@ int main(int argc, char** argv) {
         if(!basePath) throw std::runtime_error("SDL cannot resolve application assets");
         const std::filesystem::path assets=std::filesystem::path(basePath)/"assets";
         pw::runGpuLayoutTest(assets);
+        pw::runGpuPoolTest(assets);
         if(gpuTestOnly) return 0;
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
@@ -168,7 +246,8 @@ int main(int argc, char** argv) {
         bool running=true,paused=false;
         uint64_t ticks=0; uint32_t frames=0; double lag=0;
         int width=0,height=0;
-        float yaw=0.65f, distance=24, elevation=12;
+        float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
+        int spawnCount=1024;
         auto previous=std::chrono::steady_clock::now();
         while(running) {
             SDL_Event event;
@@ -195,14 +274,41 @@ int main(int argc, char** argv) {
             if(std::getenv("PW_TRACE_INPUT") && (ImGui::IsMouseClicked(0) || ImGui::IsMouseReleased(0)))
                 std::cerr << "ImGui mouse " << ImGui::GetIO().MousePos.x << "," << ImGui::GetIO().MousePos.y << " clicked=" << ImGui::IsMouseClicked(0) << " released=" << ImGui::IsMouseReleased(0) << '\n';
             ImGui::SetNextWindowPos(ImVec2(16,16),ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(350,320),ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(460,680),ImGuiCond_FirstUseEver);
             ImGui::Begin("Particle World - foundation");
             ImGui::Text("Backend: %s",bgfx::getRendererName(caps->rendererType));
-            ImGui::Text("Particles: %u | Seed: 42",particleCount);
+            ImGui::Text("Capacity: %u | Seed: 42",particleCount);
             ImGui::Text("Tick: %llu",static_cast<unsigned long long>(ticks));
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
             bool step=ImGui::Button("Single tick"); if(step) paused=true;
             if(ImGui::Button("Reset scene")) {particles.reset();clock.reset();ticks=0;lag=0;}
+            ImGui::SameLine();
+            if(ImGui::Button("Empty scene")) {particles.reset(0);clock.reset();ticks=0;lag=0;}
+            const char* sceneLabel=particles.sceneMaterial<0?"Mixed solids":particles.materials.entries[particles.sceneMaterial].name.c_str();
+            if(ImGui::BeginCombo("Scene material",sceneLabel)) {
+                if(ImGui::Selectable("Mixed solids",particles.sceneMaterial<0)) {particles.sceneMaterial=-1;particles.reset();clock.reset();ticks=0;}
+                for(std::uint32_t id=0;id<particles.materials.entries.size();++id) {
+                    const auto& material=particles.materials.entries[id];
+                    if(material.gpu.identity[1]!=0) continue;
+                    if(ImGui::Selectable(material.name.c_str(),particles.sceneMaterial==int(id))) {particles.sceneMaterial=int(id);particles.reset();clock.reset();ticks=0;}
+                }
+                ImGui::EndCombo();
+            }
+            if(ImGui::Button("Reload materials")) particles.reloadPending=true;
+            if(ImGui::IsItemHovered()) ImGui::SetTooltip("Reloads %s",particles.materialPath.string().c_str());
+            if(particles.reloadPending) ImGui::TextWrapped("Reload queued for next tick (step when paused).");
+            if(!particles.materialMessage.empty()) ImGui::TextWrapped("%s",particles.materialMessage.c_str());
+            ImGui::Text("Profiles: %u",unsigned(particles.materials.entries.size()));
+            ImGui::SliderFloat("Lift speed (m/s)",&impulseStrength,0,20);
+            if(ImGui::Button("Lift center particles")) particles.queueBrush(pw::CommandType::ApplyImpulse,impulseStrength);
+            if(ImGui::IsItemHovered()) ImGui::SetTooltip("Adds upward velocity in the center 8 x 12 x 8 m box. Mixed scenes target Stone.");
+            if(ImGui::Button("Remove center particles")) particles.queueBrush(pw::CommandType::RemoveBrush,0);
+            ImGui::SliderInt("Spawn count",&spawnCount,1,4096);
+            ImGui::SliderFloat("Lifetime (s)",&spawnLifetime,0,30);
+            if(ImGui::IsItemHovered()) ImGui::SetTooltip("Zero keeps particles alive until removed; positive values expire after that many simulation seconds.");
+            if(ImGui::Button("Spawn particles")) particles.queueBrush(pw::CommandType::SpawnBrush,0,uint32_t(spawnCount),spawnLifetime);
+            ImGui::Text("Queued: %u | Rejected: %llu",unsigned(particles.commands.pending()),static_cast<unsigned long long>(particles.commands.rejected()));
+            if(!particles.commandMessage.empty()) ImGui::TextWrapped("%s",particles.commandMessage.c_str());
             ImGui::SliderFloat("Orbit",&yaw,-3.14f,3.14f);
             ImGui::SliderFloat("Distance",&distance,8,45);
             ImGui::SliderFloat("Elevation",&elevation,2,25);
@@ -210,7 +316,7 @@ int main(int argc, char** argv) {
             if(stats->cpuTimerFreq) ImGui::Text("CPU frame: %.2f ms",1000.0*double(stats->cpuTimeFrame)/double(stats->cpuTimerFreq));
             if(stats->gpuTimerFreq) ImGui::Text("GPU frame: %.2f ms",1000.0*double(stats->gpuTimeEnd-stats->gpuTimeBegin)/double(stats->gpuTimerFreq));
             ImGui::Text("Dropped wall time: %.3f s",lag);
-            ImGui::TextWrapped("Foundation demo: gravity and box contacts. Pair collisions and GPU allocation are pending.");
+            ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
             ImGui::End();
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
             for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}

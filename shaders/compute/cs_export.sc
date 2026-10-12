@@ -6,6 +6,7 @@ NUM_THREADS(128, 1, 1)
 void main() {
   uint id = gl_GlobalInvocationID.x;
   if (id >= uint(u_sim.y)) return;
-  for (uint lane = 0u; lane < 4u; ++lane)
-    imageStore(t_result, ivec2(int(lane),int(id)), floatBitsToUint(b_state[id*4u+lane]));
+  uint lanes=u_sim.w>0.0?uint(u_sim.w):4u;
+  for (uint lane = 0u; lane < lanes; ++lane)
+    imageStore(t_result, ivec2(int(lane),int(id)), floatBitsToUint(b_state[id*lanes+lane]));
 }

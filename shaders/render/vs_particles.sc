@@ -5,6 +5,7 @@ void main() {
   vec4 center = mul(u_view, vec4(i_data0.xyz, 1.0));
   center.xy += a_position.xy * i_data0.w;
   gl_Position = mul(u_proj, center);
+  if((floatBitsToUint(i_data1.w)&1u)==0u) gl_Position=vec4(2.0,2.0,2.0,1.0);
   v_uv = a_position.xy;
   uint packed = floatBitsToUint(i_data1.x);
   v_color = vec4(float(packed & 255u), float((packed >> 8u) & 255u),

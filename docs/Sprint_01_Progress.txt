@@ -20,7 +20,21 @@ Implemented and locally exercised
 - A 64-byte particle ABI, 32-byte packed render record, stable ID/generation
   authoring fields, CPU command validation and fixed 1/60-second scheduling.
 - Pause, single tick, seeded reset, orbit controls and CPU/GPU frame-time display.
-- CPU invariant tests, a real-device GPU ABI test and bounded --frames runs.
+- Tick-addressed command queue with stable sequences, 32 commands per tick,
+  256 pending commands, a 120-tick horizon and aggregate spawn quotas.
+- Live center-box impulse control publishes bounded velocity changes to GPU
+  uniforms at the next tick, with spatial/material filters and queue diagnostics.
+  Reset clears commands. Spawn/remove/impulse commands execute in submission
+  order before integration; heat and terrain commands are not connected.
+- GPU active/free slot classification, atomic spawn reservations, alive flags,
+  generation increments on reuse and lifetime expiry. Empty-scene, spawn and
+  remove controls are connected. Fixed-capacity draws explicitly mask dead slots.
+- Versioned material JSON validation, seven profiles, portable packed asset
+  output and schema/content fingerprints. GPU material properties drive drag,
+  friction, restitution and color; density determines reset-time particle mass.
+- Solid-material scene selection and tick-boundary material reload retain the
+  previous valid table on errors and reject incompatible live-material edits.
+- CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
   The workflow is authored locally; it has not run on a remote CI service.
 
@@ -29,6 +43,14 @@ Verified evidence
   M1 Pro reference tier, and these checks are not performance certification.
 - Release configuration and compilation completed with AppleClang 21 and Metal.
 - CTest core_invariants passed in CPU-only and full application builds.
+- Full-build material_validation passed schema, portable binary and reload
+  compatibility checks. Metal round-tripped all seven 64-byte material records.
+- GPU render records matched positions, packed colors, classes, stable IDs and
+  flags after integration at counts 1, 127, 128 and 129.
+- Native UI verification: Sand selection reset to tick 0; a queued color edit
+  remained unapplied while paused, then appeared on single tick. Malformed JSON
+  displayed an error while retaining the working table; restoring JSON reloaded
+  successfully. Fluid, gas and thermal behavior are not implemented.
 - --gpu-test passed exact 64-byte round trips for counts 1, 127, 128 and 129
   through GPU reset and export passes. This verifies ABI and ordered compute
   visibility; it does not certify a free list or the future granular solver.
@@ -36,12 +58,28 @@ Verified evidence
 - The final GPU suite additionally passed gravity, drag, floor/box contacts,
   finite-state and identity preservation against a CPU reference at all four
   particle counts (relative/absolute float tolerance 1e-5).
+- Core queue tests passed ordering across ticks, stale/future rejection, sequence
+  stability, per-tick/full-queue/spawn quotas, parameter limits and reset.
+- GPU pool tests passed at capacities 1, 127, 128, 129 and 16,384: empty/full
+  pools, zero/excess spawns, exact active/free ownership, duplicate removals,
+  generation reuse, lifetime expiry and masked dead render records.
+- Ordered pool brush dispatches passed exact velocity checks after 1 and 32
+  impulses, including material and spatial misses. Generation wrap is rejected.
+- Native pool UI: empty at tick 0; 1,024 particles spawned on tick 1, removed
+  on tick 2, and spawned again into freed slots on tick 3.
+- Native command UI check: paused tick 1099 retained one queued command; single
+  tick advanced to 1100 and consumed it. Reset discarded a later queued command.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
 - Packaged app smoke test launched from /tmp completed 600 frames and 305 ticks.
   All 7 packaged shader manifests match their binary SHA-256 hashes; 8 dependency
   license notices are included. Runtime dynamic links are system libraries only.
+- Material-enabled package passed --gpu-test and a 600-frame run from /tmp,
+  exiting cleanly after 297 ticks. Packaged material JSON and binary match their
+  build sources; all seven shader binary hashes match the packaged manifests.
+- Pool-enabled package completed 600 frames from /tmp with clean shutdown.
+  All 12 packaged shader hashes and both material assets match build outputs.
 - Local package: out/macos-release/ParticleWorld.app (not distribution-signed
   or notarized). Source build and package both use bundle Resources/assets.
 - Native visual inspection showed particles and readable ImGui controls.
@@ -63,32 +101,35 @@ S1-04: Shader compilation, packaging and SHA-256 provenance manifests implemente
        Shared content-addressed cache and retain-last-good shader reload remain.
 S1-05: Ordered compute/draw path and deferred handle destruction implemented.
        Expand ownership/resize tests and fixed-graph declarations as needed.
-S1-06: ImGui and basic controls implemented. Free-fly camera, brush commands and
-       full UI texture/transient-capacity diagnostics remain.
-S1-07: Particle/render layouts and Metal particle sentinel tests implemented.
-       Packed material ABI and D3D11 sentinel validation remain.
-S1-08: Clock and CPU command validator implemented and tested. Queue ordering,
-       batch quotas, upload and live tools integration remain.
-S1-09: Gravity, drag and analytic contacts exist. GPU free lists, generation
-       updates, lifetime, allocation ownership and active compaction remain.
-S1-10: Fixed in-code seed exists. Versioned material JSON, packed asset builder,
-       schema hashes, scene files, command recording and cosmetic pools remain.
-S1-11: GPU-written instances render with a known initialized count. Culling,
-       classification, indirect draws and inactive-record masking remain.
+S1-06: ImGui and fixed-box spawn/remove/impulse controls implemented. Free-fly
+       camera, pointer-positioned brushes and texture/capacity diagnostics remain.
+S1-07: Particle/material/render layouts and Metal sentinel tests implemented.
+       D3D11 sentinel validation remains.
+S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impulse
+       upload/live control implemented and tested, now including spawn/remove.
+       Heat/terrain tools and command recording remain.
+S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
+       lifetime and active compaction implemented. Pool ownership is tested at
+       the current 16,384-slot maximum. Million-slot and D3D11 gates remain.
+S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
+       schema fingerprints implemented. Scene files, command recording and
+       cosmetic pools remain.
+S1-11: GPU-written fixed-capacity instances mask inactive slots; material
+       classes are packed. Frustum culling, compact draws and indirect draws remain.
 S1-12: Basic timings, native test mode and CI files exist. Full diagnostic panels,
        benchmark JSON/CSV, memory accounting and Windows package checks remain.
 
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
-- Ten-minute soak, zero/max-capacity/full-pool tests and million-particle
-  benchmark have not been completed.
+- Zero/full/current-capacity pool tests passed on Metal. Ten-minute soak and
+  million-particle validation/benchmark have not been completed.
 - No baseline p95 target is claimed. The current demo has no pair contacts.
 - Readback is limited to explicit startup/GPU tests; the steady-state scene
   performs no full-particle readback.
 
 Next implementation order
-1. Complete material ABI, shader cache/reload and platform capability report.
-2. Integrate bounded commands, free-list ownership, IDs and compaction with GPU
-   tests before connecting spawning tools or increasing particle capacity.
-3. Add lifetime/cosmetics, presets and real-device benchmark output; run the
+1. Complete shader cache/reload and the platform capability report.
+2. Add delayed GPU pool diagnostics, compact/indirect drawing and culling,
+   then scale capacity under ownership and performance tests.
+3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.

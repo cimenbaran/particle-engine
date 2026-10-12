@@ -30,7 +30,8 @@ ctest --preset windows-release
 
 The app uses bundle Resources on macOS and assets beside its executable on
 Windows, independent of the current working directory. `--frames 180` runs a bounded native smoke test. `--gpu-test` runs the
-particle ABI, ordered compute and CPU-reference integration checks on a real graphics device
+particle/material/render-record ABI, pool ownership, ordered compute and
+material-driven integration checks on a real graphics device
 and exits with a failure code on a mismatch. Startup also runs these checks.
 CPU-only tests need neither a graphics device nor downloaded libraries:
 
@@ -47,10 +48,23 @@ a shader compiler is needed only when building. Signing/notarization are pending
 ## Controls and current limits
 
 Use the ImGui panel to pause, single-step, reset the seeded scene and orbit the
-camera. The foundation displays 16,384 particles with a common radius. They
-bounce inside analytic bounds and do not yet collide with each other.
+camera. Select a solid material or mixed solids, and reload edited material JSON
+at a tick boundary. Invalid edits retain the last valid table. See
+[material definitions](docs/Materials.md) for the schema and editing workflow.
 
-The current submission uses a known, initialized instance count. Dynamic GPU
-allocation/compaction, frustum classification, the million-particle benchmark,
-material loading and shader reload remain Sprint 1 work. See
+Use **Lift center particles** to queue an upward velocity change for the next
+tick. It affects the selected solid material inside the center box; mixed scenes
+target Stone. Single-step applies it while paused; reset clears pending commands.
+
+The foundation has a 16,384-slot GPU pool with a common particle radius. Use
+**Empty scene**, then **Spawn particles**, to add a batch on the next tick.
+Set a lifetime in simulation seconds (zero means infinite). **Remove center
+particles** frees slots inside the same box used by the lift control. Spawning
+and removal target the selected material, or Stone in a mixed scene. Full pools
+reject excess spawns. Active particles bounce inside analytic bounds and do not yet collide with each other.
+
+The current submission uses a known, initialized instance count. GPU active/free
+lists are rebuilt after ticks; rendering masks inactive slots.
+Frustum classification, indirect drawing, the million-particle benchmark,
+shader reload and scene/command recording remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.

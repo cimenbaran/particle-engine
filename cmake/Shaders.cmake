@@ -6,8 +6,9 @@ else()
   set(PW_SHADER_PROFILE s_5_0)
 endif()
 file(GLOB_RECURSE PW_SHADER_INCLUDES CONFIGURE_DEPENDS ${bgfx_cmake_SOURCE_DIR}/bgfx/src/*.sh)
+file(GLOB_RECURSE PW_PROJECT_SHADER_INCLUDES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/shaders/*.sh)
 set(PW_SHADER_OUTPUTS)
-foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export)
+foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export cs_pool_clear cs_pool_classify cs_pool_spawn cs_pool_brush cs_pool_export)
   if(shader MATCHES "^vs_")
     set(kind vertex)
   elseif(shader MATCHES "^fs_")
@@ -31,10 +32,11 @@ foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_
       -DSOURCE=${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
       -DVARYING=${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       -DINCLUDE_ROOT=${bgfx_cmake_SOURCE_DIR}/bgfx/src
+      -DPROJECT_INCLUDE_ROOT=${PROJECT_SOURCE_DIR}/shaders
       -DCOMPILER=$<TARGET_FILE:shaderc> -DBINARY=${output} -DOUTPUT=${output}.json
       -DPLATFORM=${PW_SHADER_PLATFORM} -DPROFILE=${PW_SHADER_PROFILE} -DKIND=${kind}
       -P ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake
-    DEPENDS shaderc ${PW_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
+    DEPENDS shaderc ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
       ${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_shader.sh
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_compute.sh
