@@ -50,3 +50,27 @@ floats, nonzero origin, inclusive/exclusive faces, all 60 keys of a signed
 3x4x5 domain, independent known keys, inverse decoding, reserved sentinel,
 maximum key capacity, invalid configurations and support search radii. These
 are CPU topology results, not GPU correctness or granular stability evidence.
+
+SORTED RECORD AND RANGE ORACLE
+
+The test-only tests/reference/SpatialIndex.hpp builds (cellKey, particleSlot)
+records from an immutable span of fixture points. Active/physical eligibility
+is supplied explicitly; the future GPU adapter must derive it from authoritative
+alive and material/pool metadata. Inactive and cosmetic points do not enter the
+index. Their unused position values are not interpreted. Every input slot must
+still be unique and below UINT32_MAX. An eligible non-finite/out-of-domain point
+fails the whole build; no partial index is returned.
+
+Records are sorted by full key, then slot for canonical test comparisons. Each
+occupied cell stores a half-open [begin,end) interval. Binary-search lookup
+compares the exact key and distinguishes absent cells from occupied cells.
+Future GPU sort results may differ in within-cell order; comparisons must check
+canonical membership while requiring monotonic keys, unique slots and complete,
+non-overlapping ranges. Persistent particle state is never reordered.
+
+spatial_index_reference covers empty input, signed-domain keys, sparse missing
+cells, 20 shuffled emission orders, dense cells with 1/127/128/129/255/256/257/
+1,024 particles, all 64 cells in a small domain, invalid/duplicate slots and
+eligible invalid positions. Bitwise position checks ensure inactive NaNs remain
+untouched. This is an independent sorting/range oracle for later GPU comparison;
+GPU scan/radix sort, bounded hash probing and neighbor queries remain open.
