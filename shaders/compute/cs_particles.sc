@@ -13,9 +13,9 @@ void main() {
   uvec4 identity=floatBitsToUint(b_previous[base+3u]);
   if(identity.x>=uint(u_sim.z) || (identity.y&1u)==0u ||
      (b_previous[base+2u].z>0.0 && b_previous[base+2u].w+u_sim.x>=b_previous[base+2u].z)) {
-    for(uint lane=0u;lane<4u;++lane) b_next[base+lane]=vec4(0.0);
+    for(uint lane=0u;lane<4u;++lane) b_next[base+lane]=vec4(0.0,0.0,0.0,0.0);
     identity.y=identity.y&~1u; b_next[base+3u]=uintBitsToFloat(identity);
-    b_instances[id*2u]=vec4(0.0); b_instances[id*2u+1u]=vec4(0.0);
+    b_instances[id*2u]=vec4(0.0,0.0,0.0,0.0); b_instances[id*2u+1u]=vec4(0.0,0.0,0.0,0.0);
     return;
   }
   vec4 material=b_materials[identity.x*4u];

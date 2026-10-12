@@ -65,3 +65,10 @@ component, and the same unsigned-vector broadcast pattern was removed from
 pool export and indirect-argument initialization. The full local Metal GPU
 suite, including injected NaN/Inf audits, ownership and indirect checks, passes
 after these changes. Windows compilation of the fix remains pending.
+
+Run 38297882620 progressed past the unsigned-vector fixes but its Windows
+256-thread job failed in cs_particles on a float4(0.0) constructor. All scalar
+vec4 zero broadcasts in integration, reset and visibility clearing are now
+explicit four-component constructors. This preserves the intended zero records
+and addresses the same HLSL restriction across the remaining shaders. Windows
+compilation and WARP execution after this follow-up are still pending.

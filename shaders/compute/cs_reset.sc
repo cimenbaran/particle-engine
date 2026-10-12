@@ -16,6 +16,6 @@ void main() {
   b_state[base+3u] = b_upload[base+3u];
   b_instances[id*2u] = b_upload[base];
   uvec4 identity=floatBitsToUint(b_upload[base+3u]);
-  if(identity.x>=uint(u_sim.z) || (identity.y&1u)==0u) {b_instances[id*2u]=vec4(0.0); b_instances[id*2u+1u]=vec4(0.0); return;}
+  if(identity.x>=uint(u_sim.z) || (identity.y&1u)==0u) {b_instances[id*2u]=vec4(0.0,0.0,0.0,0.0); b_instances[id*2u+1u]=vec4(0.0,0.0,0.0,0.0); return;}
   b_instances[id*2u+1u]=uintBitsToFloat(uvec4(materialColor(identity.x),floatBitsToUint(b_materials[identity.x*4u+3u]).z,identity.z,identity.y));
 }
