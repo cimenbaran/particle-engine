@@ -1,0 +1,76 @@
+GPU GRANULAR TICK COORDINATOR
+
+Scope
+GpuGranularStep owns a complete GPU granular tick, currently exercised only by
+--gpu-test. The interactive application still uses its ballistic Particles path.
+Live UI/recording integration, larger piles, performance and long soaks remain open.
+
+Default profile
+Tick 1/60 s; four substeps selected by GranularStepProfile at 12 m/s maximum
+speed and 0.125 m smallest feature. Four Jacobi iterations per substep, relaxation
+0.8 and correction bound 0.03125 m. Radius 0.0625 m, gravity 9.81 m/s^2, common
+bounded domain and material restitution/friction. Constructor permits 1..8 contact
+iterations and finite gravity 0..100; the step planner must accept the profile,
+and the selected count must not exceed eight substeps to bound submissions.
+The smallest feature cannot exceed 0.125, the solver's actual particle diameter.
+Speed limit is 0.001..1,000,000; capacity is 0..1,048,576. These input limits are
+not claims that every valid configuration is stable or meets performance budgets.
+
+Each substep runs in one sequential view:
+1. Apply gravity and material drag, advance solid age and expire lifetimes.
+2. Cap velocity and sweep the sphere against the six analytic boundary planes.
+3. Rebuild the spatial index and solve bounded Jacobi contacts each iteration.
+4. Reconstruct velocity relative to the swept predicted snapshot.
+5. Apply particle restitution/friction using retained incoming velocities.
+6. Remove newly introduced outward wall velocity inelastically, apply boundary
+   friction and cap the resulting velocity again.
+Prediction is retained through reconstruction/response. The response search bound
+is iterations * 0.03125 plus its numerical allowance. Each corrected position
+stays in the inset domain. Boundary friction after particle response acts in the
+common tangent space, with the combined removed normal impulse as support.
+
+Force/lifetime policy
+Only alive solids are processed; dead/liquid/gas slots retain their records.
+Finite pose, motion and thermal state, valid identity/generation, common radius,
+valid inverse mass and nonnegative lifetime/age are required. Drag must be finite
+in [0,100], matching the material loader. Static solids advance age but do not
+move. Expiry clears the alive flag before sweeping; dead payload is retained.
+Pool membership rebuilding and visual compaction remain responsibilities of the
+application after the tick. No force integration is applied to excluded phases.
+
+Whole-tick publication
+Private outputs alternate between ticks. A separate force buffer and completed
+substep buffer keep the original tick input intact. Every component's status is
+collected immediately, before it can be cleared by a later iteration/substep.
+The final apply dispatch copies either the completed tick or the entire original
+input according to the accumulated error mask. A late error therefore rolls back
+positions, velocities, lifetimes and alive bits together. Submit never allocates
+or reads back GPU state. Calls can reuse the previous output as the next input.
+
+Status words:
+0 phase error mask: 1 forces, 2 sweep, 4 contacts, 8 reconstruction, 16 particle
+  velocity response, 32 final boundary/cap constraints. Downstream upstream-failure
+  flags may also set phase bits; the mask is not a unique root-cause code.
+1 proposed cap events across both cap stages and all substeps.
+2 maximum particle contact degree observed in position/velocity passes.
+3 boundary response events across sweeps and final constraints.
+Metrics describe proposed work; errors mean no candidate changes were committed.
+Status clears at the start of each tick, allowing recovery after input is repaired.
+The application must latch/display failures before initiating a later tick.
+
+Resources
+Owner payload is 256 bytes/slot plus three 16-byte status buffers, in addition to
+the owned sweep, contact, reconstruction and response components. Two separate
+spatial-index pipelines are currently retained by the contact and response owners.
+No reuse optimization or memory-budget certification is claimed. Each dispatch
+stays within the existing six-compute-binding capability floor.
+
+Validation
+22 Metal fixtures compare no-contact trajectories to independent force/sweep
+calculations; cover workgroup boundaries, speed caps including FLT_MAX, static and
+phase exclusion, age/expiry, closed-pair rebound/momentum/energy, whole-tick rollback,
+a late contact-index failure and recovery. A floor body stays motionless for 120
+ticks. A four-body stack runs 60 ticks without intermediate state readback and must
+end below 0.00625 m overlap and 0.1 m/s maximum speed. This small aligned stack is
+not proof of general piles, dense spawns, wall columns or ten-minute stability.
+See tests/results/m3-max-granular-step.txt. D3D11 validation remains pending.

@@ -74,3 +74,7 @@ snapshots for contact reconstruction, handle correction-induced boundary overlap
 and publish a complete granular step transactionally. Internal terrain sweeps,
 settling, cross-backend stability, performance and soaks remain open. The planner's
 half-feature travel guarantee is not a guarantee about position-solver corrections.
+
+GpuGranularStep now composes this pass with forces, bounded corrections and
+whole-tick publication; see GPU_Granular_Step.txt. It remains outside live UI
+stepping and does not close the integration/stability gates listed above.

@@ -1,0 +1,31 @@
+COMPLETE GPU GRANULAR TICK VALIDATION
+Date: 2026-10-13, Apple M3 Max / Metal / macos-release.
+Source: commit containing this evidence; prior HEAD 143bb54.
+
+Full GPU suite passed at workgroup 128 and 256, including 22 complete-step
+fixtures. Final constructor rejection of more than eight substeps was added
+and exercised in the 128 run after the 256 run; GPU algorithms were unchanged.
+11/11 CTests passed at both sizes. Default 128 build restored.
+The recording publication mitigation was then built and all 11 CTests rerun
+at 128, including 16 rounds of concurrent save validation (POSIX on this host).
+
+No-contact trajectories use independent force/sweep calculations (2e-4 position
+and velocity tolerance). Input immutability, identities, persistent fields,
+exclusion and whole-tick rollback are exact. Age/expiry and speed caps checked.
+Closed pair checks rebound, momentum and no kinetic energy increase.
+A floor particle remains motionless after 120 ticks. Four-body stack after 60:
+maximum penetration 0.000237852 m, maximum speed 4.4331e-7 m/s, identical printed
+values at both workgroup sizes. Fixture limits: 0.00625 m and 0.1 m/s.
+There is no intermediate state readback during these repeated ticks.
+Late contact-index failure preserves pre-force age as well as pose/velocity.
+Recovery is checked with the same coordinator after an invalid input.
+
+This is a small-fixture validation, not general pile/terrain stability, live UI
+integration, a performance baseline or ten-minute soak. D3D11 is pending for
+this source. See separate CI evidence for the older response-only source.
+
+Log SHA-256:
+cb43426bd29346d7999bcade64c5552d6edb56b1302775b8bc622d3eee347743  out/granular-publish-gpu.log
+190e215898459884a18765e7386bc2eda17f298c3843cd01aa68754bdd8f6279  out/granular-settle256-gpu.log
+42c76073dd811350a62362b7f1a832944f7563e807074cfbb5f6e0c95d4f71a8  out/granular-recording-ctest.log
+eba24ca1c55c7dc433767e0396247eb462b0cf1a7a7d93a3db75cc1b93cb360c  out/granular-256-ctest.log
