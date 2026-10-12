@@ -1,0 +1,33 @@
+GPU occupied-cell range development validation
+Apple M3 Max, Metal
+Base commit: 7a97633; range implementation changes were uncommitted.
+No Windows execution, hash lookup, live neighborhood or performance claim.
+
+Workgroup 128: 29 scale/profile cases and 14 fault/boundary/recovery cases.
+GPU sorted occupied-cell ranges passed: 0 records
+GPU sorted occupied-cell ranges passed: 1 records
+GPU sorted occupied-cell ranges passed: 127 records
+GPU sorted occupied-cell ranges passed: 128 records
+GPU sorted occupied-cell ranges passed: 129 records
+GPU sorted occupied-cell ranges passed: 255 records
+GPU sorted occupied-cell ranges passed: 256 records
+GPU sorted occupied-cell ranges passed: 257 records
+GPU sorted occupied-cell ranges passed: 16385 records
+GPU sorted occupied-cell ranges passed: 65537 records
+GPU sorted occupied-cell ranges passed: 1048576 records
+GPU range failure gate passed: upstream errors, exits, order, keys, counts, slot bounds, ownership and recovery
+
+Workgroup 256: 29 scale/profile cases and 14 fault/boundary/recovery cases.
+GPU sorted occupied-cell ranges passed: 0 records
+GPU sorted occupied-cell ranges passed: 1 records
+GPU sorted occupied-cell ranges passed: 127 records
+GPU sorted occupied-cell ranges passed: 128 records
+GPU sorted occupied-cell ranges passed: 129 records
+GPU sorted occupied-cell ranges passed: 255 records
+GPU sorted occupied-cell ranges passed: 256 records
+GPU sorted occupied-cell ranges passed: 257 records
+GPU sorted occupied-cell ranges passed: 16385 records
+GPU sorted occupied-cell ranges passed: 65537 records
+GPU sorted occupied-cell ranges passed: 1048576 records
+GPU range failure gate passed: upstream errors, exits, order, keys, counts, slot bounds, ownership and recovery
+

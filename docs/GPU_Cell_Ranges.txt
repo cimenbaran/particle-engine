@@ -1,0 +1,65 @@
+GPU OCCUPIED-CELL RANGES AND FAILURE METADATA
+
+GpuCellRanges builds sparse (cellKey, begin, end) records from a full-capacity
+sorted key/slot array. Intervals are half-open offsets in that sorted array.
+The profile matches GpuSpatialKeys: valid keys are below 2,097,152; UINT32_MAX
+is the inactive/excluded sentinel. No particle state is reordered or read back.
+This utility is currently used only by --gpu-test. Hash lookup, neighborhood
+consumption and a live physics response to index failure remain unfinished.
+
+The compute graph clears per-slot ownership counters and metadata, marks cell
+starts, scans those flags, writes range starts/ends, audits slot ownership, and
+finalizes usable counts. First/last neighbor accesses are bounded independently
+of shader short-circuit behavior. The range scan allocates at most one range per
+input record. All dispatches run in one sequential view, with no CPU count
+readback and no allocation during submit. Scratch buffers are reused on rebuild.
+
+The input includes every storage slot exactly once, even when its key is the
+sentinel. The constructor's capacity is both record count and physical slot
+capacity (0..1,048,576); it is not an active-only compacted record count with
+arbitrary larger slot IDs. sortedRecords must contain 2*max(1,capacity) uint32s.
+sourceStatus must contain GpuSpatialKeys' four counts: emitted, excluded,
+invalid indexing inputs and domain exits. Both buffers must be compute-readable,
+distinct from each other and non-aliased with this object's scratch storage.
+The caller must retain them under bgfx's deferred submission lifetime rules.
+
+Metadata layout (four uint32 words):
+  [0] usable occupied-range count
+  [1] usable indexed-record count
+  [2] error-bit mask
+  [3] raw range count, exclusively for diagnostics
+
+Error bits:
+  1: key generation reported invalid position/material/identity
+  2: key generation reported a domain exit
+  4: keys decrease, including a valid key appearing after a sentinel
+  8: non-sentinel key lies outside the configured grid
+ 16: source counts exceed capacity, fail their checksum, or disagree with records
+ 32: a slot payload is outside storage capacity
+ 64: some slot appears zero or multiple times, including excluded records
+
+Any error publishes zero usable ranges and records while retaining the error
+mask. This distinguishes a failed epoch from a valid empty index. A consumer
+MUST check the error mask and report/resolve it, rather than interpreting the
+zero counts as successful empty space. Raw diagnostic counts are not permission
+to consume ranges. Metadata describes the latest submission and is cleared on
+the next rebuild; a future live index owner must handle/latch failures and gate
+its physics consumers. No such live consumer is enabled yet.
+
+Tests compare all intervals and metadata with an independent serial CPU range
+builder after GPU sorting. Counts are 0,1,127,128,129,255,256,257,16385,65537 and
+1048576. The first nine sizes exercise dense equal keys, distinct cells and
+sentinel mixtures; the largest two exercise distinct cells up to one million
+occupied ranges. Extra fixtures inject upstream invalid/exit counts, unsorted
+keys, valid-after-sentinel order, out-of-grid keys, wrong/wrapping source counts,
+out-of-range slots, duplicate/missing owners (including all-sentinel input),
+and then valid empty/nonempty recoveries using the same buffers. Boundary keys
+zero and 2,097,151 are checked explicitly. Invalid epochs must return zero
+usable counts with the expected error bits. Diagnostic exports also mask the
+unused range tail so stale previous ranges cannot masquerade as current output.
+
+Local Apple M3 Max/Metal validation passed 29 scale/profile cases and 14
+fault/boundary/recovery cases in each 128/256-thread variant, all nine CTests
+and the full GPU suite. Evidence: tests/results/m3-max-cell-ranges.txt. The
+development source was based on 7a97633 with range changes uncommitted.
+Windows execution remains pending.
