@@ -1,0 +1,11 @@
+#include <bgfx_compute.sh>
+BUFFER_RO(b_state, vec4, 0);
+UIMAGE2D_WO(t_result, rgba32ui, 1);
+uniform vec4 u_sim;
+NUM_THREADS(128, 1, 1)
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  if (id >= uint(u_sim.y)) return;
+  for (uint lane = 0u; lane < 4u; ++lane)
+    imageStore(t_result, ivec2(int(lane),int(id)), floatBitsToUint(b_state[id*4u+lane]));
+}

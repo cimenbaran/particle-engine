@@ -1,0 +1,68 @@
+SPRINT 5 - SHOWCASE, PERFORMANCE AND RELEASE HARDENING
+
+Goal: Deliver the bounded interactive showcase with verified platform packages.
+Planning window: Weeks 12-16; total plan estimate is 12-16 developer weeks.
+Dependencies: Sprint 4 feature-tier decision and all earlier correctness gates.
+Source: Particle_World_Design.docx, sections 1 and 9-14.
+
+Tasks
+[ ] S5-01 Finish three named showcase presets covering granular settling,
+    destruction and the accepted water/fire feature tier. Complete the basin
+    interaction: add matter, apply heat, trigger an explosion and reset.
+[ ] S5-02 Polish opaque terrain/grains, lighting and material identity. Add HDR
+    tone mapping, optional restrained bloom and higher-tier directional shadows.
+    Validate winding, depth range, texture origin and linear/display conversion.
+[ ] S5-03 Implement coarse depth bins for translucent water and premultiplied
+    smoke/steam billboards with soft depth intersections and reduced resolution.
+    Document interpenetration ordering limits; defer fluid surface reconstruction
+    and weighted blended transparency from the required release.
+[ ] S5-04 Complete camera bookmarks, brushes, save/load, reset, pause/step,
+    debug views and particle inspection. Show capacity, neighbor/hash failures,
+    memory, timings and discarded emissions; explain degraded modes visibly.
+[ ] S5-05 Add quality profiles that first reduce cosmetic density, transparency
+    resolution and shadows. Physical capacity changes require an explicit
+    scene/profile selection and must never silently delete material.
+[ ] S5-06 Run simulation-only, rendering-only and integrated benchmarks on M1
+    Pro-class 16 GB and RTX 3060-class reference hardware; record exact machines,
+    OS/drivers, backend, shader/build hashes, seed, resolution and solver profile.
+[ ] S5-07 For each benchmark, warm up 30 seconds, measure 120 seconds and repeat
+    three times. Export median/p95/p99, peak memory, occupancy, pair counts,
+    machine thermal state and presentation settings; verify normal pacing after
+    uncapped measurement. Investigate controlled p95 regressions over 10%.
+[ ] S5-08 Report the mixed baseline (100k physical, up to 25k water, plus 150k
+    cosmetic; p95 <=16.7 ms target), million-simple-particle scale scene
+    (p95 <=16.7 ms target) and exploratory stress scene (250k interacting,
+    up to 50k water; p95 <=33.3 ms target). Publish achieved or reduced tiers.
+[ ] S5-09 Complete CPU/GPU regression suites, shader variants and real-hardware
+    smoke tests on Metal and D3D11. CI without GPUs may prove compilation and
+    CPU behavior only. Compare scene invariants and visual conventions with
+    documented tolerances instead of bit-identical fluid trajectories.
+[ ] S5-10 Test resizing, Retina scaling, focus loss, minimize, loading/reset,
+    material/shader reload failure, exhaustion and repeated edit cycles. Complete
+    a ten-minute milestone soak and one-hour release soak on both platforms.
+[ ] S5-11 Package a Windows application folder and macOS app bundle with assets
+    resolved relative to the executable. Verify clean-machine startup without
+    build tools or shaderc; finish licenses, attribution and distribution
+    signing/notarization using available authorized credentials.
+[ ] S5-12 Write source-build/run instructions, controls, save compatibility,
+    benchmark reproduction, support/capability matrix and known limitations.
+    Include static overhangs, unbonded debris, approximate gases/transparency,
+    replay limits and the accepted water tier. Defer streaming, multiplayer,
+    general fracture and additional-platform certification.
+
+Release acceptance checklist
+[ ] Both platform packages and documented reproducible source builds exist.
+[ ] Three showcase presets, editable material/scene assets, benchmark reports
+    and regression suites are delivered with measured supported feature tiers.
+[ ] The first playable scene is stable for ten minutes, resets from its seed
+    and preset, and meets the published baseline tier on both reference systems.
+[ ] One-hour soaks pass with no unreported physical mass loss, NaNs, invalid
+    accesses, duplicate allocations, stale collision state or silent truncation.
+[ ] Capability reporting covers supported, degraded and unavailable features;
+    runtime warnings explain active degradation and cosmetic emission limits.
+[ ] No required feature depends on synchronous full-particle readback during
+    routine simulation/rendering. All material risks and unmet targets are
+    recorded explicitly before release acceptance.
+
+Deliverable: A packaged, documented native particle-world engineering showcase
+with performance evidence and an explicit deferred-feature backlog.

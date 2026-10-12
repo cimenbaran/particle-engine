@@ -1,0 +1,20 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {"major": 3, "minor": 28, "patch": 0},
+  "configurePresets": [
+    {"name": "base", "hidden": true, "generator": "Ninja", "binaryDir": "${sourceDir}/build/${presetName}", "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON"}},
+    {"name": "macos-release", "inherits": "base", "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"}, "cacheVariables": {"CMAKE_OSX_ARCHITECTURES": "arm64", "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0"}},
+    {"name": "windows-release", "inherits": "base", "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows"}, "cacheVariables": {"CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl"}},
+    {"name": "core-tests", "inherits": "base", "cacheVariables": {"PW_BUILD_APP": "OFF"}}
+  ],
+  "buildPresets": [
+    {"name": "macos-release", "configurePreset": "macos-release"},
+    {"name": "windows-release", "configurePreset": "windows-release"},
+    {"name": "core-tests", "configurePreset": "core-tests"}
+  ],
+  "testPresets": [
+    {"name": "macos-release", "configurePreset": "macos-release", "output": {"outputOnFailure": true}},
+    {"name": "windows-release", "configurePreset": "windows-release", "output": {"outputOnFailure": true}},
+    {"name": "core-tests", "configurePreset": "core-tests", "output": {"outputOnFailure": true}}
+  ]
+}

@@ -1,0 +1,55 @@
+SPRINT 3 - RESIDENT WORLD, DESTRUCTION AND PERSISTENCE
+
+Goal: Turn terrain into debris and settled particles back into terrain safely.
+Planning window: Weeks 7-8.
+Dependencies: Sprint 2 granular and spatial-index gates.
+Source: Particle_World_Design.docx, sections 2, 6, 8 and 10-13.
+
+Tasks
+[ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,
+    material occupancy, persistent edits and thermal detail for active regions.
+    Build the fully resident 32x16x32-metre basin with ledge and sand slope.
+[ ] S3-02 Introduce integer chunk coordinates, local positions and explicit
+    CPU/GPU revisions. Commit shared origin rebases at tick boundaries and
+    define out-of-region behavior; camera culling must never suspend physics.
+[ ] S3-03 Render exposed terrain surfaces and dirty neighboring caches after
+    edits. Publish occupancy, collision and rendering revisions consistently.
+[ ] S3-04 Replace analytic-only terrain contact with swept sphere-versus-voxel
+    collision. Edited regions must query current occupancy immediately; any
+    optional cached collider remains invalid until its revision is current.
+[ ] S3-05 Route terrain editing and explosions through validated commands.
+    Calculate affected resident chunks, distance falloff, resistance, bounded
+    energy, removal proposals and required physical debris capacity.
+[ ] S3-06 Reserve debris slots before committing removals. Stage oversized
+    blasts over ticks while retaining unconverted voxels. Commit occupancy,
+    collision revisions and debris activation together; apply bounded impulses
+    to existing particles and separate cosmetic dust/spark quotas.
+[ ] S3-07 Implement deterministic deposit claims into empty voxels. Commit
+    occupancy first and retire only acknowledged particles; failed claims
+    remain dynamic. Track material mass with explicit quantization tolerance.
+[ ] S3-08 Wake nearby matter from edits, impacts and heat within bounded budgets.
+    Document static disconnected overhangs; defer structural collapse/fracture.
+[ ] S3-09 Implement versioned snapshots containing seed, material hash, chunk
+    edits, simulation profile and optional active particles. Pause at a tick
+    boundary, stage asynchronous readback and serialize via temporary file
+    plus atomic replacement, respecting authoritative-state acknowledgements.
+[ ] S3-10 Validate save counts, bounds, schema migration and material references
+    before allocation. Add load/reset controls and seed-plus-command presets;
+    describe their cross-GPU replay limits without promising identical motion.
+[ ] S3-11 Add diagnostics for terrain/debris mass, pending transactions, rejected
+    edits and cache revisions, plus delayed selection using ID and generation.
+
+Validation and completion gates
+[ ] Test chunk indexing, negative coordinates, rebasing, border edits and
+    immediate collision after edits; no stale collision revision is accepted.
+[ ] Exercise simultaneous deposit claims, full pools, oversized blasts,
+    repeated explosions and failed deposits without duplicate or lost matter.
+[ ] Account for all physical conversion mass within documented voxel tolerance;
+    full capacity must defer conversion rather than silently delete material.
+[ ] Round-trip modified scenes and active snapshots; reject corrupt or
+    unsupported files without partially adopting invalid live state.
+[ ] Run ten-minute edit/explosion/deposition soaks on both backends and record
+    frame times, transaction limits and memory growth.
+
+Handoff: Editable resident terrain, mass-accounted destruction/deposition,
+safe snapshot persistence and a basin ready for water and reactions.

@@ -1,0 +1,20 @@
+Dependency source lock
+
+bgfx.cmake https://github.com/bkaradzic/bgfx.cmake
+  a046ef085427ff7dd5a499d7f48e06f5d1bb049d
+  Maintained upstream CMake integration; CC0. Its git tree locks these submodules:
+  bgfx 8f451e9102b1845b29dfe500116611ad283632ec
+  bx   36b2b6943f7c62276d96ff7a34d59db8057a5d24
+  bimg 671fe06dd7012a1ab85aa931019ed16112909756
+  bgfx/bx/bimg licenses are shipped with their sources.
+SDL3 https://github.com/libsdl-org/SDL
+  7f3ae3d57459e59943a4ecfefc8f6277ec6bf540 (release-3.2.28), zlib
+GLM https://github.com/g-truc/glm
+  a532f5b1cf27d6a3c099437e6959cf7e398a0a67 (1.0.2), MIT
+Dear ImGui https://github.com/ocornut/imgui
+  bf75bfec48fc00f532af8926130b70c0e26eb099 (v1.92.3), MIT
+nlohmann/json https://github.com/nlohmann/json
+  65ee68451d8eb2b5f3a30b410476ab83deb3289b (v3.12.0), MIT
+
+CMake FetchContent stores downloads in build directories. No moving dependency
+branches are fetched for builds. Preserve upstream notices in distributions.

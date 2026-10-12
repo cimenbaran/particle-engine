@@ -1,0 +1,54 @@
+SPRINT 2 - LOCAL INTERACTIONS AND GRANULAR STABILITY
+
+Goal: Produce stable sand and debris with correct GPU neighborhood queries.
+Planning window: Weeks 5-6; extend if the granular correctness gate fails.
+Dependencies: Sprint 1 foundation and core gates.
+Source: Particle_World_Design.docx, sections 3-6 and 11-13.
+
+Tasks
+[ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
+    collision-free flattened keys and explicit remove/reflect exit policy.
+    Choose cell width from maximum centre-to-centre interaction support.
+[ ] S2-02 Implement GPU key/slot emission, prefix-scan utilities, radix sorting
+    and occupied-cell ranges without moving persistent particle identities.
+[ ] S2-03 Implement exact-key hash lookup with load below 0.5, bounded probes,
+    explicit clearing and failure counters. A small dense range table may
+    establish correctness first. Stop consumption of an incomplete index and
+    trigger a controlled rebuild or reset on insertion failure.
+[ ] S2-04 Implement support-aware neighbor searches, excluding self and
+    incompatible phases. Keep smoke and sparks outside the physical index.
+[ ] S2-05 Build small CPU reference fixtures to compare GPU integration,
+    sorting, ranges and neighborhood membership with scale-aware tolerances.
+[ ] S2-06 Add Jacobi sphere contacts using immutable iteration inputs, separate
+    corrections, inverse-mass weights, relaxation and correction limits.
+    Start with one common collision radius and document the solver profile.
+[ ] S2-07 Reconstruct velocities after correction; bound restitution and
+    friction, suppress low-speed bounce and prevent friction reversing motion.
+[ ] S2-08 Add swept terrain tests against analytic colliders, substeps when
+    displacement exceeds half the smallest feature, and visible speed limits.
+    Document that continuous particle-particle collision is outside scope.
+[ ] S2-09 Track settling candidates with speed/contact hysteresis; retain them
+    as active matter until Sprint 3 adds acknowledged voxel deposition.
+[ ] S2-10 Instrument occupancy, candidate pairs, accepted neighbors, probes,
+    truncations and per-pass time. Make any neighbor cap a visible degraded
+    mode. Add material, velocity, cell and collision-normal debug views.
+[ ] S2-11 Benchmark workgroup sizes and grid/iteration choices on both backends.
+    Rebuild neighborhoods when corrections invalidate them; optimize reuse
+    only with a documented displacement bound and conservative search support.
+
+Validation and completion gates
+[ ] Check negative coordinates, cell boundaries, forced hash collisions,
+    maximum occupancy, domain exits and full hash tables against CPU references.
+[ ] Run falling columns, resting piles, piles against walls, dense overlapping
+    spawns, grazing impacts and high-speed wall shots; fail on NaNs, invalid
+    access, duplicate allocation or unreported truncation/index failure.
+[ ] Demonstrate finite state and no persistent energy growth in a closed
+    dissipative fixture. Proposed settling gate: penetration below 10% of
+    radius for at least 99% of contacts; document tested solver limits.
+[ ] Complete ten-minute soaks on Metal and D3D11 and record comparable scene
+    invariants and benchmark baselines. Investigate controlled p95 regressions
+    over 10% and document their resolution or explicit explanation.
+[ ] Do not begin fluid complexity until cross-platform granular stability passes.
+
+Handoff: Validated neighbor index, stable granular solver, measured settings
+and regression fixtures for resident terrain integration.

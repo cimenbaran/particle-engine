@@ -1,0 +1,62 @@
+SPRINT 4 - WATER, HEAT AND MATERIAL REACTIONS
+
+Goal: Add stable basin water and a bounded ignition/extinction interaction.
+Planning window: Weeks 9-11.
+Dependencies: Sprint 3 terrain integration and Sprint 2 granular stability.
+Source: Particle_World_Design.docx, sections 3, 5-7 and 11-14.
+
+Tasks
+[ ] S4-01 Add an explicit fluid profile: rest density, compact-support kernel,
+    support radius, regularization/compliance, viscosity and iteration count.
+    Start with three position-based density-constraint iterations.
+[ ] S4-02 Implement density estimation and separate Jacobi correction passes.
+    Rebuild neighbors each fluid iteration initially; constrain any later
+    reuse with a verified displacement bound. Apply bounded viscosity after
+    velocity reconstruction and share the physical fixed-step timeline.
+[ ] S4-03 Implement wall-density treatment using container particles or a
+    calibrated occupancy contribution. Verify resting surfaces and wall slip;
+    retain swept contact and high-speed substeps. Label heavy-debris coupling
+    as one-way and defer two-way momentum transfer.
+[ ] S4-04 Populate stone, sand, water, wood/grass fuel, ash, smoke and steam
+    profiles with explicit units. Reject nonpositive heat capacities, invalid
+    coefficients, impossible transition targets and unsupported cycles.
+[ ] S4-05 Gather heat from coherent prior state, convert through heat capacity
+    and clamp exchange to prevent overshoot. Establish tested thermal timestep
+    bounds or substeps and add temperature visualization.
+[ ] S4-06 Implement ignition, fuel consumption, bounded heat release, ash
+    production and water cooling/extinction. Fire is a burning fuel state;
+    stone melting and wet-sand cohesion remain outside the required slice.
+[ ] S4-07 Resolve transitions once per particle per tick in priority order:
+    invalid/dead cleanup, forced conversion, phase change, ignition/extinction,
+    age expiration. Gather proposals separately from commits; reserve physical
+    product slots and defer conversion when capacity is unavailable.
+[ ] S4-08 Add buoyancy, wind, drag and lifetime for cosmetic smoke/steam plus
+    dropped-emission counters. Hot-surface steam is a labeled visual effect
+    that consumes no water; defer physical evaporation until an explicit
+    energy and latent-heat budget is implemented.
+[ ] S4-09 Validate material reloads and commit at tick boundaries while preserving
+    IDs. Reject removal of materials used by the live scene unless reset.
+[ ] S4-10 Build resting-pool, dam-break, burning-patch and extinguishing presets.
+    Complete the basin's water and fuel patch and expose solver/reaction
+    settings with clear supported-range and degradation diagnostics.
+[ ] S4-11 Profile water, neighbor rebuilds and heat separately; optimize only
+    demonstrated bottlenecks while retaining regression invariants.
+
+Validation and completion gates
+[ ] Water column, resting pool and dam-break fixtures remain finite and stable
+    with bounded penetration; wall treatment avoids persistent sticking or
+    collapse. Check dense spawns and interaction with terrain edits.
+[ ] Water extinguishes a small burning patch; dry fuel spreads only with fuel
+    and heat; isolated fuel exhausts; ash does not reignite; cold water emits
+    no steam. Full pools defer physical reactions without mass loss.
+[ ] Complete ten-minute mixed-scene soaks on Metal and D3D11.
+[ ] Benchmark 100,000 physical particles including up to 25,000 water, plus up
+    to 150,000 cosmetic particles at 1080p. Aim for p95 <=16.7 ms, approximately
+    8 ms GPU simulation, 6 ms rendering and CPU submission/update below 3 ms.
+[ ] Track particle working memory below 512 MB and total GPU allocations below
+    1.5 GB. These are target budgets; publish measurements and a reduced tier
+    if necessary. If fluids fail the release gate, explicitly record the
+    limitation and preserve the stable sand/destruction demonstration.
+
+Handoff: A measured water/heat feature tier, validated reactions and mixed
+showcase scenes ready for presentation and release hardening.

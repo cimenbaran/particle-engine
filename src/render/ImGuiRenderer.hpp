@@ -1,0 +1,20 @@
+#pragma once
+#include <bgfx/bgfx.h>
+#include <filesystem>
+struct ImDrawData;
+namespace pw {
+class ImGuiRenderer {
+public:
+    explicit ImGuiRenderer(const std::filesystem::path& assets);
+    ~ImGuiRenderer();
+    ImGuiRenderer(const ImGuiRenderer&) = delete;
+    ImGuiRenderer& operator=(const ImGuiRenderer&) = delete;
+    void render(ImDrawData* data, std::uint16_t view);
+private:
+    void release();
+    bgfx::ProgramHandle program_ = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle sampler_ = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle font_ = BGFX_INVALID_HANDLE;
+    bgfx::VertexLayout layout_;
+};
+}

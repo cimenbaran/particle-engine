@@ -1,0 +1,94 @@
+SPRINT 1 IMPLEMENTATION STATUS
+Updated: 12 October 2026
+
+Sprint 1 is in progress. This is a foundation implementation, not a claim that
+the full particle core or either platform certification gate is complete.
+
+Implemented and locally exercised
+- C++20/CMake 3.28+ source layout, Ninja presets, fixed dependency commits and
+  a local Git repository on codex/sprint-1-foundation.
+- SDL3 native window lifecycle and a small native-handle adapter. bgfx owns
+  the Metal layer; no second SDL Metal layer is created.
+- Explicit Metal/D3D11 selection with backend fallback disabled. Compute,
+  binding/instance limits and diagnostic image support are checked at runtime.
+- Backend shaderc build rules and executable-relative assets. macOS assets
+  are in bundle Resources, matching SDL_GetBasePath behavior.
+- An ImGui SDL3 platform backend and project bgfx renderer with font texture,
+  scissor, index offsets, framebuffer scaling and deferred resource destruction.
+- GPU reset, ping-pong gravity/drag/analytic box contacts and instanced rendering
+  of 16,384 seeded particles. Compute views 0-4 precede draw views 10 and 20.
+- A 64-byte particle ABI, 32-byte packed render record, stable ID/generation
+  authoring fields, CPU command validation and fixed 1/60-second scheduling.
+- Pause, single tick, seeded reset, orbit controls and CPU/GPU frame-time display.
+- CPU invariant tests, a real-device GPU ABI test and bounded --frames runs.
+- A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
+  The workflow is authored locally; it has not run on a remote CI service.
+
+Verified evidence
+- Local machine: Apple M3 Max, 48 GB unified memory. This is not the design's
+  M1 Pro reference tier, and these checks are not performance certification.
+- Release configuration and compilation completed with AppleClang 21 and Metal.
+- CTest core_invariants passed in CPU-only and full application builds.
+- --gpu-test passed exact 64-byte round trips for counts 1, 127, 128 and 129
+  through GPU reset and export passes. This verifies ABI and ordered compute
+  visibility; it does not certify a free list or the future granular solver.
+- --frames 600 completed and shut down cleanly after 302 fixed ticks.
+- The final GPU suite additionally passed gravity, drag, floor/box contacts,
+  finite-state and identity preservation against a CPU reference at all four
+  particle counts (relative/absolute float tolerance 1e-5).
+- Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
+  commits were verified; the final build no longer uses the temporary checkout.
+- SDL archive builds use the pinned SDL revision rather than probing parent Git.
+- Packaged app smoke test launched from /tmp completed 600 frames and 305 ticks.
+  All 7 packaged shader manifests match their binary SHA-256 hashes; 8 dependency
+  license notices are included. Runtime dynamic links are system libraries only.
+- Local package: out/macos-release/ParticleWorld.app (not distribution-signed
+  or notarized). Source build and package both use bundle Resources/assets.
+- Native visual inspection showed particles and readable ImGui controls.
+- UI verification: single-step paused at tick 583, the next click advanced to
+  584, and reset while paused returned to tick 0 and restored the seeded cloud.
+- Native window zoom/restore preserved drawing and UI; close exited cleanly.
+- Synthetic-click testing exposed stale mouse position in global polling.
+  Button event coordinates are now queued before the ImGui button event, and
+  the pause/single-step/reset checks passed afterward.
+
+Task coverage and remaining work
+S1-01: Source layout and pins implemented; Windows compatibility still requires
+       an actual build. Do not mark the full compatibility task complete yet.
+S1-02: Metal lifecycle/resize/close exercised. Minimize/focus-loss stress and
+       Windows lifecycle validation remain.
+S1-03: Initial probes and clear failures implemented. Complete the structured
+       supported/degraded/unavailable report and 128/256 workgroup variants.
+S1-04: Shader compilation, packaging and SHA-256 provenance manifests implemented.
+       Shared content-addressed cache and retain-last-good shader reload remain.
+S1-05: Ordered compute/draw path and deferred handle destruction implemented.
+       Expand ownership/resize tests and fixed-graph declarations as needed.
+S1-06: ImGui and basic controls implemented. Free-fly camera, brush commands and
+       full UI texture/transient-capacity diagnostics remain.
+S1-07: Particle/render layouts and Metal particle sentinel tests implemented.
+       Packed material ABI and D3D11 sentinel validation remain.
+S1-08: Clock and CPU command validator implemented and tested. Queue ordering,
+       batch quotas, upload and live tools integration remain.
+S1-09: Gravity, drag and analytic contacts exist. GPU free lists, generation
+       updates, lifetime, allocation ownership and active compaction remain.
+S1-10: Fixed in-code seed exists. Versioned material JSON, packed asset builder,
+       schema hashes, scene files, command recording and cosmetic pools remain.
+S1-11: GPU-written instances render with a known initialized count. Culling,
+       classification, indirect draws and inactive-record masking remain.
+S1-12: Basic timings, native test mode and CI files exist. Full diagnostic panels,
+       benchmark JSON/CSV, memory accounting and Windows package checks remain.
+
+Open gates
+- Windows/D3D11 build and real-device execution are unverified.
+- Ten-minute soak, zero/max-capacity/full-pool tests and million-particle
+  benchmark have not been completed.
+- No baseline p95 target is claimed. The current demo has no pair contacts.
+- Readback is limited to explicit startup/GPU tests; the steady-state scene
+  performs no full-particle readback.
+
+Next implementation order
+1. Complete material ABI, shader cache/reload and platform capability report.
+2. Integrate bounded commands, free-list ownership, IDs and compaction with GPU
+   tests before connecting spawning tools or increasing particle capacity.
+3. Add lifetime/cosmetics, presets and real-device benchmark output; run the
+   remaining foundation/core gates on Metal and D3D11.

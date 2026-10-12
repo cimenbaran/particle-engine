@@ -1,0 +1,68 @@
+SPRINT 1 - FOUNDATION AND PARTICLE CORE
+
+Goal: Run a bounded GPU particle sandbox on Metal and D3D11.
+Planning window: Weeks 1-4 of the design's provisional 12-16 developer weeks.
+Dependencies: None. Complete the foundation gate before expanding the core.
+Source: Particle_World_Design.docx, sections 2-4 and 9-13.
+
+Plan context
+These five sprints group the design's six milestones by combining foundation
+and particle core here. Windows are estimates, not fixed sprint commitments;
+correctness gates can extend them. Performance targets are unmeasured budgets.
+Scope is the bounded native sandbox, using C++20, CMake, SDL3, bgfx, GLM and
+Dear ImGui. Large-world streaming and other future extensions are deferred.
+
+Implementation status: In progress. See ../docs/Sprint_01_Progress.txt for
+verified results, partial task coverage and open gates. Checkboxes below remain
+open until their full scope is verified.
+
+Tasks
+[ ] S1-01 Create the source, shader, asset, test, benchmark and documentation
+    directories. Set C++20 and CMake 3.28+ presets for MSVC and AppleClang;
+    pin compatible bgfx/bx/bimg, SDL3, GLM, ImGui and JSON parser revisions.
+[ ] S1-02 Implement main-thread SDL lifecycle, input, drawable-pixel resize and
+    native-handle adapters. Resolve single-owner Metal layer integration;
+    validate Windows 11 x64/D3D11 and macOS 13+ Apple silicon/Metal.
+[ ] S1-03 Probe compute, buffer access, workgroups, instancing and indirect
+    support. Produce actionable capability errors and a supported/degraded/
+    unavailable report. Establish right-handed, Y-up, metre conventions.
+[ ] S1-04 Build and package shaderc outputs for each platform, keyed by source,
+    includes, compiler, profile and defines. Retain the last valid program on
+    reload failure. Runtime packages must not require a shader compiler.
+[ ] S1-05 Add resource ownership and deferred destruction, ordered bgfx views
+    and a fixed compute graph. Validate compute-to-compute and compute-to-draw
+    dependencies; keep worker results immutable until main-thread adoption.
+[ ] S1-06 Integrate ImGui SDL3 and bgfx adapters, including scissor, index offsets,
+    textures and Retina scaling. Add free camera, pause, single-tick step,
+    scene reset and basic material brush controls; disable multi-viewports.
+[ ] S1-07 Define and assert the 64-byte particle ABI, 32-byte render records,
+    material packing, stable IDs and slot generations. Round-trip sentinels
+    through compute on both backends before adding simulation complexity.
+[ ] S1-08 Implement 1/60-second ticks, a four-tick catch-up cap and lag reporting.
+    Validate bounded commands with ticks and stable sequence numbers; reject
+    invalid material IDs, non-finite values and quota violations before upload.
+[ ] S1-09 Implement GPU allocation/free lists, alive flags, active compaction,
+    gravity, drag, lifetime and analytic planes/boxes. Maintain exactly one
+    alive-or-free owner per slot and clamp every dispatch/draw to capacity.
+[ ] S1-10 Implement versioned material JSON validation and packed asset output,
+    seed-based presets, command recording and separate cosmetic particle pools.
+[ ] S1-11 Render basic instanced particles with culling and material classes.
+    Use indirect draws when supported; otherwise mask inactive fixed-capacity
+    instances without synchronous count readback or uninitialized records.
+[ ] S1-12 Add timing, counts, rejected work and allocation panels, delayed GPU
+    diagnostics, a real-device benchmark CLI exporting JSON/CSV, and Windows/
+    macOS build and shader compilation jobs. Package minimal apps on both OSes.
+
+Validation and completion gates
+[ ] Foundation gate: Both apps display ImGui and compute-updated particles;
+    sentinel layout, resize, minimize, focus and shutdown checks pass.
+[ ] Core gate: Test zero, one, workgroup-boundary and maximum-capacity workloads,
+    full pools, duplicate-free prevention, stable IDs and invalid commands.
+[ ] Run a ten-minute soak with finite state and bounded overflow behavior.
+[ ] Benchmark one million simple ballistic/cosmetic particles with terrain
+    contact and no pair solve at 1080p; target p95 <=16.7 ms. Record achieved
+    counts and timings on both reference machines rather than claiming success.
+[ ] Presets reset repeatably; normal operation has no full-particle readback.
+
+Handoff: A working cross-platform compute foundation, particle pool, tools,
+basic renderer, benchmark harness and baseline reports for Sprint 2.

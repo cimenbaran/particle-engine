@@ -1,0 +1,18 @@
+# Build-time provenance for each packaged binary. Includes are deliberately
+# conservative: any bgfx shader include change invalidates the fingerprint.
+file(SHA256 "${SOURCE}" source_hash)
+file(SHA256 "${VARYING}" varying_hash)
+file(SHA256 "${COMPILER}" compiler_hash)
+file(SHA256 "${BINARY}" binary_hash)
+file(GLOB_RECURSE includes "${INCLUDE_ROOT}/*.sh")
+list(SORT includes)
+set(include_material "")
+foreach(path IN LISTS includes)
+  file(SHA256 "${path}" hash)
+  file(RELATIVE_PATH relative "${INCLUDE_ROOT}" "${path}")
+  string(APPEND include_material "${relative}:${hash}\n")
+endforeach()
+string(SHA256 include_hash "${include_material}")
+string(SHA256 fingerprint "${source_hash}|${varying_hash}|${include_hash}|${compiler_hash}|${PLATFORM}|${PROFILE}|${KIND}|defines=none")
+get_filename_component(shader_name "${SOURCE}" NAME)
+file(WRITE "${OUTPUT}" "{\n  \"schema\": 1,\n  \"shader\": \"${shader_name}\",\n  \"platform\": \"${PLATFORM}\",\n  \"profile\": \"${PROFILE}\",\n  \"type\": \"${KIND}\",\n  \"defines\": [],\n  \"source_sha256\": \"${source_hash}\",\n  \"varying_sha256\": \"${varying_hash}\",\n  \"includes_sha256\": \"${include_hash}\",\n  \"compiler_sha256\": \"${compiler_hash}\",\n  \"binary_sha256\": \"${binary_hash}\",\n  \"fingerprint\": \"${fingerprint}\"\n}\n")
