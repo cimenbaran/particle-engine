@@ -1,0 +1,84 @@
+GPU JACOBI POSITION CONTACTS - ISOLATED GRANULAR COMPONENT
+
+Scope
+GpuJacobiContacts computes one position-only Jacobi iteration for the physical
+solid pool. It is currently exercised by --gpu-test, not the live application.
+It is not a complete physics time step: prediction, velocity reconstruction,
+restitution/friction, analytic terrain handling, live error reporting/recovery,
+settling and energy/stability gates remain unfinished.
+
+Profile and math
+Every indexed solid must have common radius 0.0625 m (diameter 0.125 m, equal to
+the spatial cell width). All solid materials interact. Inverse mass is either
+zero (immovable) or positive, finite and normal; negative, NaN/Inf and subnormal
+inverse masses invalidate the iteration. Excluded liquid/gas/dead slots keep
+all their state unchanged. Cosmetic buffers must not be supplied as physical
+state. The existing key generator enforces position/material/identity validity.
+
+For an overlapping pair, each query accumulates an outward position correction
+of penetration * wi/(wi+wj). Both-zero inverse masses produce no displacement.
+Weights normalize exponent/mantissa parts before division, keeping the divisor
+in [1,4) and avoiding overflow or flushed reciprocals at extreme normal masses.
+A weight far below float resolution may round to zero. Penetration is diameter
+minus centre distance. Exact tangency is not an overlap.
+
+For separation squared <=1e-12 m^2, a deterministic ID-based axis supplies the
+normal; the two query directions are opposite. This handles coincident spawns
+without division by zero. Corrections are summed from the immutable input,
+scaled by relaxation (default 0.8, allowed (0,1]) and bounded in Euclidean length
+(default 0.03125 m, allowed (0,radius]). This cap is a numerical stabilizer,
+not proof of energy dissipation or momentum conservation in a dense graph.
+Asymmetric per-particle caps can change aggregate momentum. Those stability
+properties require later full-step tests with velocity reconstruction.
+
+GPU sequence
+Each submit builds fresh keys, stable radix order, occupied ranges and the hash
+from its input. Then it clears diagnostics, computes separate corrections,
+reduces errors across all particles, and applies corrections to a different
+state buffer. Every pass uses the same sequential view. Two private output
+buffers alternate, so a previous output can become the next immutable input.
+Repeated submits in the same view do not require CPU readback or synchronization.
+The full index is rebuilt every iteration; no stale-neighborhood reuse is used.
+
+The class owns two 64-byte-per-slot state buffers, a 32-byte-per-slot correction/
+metrics buffer, its index pipeline and 16-byte diagnostics. There are no
+allocations or CPU readbacks inside submit. At most six compute bindings are
+used in any pass. Input/material buffers must remain alive until GPU execution
+finishes. Material storage must contain the stated material count. State storage
+must cover max(1,capacity) ParticleGpu records; capacity is 0..1,048,576.
+Output is valid after submission; capacity zero has zero valid output records.
+
+Failure behavior and preservation
+Diagnostics: error bits, maximum overlaps on one particle, maximum candidate
+count, maximum hash probes. Error bits are:
+  1 invalid/incomplete index
+  2 corrupt neighbor data or invalid traversal configuration
+  4 unsupported radius or inverse mass
+  8 non-finite correction
+ 16 proposed corrected centre outside the bounded domain
+Any error makes the apply pass copy the entire input unchanged. No subset of
+particles receives a correction from a failed iteration. The error must still
+be handled by the future live owner; unchanged output is not successful physics.
+Diagnostics reset on each submit, and corrected external input can recover using
+the same solver object. Proposed domain exits are rejected here; this is not an
+implemented wall collider or remove/reflect exit policy.
+
+Only xyz position components can change. Radius, velocity/inverse mass, thermal
+state, flags and persistent slot/generation identity retain their original bits.
+Zero corrections avoid arithmetic on excluded NaNs and preserve immovable data.
+External input is never modified. Each consumer must wait for/sequence GPU work
+correctly before reusing the class's two output buffers.
+
+Validation
+GPU tests compare output to a double-precision all-pairs CPU Jacobi reference,
+with a 2e-5 m position tolerance. They verify original-input bytes, every
+non-position field, exact failed/excluded/static preservation, diagnostics,
+finite output and the correction-length bound. Cases cover workgroup boundaries,
+coincident particles, equal/unequal/static masses, tangency/separation, dense
+spawns, exclusions, extreme normal masses, invalid profile/index inputs, domain
+exit rollback, recovery and zero capacity. Four/eight-iteration sequences submit
+all iterations before readback and compare against repeated CPU iterations.
+
+See tests/results/m3-max-jacobi-contacts.txt. This establishes local position
+correction behavior, not stable piles, a complete granular time step, reference
+hardware performance or D3D11 runtime certification for this component.

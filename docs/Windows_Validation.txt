@@ -106,3 +106,14 @@ without any stores to the buffer). It exports all eight words for the same
 strict expected-argument comparison. Production argument generation is unchanged.
 Both local Metal workgroup variants pass the complete GPU suite after the fix;
 all nine CTests pass. Windows confirmation remains pending.
+
+First complete WARP suite and replay pass
+Run 38305845264, source d328d98, completed successfully in all four jobs.
+Both Windows workgroup variants passed nine CTests, the full then-current GPU
+suite including indirect arguments, and both 1,024-tick replay regression modes.
+Downloaded replay reports confirm Direct3D 11 software mode, 81 commands,
+active 73/free 184/rejected 128 and clean identity/ownership/state audits.
+See tests/results/ci-38305845264-warp.txt for exact source and report hashes.
+This resolves the indirect readback validation failure. It does not certify
+hardware performance, native interaction, long hardware soaks, or newer hash,
+neighbor and contact components absent from that source revision.

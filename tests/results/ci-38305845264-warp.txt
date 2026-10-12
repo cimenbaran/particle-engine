@@ -1,0 +1,35 @@
+D3D11 WARP VALIDATION - CI RUN 38305845264
+Date: 2026-10-12 UTC / 2026-10-13 Europe/Istanbul (completion)
+Source: d328d987c09ac8daf9a4114db597137fbb65edd9
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38305845264
+Both Windows-2022 workgroup jobs completed successfully. All four build jobs
+(Windows/macOS x 128/256) completed successfully.
+
+Both Windows variants compiled all then-current shaders, passed nine CTests,
+packaged, accepted WARP capabilities, and passed the complete GPU suite:
+ABI/material/integration, pool ownership/reuse/lifetime, visibility/indirect
+arguments, audit fault checks, prefix scan, stable radix sort, spatial keys,
+occupied ranges, GUI pixels, shader reload rollback and pool isolation.
+Key/sort/range scale checks reached 1,048,576 records.
+
+wg128 default: 1024 ticks, 81 commands, active 73/free 184/rejected 128;
+  all 257 slots audited clean. Indirect=True
+  report SHA256: df2e550e48a626419adddd9fb32243e971d1168cfbcee2f70eab97aeb509f1a3
+wg128 masked: 1024 ticks, 81 commands, active 73/free 184/rejected 128;
+  all 257 slots audited clean. Indirect=False
+  report SHA256: 83bcbab52683f38f86c03adf59accf31ca618d6dab800f05c3cdb68b13b846c7
+wg256 default: 1024 ticks, 81 commands, active 73/free 184/rejected 128;
+  all 257 slots audited clean. Indirect=True
+  report SHA256: 692c24f5cb106c22334946af8506d9cb4fb6d6455823f97abad293627a5e7451
+wg256 masked: 1024 ticks, 81 commands, active 73/free 184/rejected 128;
+  all 257 slots audited clean. Indirect=False
+  report SHA256: bdab41289e4eeafe46ab95db25eb1fde70ea5ea12d366f72a512f89230bca213
+
+Artifacts downloaded and checked locally under out/warp-38305845264-wg128
+and out/warp-38305845264-wg256. Full job logs are under
+out/ci-38305845264-windows128.log and ...-windows256.log.
+
+Scope limits: explicitly requested SOFTWARE WARP device, not an AMD/NVIDIA
+hardware benchmark, native window/input test or ten-minute hardware soak.
+This source predates GpuCellHash, GPU neighbor traversal and Jacobi contacts;
+it provides no Windows runtime evidence for those newer components.

@@ -15,7 +15,9 @@ GPU key emission and occupied-cell ranges are under isolated validation in
 Exact-key GPU hashing and failure-gated queries are covered by
 ../docs/GPU_Cell_Hash.txt. Shared support-aware traversal and full GPU-pipeline
 membership fixtures are described in ../docs/GPU_Neighbors.txt. Live neighbor
-consumption, index recovery and contact solving remain open.
+consumption and index recovery remain open. An isolated position-only Jacobi
+iteration is described in ../docs/GPU_Jacobi_Contacts.txt; live time stepping,
+velocity reconstruction, terrain handling and stability gates remain open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

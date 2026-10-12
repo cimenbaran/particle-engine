@@ -1,0 +1,36 @@
+GPU JACOBI POSITION CONTACTS - LOCAL METAL EVIDENCE
+Date: 2026-10-13 Europe/Istanbul
+Host: Apple M3 Max, 48 GB; not reference M1 Pro hardware.
+
+Both PW_WORKGROUP_SIZE=128 and 256 passed the complete --gpu-test suite.
+38 Jacobi fixtures per variant compare against a double-precision all-pairs
+CPU reference, with position tolerance 2e-5 metres. Checks cover:
+- 1,2,127,128,129,255,256,257 slots and dense coincident groups.
+- Equal/unequal inverse mass, static/dynamic pairs, both-static pairs.
+- Tangency/separated particles and common-radius profile rejection.
+- Relaxation and per-iteration Euclidean correction limits.
+- Normal inverse masses at FLT_MIN and FLT_MAX, including extreme ratios.
+- Dead NaN slots, liquid/gas exclusions and compatible solid material IDs.
+- Negative/nonfinite/subnormal inverse mass errors.
+- Invalid index input, generation error and proposed domain-exit rollback.
+- Same-object failure recovery, all-dead pools and zero capacity.
+- Four/eight iterations submitted in one sequential view before readback,
+  with fresh indexing and alternating output buffers on every iteration.
+- Original input bytes unchanged, all non-position fields unchanged, exact
+  failed/excluded/static preservation, finite output and bounded diagnostics.
+- All nine CTests passed in each workgroup configuration.
+
+The extreme equal-FLT_MAX fixture initially exposed non-finite weighting under
+Metal reciprocal flushing. Exponent/mantissa normalization fixed the issue;
+all extreme-mass fixtures and the complete suite passed after the correction.
+
+Local ignored logs:
+out/contacts-128-final-gpu.log
+out/contacts-256-final-gpu.log
+out/contacts-128-ctest.log
+out/contacts-256-ctest.log
+
+Scope: position-only common-radius iteration tested on Metal. Not enabled in
+live simulation. No velocity reconstruction, friction/restitution, analytic
+terrain response, stable-pile/energy certification or contact performance claim.
+D3D11 runtime confirmation for this new component remains pending.
