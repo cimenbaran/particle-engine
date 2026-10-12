@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <span>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 namespace pw::reference {
@@ -10,6 +11,7 @@ struct SpatialPoint {
     std::uint32_t slot;
     SpatialGrid::Position position;
     bool active=true,physical=true;
+    std::uint32_t interactionClass=0; // Same-class contacts in this fixture profile.
     bool operator==(const SpatialPoint&) const=default;
 };
 struct CellSlot {
@@ -57,4 +59,51 @@ inline SpatialIndex buildSpatialIndex(const SpatialGrid& grid,std::span<const Sp
     }
     return index;
 }
+// Owns a snapshot: querying an index with positions from another solver
+// iteration is intentionally impossible through this reference interface.
+class NeighborReference {
+public:
+    NeighborReference(SpatialGrid grid,std::span<const SpatialPoint> points)
+        :grid_(grid),points_(points.begin(),points.end()),index_(buildSpatialIndex(grid_,points_)) {
+        for(std::size_t i=0;i<points_.size();++i) bySlot_.emplace(points_[i].slot,i);
+    }
+    const SpatialIndex& index() const {return index_;}
+    std::vector<std::uint32_t> neighbors(std::uint32_t slot,float support) const {
+        const auto radius=grid_.searchRadius(support);
+        const auto found=bySlot_.find(slot);
+        if(found==bySlot_.end()) throw std::invalid_argument("Unknown query slot");
+        const auto& query=points_[found->second];
+        if(!query.active || !query.physical) return {};
+        const auto cell=*grid_.coordinates(query.position);
+        const double supportSquared=double(support)*support;
+        std::vector<std::uint32_t> result;
+        // Test fixtures scan occupied cells rather than allocating dense tables
+        // or enumerating potentially huge empty search boxes. The same integer
+        // support bounds apply to a future GPU neighbor-cell enumeration.
+        for(const auto& range:index_.ranges) {
+            const auto candidateCell=*grid_.decode(range.key);
+            bool inRange=true;
+            for(unsigned axis=0;axis<3;++axis)
+                if(std::abs(std::int64_t(candidateCell[axis])-cell[axis])>radius) inRange=false;
+            if(!inRange) continue;
+            for(std::uint32_t i=range.begin;i<range.end;++i) {
+                const auto& candidate=points_[bySlot_.at(index_.records[i].slot)];
+                if(candidate.slot==slot || candidate.interactionClass!=query.interactionClass) continue;
+                double distanceSquared=0;
+                for(unsigned axis=0;axis<3;++axis) {
+                    const double delta=double(candidate.position[axis])-query.position[axis];
+                    distanceSquared+=delta*delta;
+                }
+                if(distanceSquared<=supportSquared) result.push_back(candidate.slot);
+            }
+        }
+        std::sort(result.begin(),result.end());
+        return result;
+    }
+private:
+    SpatialGrid grid_;
+    std::vector<SpatialPoint> points_;
+    SpatialIndex index_;
+    std::unordered_map<std::uint32_t,std::size_t> bySlot_;
+};
 }

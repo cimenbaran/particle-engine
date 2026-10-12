@@ -73,4 +73,29 @@ cells, 20 shuffled emission orders, dense cells with 1/127/128/129/255/256/257/
 1,024 particles, all 64 cells in a small domain, invalid/duplicate slots and
 eligible invalid positions. Bitwise position checks ensure inactive NaNs remain
 untouched. This is an independent sorting/range oracle for later GPU comparison;
-GPU scan/radix sort, bounded hash probing and neighbor queries remain open.
+GPU scan/radix sort, bounded hash probing and GPU neighbor queries remain open.
+
+NEIGHBOR MEMBERSHIP REFERENCE
+
+NeighborReference owns its point snapshot and the index built from that snapshot.
+Callers cannot move particles while continuing to query stale ranges. A query
+uses the grid's ceil(support/width) cell radius, then checks exact squared
+centre distance in double precision. It excludes the querying slot, inactive
+and nonphysical points, and different interaction classes. Interaction classes
+are fixture compatibility groups, not material IDs: multiple granular materials
+can share one group. Future solid/fluid coupling needs an explicit compatibility
+policy; this fixture does not prescribe that solver's interaction matrix.
+
+The reference scans occupied cells inside the integer search bounds, retrieves
+their ranges and returns sorted eligible slot IDs. There is no neighbor cap.
+It is a test oracle, not an optimized CPU simulation path or a GPU implementation.
+Zero support still returns distinct coincident particles. Missing query slots
+and invalid support fail explicitly; inactive/cosmetic query slots return empty.
+
+neighbor_reference compares 3,855 queries against an independent all-pairs
+Euclidean-distance oracle (257 points, three cell widths, five supports).
+Fixtures include exact support distances and adjacent floating-point values,
+negative coordinates, support larger than cell width, incompatible classes,
+inactive/cosmetic points, a 1,024-particle coincident cell, and caller position
+changes requiring a new snapshot. All nine full-build tests and four CPU-only
+tests passed locally. GPU membership and cross-backend execution remain open.
