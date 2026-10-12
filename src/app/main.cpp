@@ -103,7 +103,7 @@ struct Particles {
     const uint32_t particleCount;
     std::filesystem::path assetsPath;
     std::unique_ptr<pw::GpuGranularStep> granular;
-    std::unique_ptr<pw::PoolDiagnostics> granularDiagnostics;
+    std::unique_ptr<pw::PoolDiagnostics> granularDiagnostics,neighborhoodDiagnostics;
     std::unique_ptr<pw::GpuSettling> settling;
     std::unique_ptr<pw::GpuParticleDebug> debugView;
     int debugMode=0;
@@ -172,12 +172,13 @@ struct Particles {
             auto candidate=std::make_unique<pw::GpuGranularStep>(assetsPath,particleCount,pw::GranularStepProfile{},4,9.81f,true);
             auto diagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto tracker=std::make_unique<pw::GpuSettling>(assetsPath,particleCount,pw::SettlingProfile{},true);
+            auto neighborhoodDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto trackingDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto debug=std::make_unique<pw::GpuParticleDebug>(assetsPath);
             granular=std::move(candidate);granularDiagnostics=std::move(diagnostic);
-            debugView=std::move(debug);
+            debugView=std::move(debug);neighborhoodDiagnostics=std::move(neighborhoodDiagnostic);
             settling=std::move(tracker);settlingDiagnostics=std::move(trackingDiagnostic);
-        } else {debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();granularDiagnostics.reset();granular.reset();}
+        } else {debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();}
         granularFault=false;reloadPending=false;reset();solverMessage.clear();
     }
     void stageShaders(pw::ShaderReload& reload) {
@@ -209,7 +210,7 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
-        debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();granularDiagnostics.reset();granular.reset();
+        debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();
         visibleDiagnostics.reset();
         diagnostics.reset();
         visibility.reset();
@@ -236,7 +237,7 @@ struct Particles {
                 p.positionRadius[3]=0.0625f;
                 p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*0.0625f*0.0625f*0.0625f*materials.entries[p.identity[0]].gpu.mechanical[0]);
             }
-            granular->resetFailures(0);granularDiagnostics->beginEpoch();
+            granular->resetFailures(0);granularDiagnostics->beginEpoch();neighborhoodDiagnostics->beginEpoch();
             settling->reset(0);settlingDiagnostics->beginEpoch();granularFault=false;
         }
         diagnostics->beginEpoch();
@@ -439,8 +440,10 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         sandbox.queueBrush(pw::CommandType::ApplyImpulse,30);sandbox.tick(1);
         pw::ParticleAudit audit(assets,129);audit.prepare(4,sandbox.state[sandbox.current],sandbox.pool->activeSlots(),sandbox.pool->freeSlots(),sandbox.pool->counts(),uint32_t(sandbox.materials.entries.size()));
         require(audit.request(6,2),"Granular application audit request failed");
+        require(sandbox.neighborhoodDiagnostics->request(6,sandbox.granular->neighborhoodStatus(),2),"Neighborhood application diagnostic request failed");
         require(sandbox.granularDiagnostics->request(6,sandbox.granular->status(),2),"Granular application diagnostic request failed");
-        while(audit.pending() || sandbox.granularDiagnostics->pending()){auto frame=bgfx::frame();audit.poll(frame);sandbox.granularDiagnostics->poll(frame);}
+        while(audit.pending() || sandbox.granularDiagnostics->pending() || sandbox.neighborhoodDiagnostics->pending()){auto frame=bgfx::frame();audit.poll(frame);sandbox.granularDiagnostics->poll(frame);sandbox.neighborhoodDiagnostics->poll(frame);}
+        require(sandbox.neighborhoodDiagnostics->latest().valid && sandbox.neighborhoodDiagnostics->latest().tick==2 && sandbox.neighborhoodDiagnostics->latest().rejected==20,"Neighborhood application snapshot missing");
         require(audit.latest().active==129 && !audit.latest().free && !audit.latest().reserved && !audit.latest().rejected,"Granular application ownership/state audit failed");
         require(!sandbox.granularDiagnostics->latest().active && sandbox.granularDiagnostics->latest().free>0,"Granular application cap/fault diagnostics failed");
         sandbox.queueBrush(pw::CommandType::RemoveBrush,0);sandbox.tick(1);auto empty=snapshot(sandbox);
@@ -785,7 +788,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         (particles.granularDiagnostics && (particles.granularDiagnostics->latest().tick!=ticks || particles.settlingDiagnostics->latest().tick!=ticks))))
         failure="Soak final snapshots do not match the final tick";
     auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true);
-    if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=128;resources.diagnosticHost+=96;}
+    if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=192;resources.diagnosticHost+=144;}
     Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v1":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"resources",pw::resourceReport(resources,*bgfx::getStats())},
         {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
@@ -905,6 +908,7 @@ int main(int argc, char** argv) {
         while(running) {
             if(particles.granularDiagnostics) {
                 particles.granularDiagnostics->poll(completedFrame);
+                particles.neighborhoodDiagnostics->poll(completedFrame);
                 const auto& fault=particles.granularDiagnostics->latest();
                 if(fault.valid && fault.active) {particles.granularFault=true;paused=true;clock.reset();}
             }
@@ -989,6 +993,13 @@ int main(int argc, char** argv) {
                 const auto& g=particles.granularDiagnostics->latest();
                 if(g.valid) ImGui::Text("Caps: %u | Contacts: %u | Boundary events: %u",g.free,g.reserved,g.rejected);
                 else ImGui::TextDisabled("Waiting for solver snapshot...");
+                const auto& neighbors=particles.neighborhoodDiagnostics->latest();
+                if(neighbors.valid) {
+                    ImGui::Text("Neighborhood tick %llu",static_cast<unsigned long long>(neighbors.tick));
+                    ImGui::Text("Max candidates/query: %u | Max probes/query: %u",neighbors.free,neighbors.reserved);
+                    ImGui::TextDisabled("%u contact solves; candidates include self; no neighbor cap",neighbors.rejected);
+                    if(neighbors.active)ImGui::Text("Neighborhood error mask: 0x%x (partial metrics)",neighbors.active);
+                }
                 const auto& tracking=particles.settlingDiagnostics->latest();
                 if(tracking.valid) ImGui::Text("Settling candidates: %u | Acquiring: %u | Contact grace: %u",tracking.free,tracking.reserved,tracking.rejected);
                 else ImGui::TextDisabled("Waiting for settling snapshot...");
@@ -1149,7 +1160,7 @@ int main(int argc, char** argv) {
             ImGui::End();
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
-            if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=128;resources.diagnosticHost+=96;}
+            if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=192;resources.diagnosticHost+=144;}
             memoryPeaks.observe(pw::reportedMemory(*stats));
             pw::drawResourceUsage(resources,*stats,memoryPeaks);
             const auto& input=ImGui::GetIO();
@@ -1227,6 +1238,8 @@ int main(int argc, char** argv) {
             }
             if(particles.granularDiagnostics && ticks && (frames%8==0 || step || !particles.granularDiagnostics->latest().valid))
                 particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
+            if(particles.neighborhoodDiagnostics && ticks && (frames%8==0 || step || !particles.neighborhoodDiagnostics->latest().valid))
+                particles.neighborhoodDiagnostics->request(6,particles.granular->neighborhoodStatus(),ticks);
             if(particles.settlingDiagnostics && ticks && (frames%8==0 || step || !particles.settlingDiagnostics->latest().valid))
                 particles.settlingDiagnostics->request(6,particles.settling->status(),ticks);
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)

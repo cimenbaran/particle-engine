@@ -31,7 +31,7 @@ std::uint64_t granularPayloadBytes(std::uint32_t capacity) {
     std::uint64_t scan=0;auto count=capacity;
     for(;;){const auto groups=std::max(1u,dispatchGroups(count));scan+=4ull*(std::max(1u,count)+groups);if(groups==1)break;count=groups;}
     // All component payloads + two full indices with four recursive scans.
-    return 1312ull*std::max(1u,capacity)+256+4*scan+16ull*std::bit_ceil(capacity*2+2);
+    return 1312ull*std::max(1u,capacity)+272+4*scan+16ull*std::bit_ceil(capacity*2+2);
 }
 std::uint64_t settlingPayloadBytes(std::uint32_t capacity) {
     std::uint64_t scan=0;auto count=capacity;

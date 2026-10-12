@@ -50,6 +50,7 @@ not only colors. Tests cover speed scale points and overflow, negative/subnormal
 cell boundaries, domain exits, all settling colors, stale generations and tracker
 faults. Original particle and history bytes are checked unchanged after all modes.
 
-These views do not complete S2-10: collision-normal visualization, occupancy/probe/
-pair instrumentation and per-pass timing remain open. Windows results must be
+These views do not complete S2-10: collision-normal visualization, occupancy and total
+pair instrumentation and per-pass timing remain open. Interactive_Granular.txt
+describes the separate maximum candidates/query and probes/query diagnostics. Windows results must be
 verified separately; local Metal coverage is recorded in tests/results.

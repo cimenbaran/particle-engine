@@ -1,0 +1,13 @@
+METAL NEIGHBORHOOD DIAGNOSTICS
+Development tree based on 0dd58da with accompanying metrics implementation.
+M3 Max, 48 GiB. Full GPU suites pass at workgroups 128 and 256; restored 128.
+25 coordinator fixtures now check per-tick contact-solve counts, empty reset,
+candidate bounds, exact two-body maximum, nonzero probes, error retention and recovery.
+App-path coverage reads a valid neighborhood snapshot tagged tick 2 with 20 solves.
+Native 30-frame smoke exited cleanly after 43 ticks, solver/tracker errors zero.
+These are per-query maxima across a tick, not total pairs, occupancy or timings.
+Windows execution and visual layout inspection remain pending.
+
+out/neighborhood-metrics-final128.log sha256=d4a096574b01c14bbd332819b336f9627918573574e47667f00457eafae2a0a8
+out/neighborhood-metrics256.log sha256=4c6a458c826fb3d74b60b6dda8753460b09891a453fedc0429d9b44171619138
+out/neighborhood-metrics-ui-smoke.log sha256=c85b5835146ad8c8fb5dc98dd1fc812338c057c290acd13824f0af43c16cd873

@@ -42,11 +42,11 @@ report modes rather than labelling their old reports as granular results.
 Resource accounting
 The allocation panel adds solver payload and the extra diagnostic ring. With
 N=max(1,capacity), S=sum over prefix-scan levels of 4*(max(1,count)+groups), and
-H=bit_ceil(2*capacity+2), solver bytes are 1312*N + 256 + 4*S + 16*H. This covers
+H=bit_ceil(2*capacity+2), solver bytes are 1312*N + 272 + 4*S + 16*H. This covers
 the coordinator/components, both spatial indices, four scans and status buffers;
 it excludes driver alignment, shaders/uniforms and pending deferred destruction.
 Settling adds 80*N + 96 + 2*S + 8*H bytes for its history, index and fault latch.
-The solver and settling diagnostic rings add 128 GPU texture bytes and 96 host
+The solver, settling and neighborhood rings add 192 GPU texture bytes and 144 host
 readback bytes.
 This is requested payload accounting, not a certified resident-memory budget.
 
@@ -88,3 +88,28 @@ while paused. See Particle_Debug_Views.txt for legends and validation limits.
 
 --granular --soak now runs a separate granular lifecycle workload; see
 Granular_Soak.txt. Its reports include solver and settling faults and coverage.
+
+Neighborhood diagnostics
+The interactive UI samples a separate four-word GPU aggregate for the latest
+submitted tick. It displays the sample tick, maximum candidate records per query,
+maximum hash probes per query, and collected contact solves. Candidates include
+self and may fail the distance/contact filter; neither metric is a total pair
+count or a cell occupancy measurement. Maxima span all Jacobi iterations and
+velocity contact responses across all substeps. The default profile collects
+20 contact solves (4 substeps times 4 position solves plus 1 response). They reset
+each tick and on scene reset. The existing Contacts value is maximum contact
+degree; no neighbor truncation cap is used. Different delayed diagnostic rings
+may display different tick snapshots; the neighborhood tick is shown explicitly.
+
+Contact-phase errors are ORed with the existing phase bits and displayed as
+partial metrics. The authoritative solver failure latch still pauses publication.
+The new aggregate never changes particle state or solver decisions. Its 16-byte
+buffer and 64-byte GPU/48-byte host diagnostic ring are included in resource
+estimates. Soak mode allocates the ring through the same app owner but does not
+sample it; its existing synchronized audit/solver/settling samples are unchanged.
+
+GPU coordinator tests check a closed pair's exact candidate maximum, nonzero
+probes, zero-capacity reset, fixed solve counts across multi-tick reuse, error
+propagation and recovery. The app-path test checks a tick-tagged ring readback.
+Cell occupancy, total accepted/candidate pair counts, collision normals and
+per-pass timing remain open under S2-10.

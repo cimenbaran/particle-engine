@@ -32,7 +32,7 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     GranularHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
     GranularHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     GranularHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
-    std::array<std::uint32_t,4> stats{};unsigned cases=0;
+    std::array<std::uint32_t,4> stats{},neighborhood{};unsigned cases=0;
     auto check=[&](std::vector<ParticleGpu> input,unsigned ticks=1,float gravity=9.81f,bool oracle=true,bool error=false,GpuGranularStep* reused=nullptr) {
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);
         auto owned=reused?nullptr:std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,gravity);auto& solver=reused?*reused:*owned;
@@ -54,6 +54,13 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
         std::vector<ParticleGpu> actual(storage),old(storage);bgfx::TextureRegion src,dst;src.handle=statImage.value;dst.handle=statStaging.value;bgfx::blit(2,dst,src);auto ready=bgfx::read(dst,stats.data());
         if(count){src.handle=image.value;dst.handle=staging.value;bgfx::blit(2,dst,src);ready=std::max(ready,bgfx::read(dst,actual.data()));src.handle=oldImage.value;dst.handle=oldStaging.value;bgfx::blit(2,dst,src);ready=std::max(ready,bgfx::read(dst,old.data()));}
         while(bgfx::frame()<ready)SDL_PumpEvents();
+        // Separate submission reads the aggregated tick, not only the final iteration.
+        bgfx::setBuffer(0,solver.neighborhoodStatus(),bgfx::Access::Read);bgfx::setImage(1,statImage.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,statsExporter.value,1);
+        src.handle=statImage.value;dst.handle=statStaging.value;bgfx::blit(2,dst,src);ready=bgfx::read(dst,neighborhood.data());
+        while(bgfx::frame()<ready)SDL_PumpEvents();
+        require(neighborhood[3]==(count?solver.plan().substeps*5:0),"Neighborhood solve count accumulated across ticks or missed passes");
+        if(!error){require(neighborhood[0]==0,"Unexpected neighborhood error");require(neighborhood[1]<=count,"Candidates exceed physical slot count");}
+        if(!count)require(neighborhood==std::array<std::uint32_t,4>{},"Empty tick retained neighborhood metrics");
         if((stats[0]!=0)!=error)throw std::runtime_error("Granular error mismatch fixture "+std::to_string(cases)+" mask "+std::to_string(stats[0]));
         for(std::uint32_t i=0;i<count;++i){
             const auto& source=input[i];require(std::memcmp(&old[i],&source,sizeof(source))==0,"Granular step mutated original tick input");
@@ -90,7 +97,7 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     p=fixture(129);for(unsigned i=0;i<p.size();++i){if(i%4==0)p[i].velocityInvMass[3]=0;if(i%4==1)p[i].identity[0]=1;if(i%4==2)p[i].identity[0]=2;if(i%4==3)p[i].identity[1]=0;}check(p);
     p=fixture(1);p[0].thermalState[2]=0.01f;check(p,3);
     p=fixture(2);p[0].positionRadius[0]=-0.0625f;p[1].positionRadius[0]=0.0625f;p[0].velocityInvMass[0]=1;p[1].velocityInvMass[0]=-1;
-    auto pair=check(p,1,0,false);require(stats[2]>0,"Granular contacts missing");require(std::abs(pair[0].velocityInvMass[0]+pair[1].velocityInvMass[0])<1e-5,"Closed pair momentum changed");
+    auto pair=check(p,1,0,false);require(stats[2]>0,"Granular contacts missing");require(neighborhood[1]==2 && neighborhood[2]>0,"Closed pair neighborhood metrics missing");require(std::abs(pair[0].velocityInvMass[0]+pair[1].velocityInvMass[0])<1e-5,"Closed pair momentum changed");
     double pairEnergy=0;for(const auto& body:pair)for(unsigned a=0;a<3;++a)pairEnergy+=double(body.velocityInvMass[a])*body.velocityInvMass[a];
     require(pairEnergy<=2.00001,"Closed pair gained kinetic energy");
     require(pair[0].velocityInvMass[0]<0 && pair[1].velocityInvMass[0]>0,"Closed pair did not rebound");
@@ -103,7 +110,7 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     std::cout<<"Four-body stack after 60 ticks: max penetration "<<maxPenetration<<" m, max speed "<<maxSpeed<<" m/s\n";
     require(maxPenetration<0.00625 && maxSpeed<0.1,"Four-body stack did not settle within the small-fixture limits");
     p=fixture(129);p[7].velocityInvMass[3]=-1;check(p,1,9.81f,false,true);
-    p=fixture(129);p[7].velocityInvMass[3]=0;p[7].positionRadius[0]=9;check(p,1,9.81f,false,true);require((stats[0]&4)!=0,"Late contact failure not retained");
+    p=fixture(129);p[7].velocityInvMass[3]=0;p[7].positionRadius[0]=9;check(p,1,9.81f,false,true);require((stats[0]&4)!=0,"Late contact failure not retained");require((neighborhood[0]&4)!=0,"Neighborhood contact error not retained");
     p=fixture(129);p[7].thermalState[0]=std::numeric_limits<float>::quiet_NaN();check(p,1,9.81f,false,true);
     p=fixture(1);p[0].velocityInvMass[0]=std::numeric_limits<float>::max();check(p);
     GpuGranularStep recovery(assets,3);p=fixture(3);p[0].identity[3]=0;check(p,1,9.81f,false,true,&recovery);check(fixture(3),1,9.81f,true,false,&recovery);
