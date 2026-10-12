@@ -64,3 +64,10 @@ if(BUILD_TESTING)
   target_include_directories(pw_capability_tests PRIVATE ${bgfx_cmake_SOURCE_DIR}/bgfx/include)
   add_test(NAME capability_classification COMMAND pw_capability_tests)
 endif()
+if(BUILD_TESTING)
+  add_test(NAME shader_cache COMMAND ${CMAKE_COMMAND}
+    -DROOT=${PROJECT_SOURCE_DIR} -DTEST_DIR=${CMAKE_BINARY_DIR}/shader-cache-test
+    -DCOMPILER=$<TARGET_FILE:shaderc> -DINCLUDE_ROOT=${bgfx_cmake_SOURCE_DIR}/bgfx/src
+    -DPLATFORM=${PW_SHADER_PLATFORM} -DPROFILE=${PW_SHADER_PROFILE}
+    -P ${PROJECT_SOURCE_DIR}/tests/shader_cache_test.cmake)
+endif()

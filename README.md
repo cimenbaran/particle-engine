@@ -44,7 +44,8 @@ ctest --preset core-tests
 
 Package with `cmake --install build/macos-release --prefix out/macos-release`
 (or substitute `windows-release`). Packages include precompiled backend shaders;
-a shader compiler is needed only when building. Signing/notarization are pending.
+a shader compiler is needed only when building. Builds reuse a verified shared
+[shader cache](docs/Shader_Pipeline.txt). Signing/notarization are pending.
 
 ## Controls and current limits
 

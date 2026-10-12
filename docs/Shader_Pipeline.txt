@@ -1,0 +1,36 @@
+SHADER BUILD AND CACHE
+
+CMake builds the pinned shaderc and compiles Metal or shader-model-5 binaries
+for the selected platform. Packages contain binaries and JSON manifests; the
+runtime does not require shaderc.
+
+PW_SHADER_CACHE_DIR is a configurable CMake PATH. Its default is
+$LOCALAPPDATA/ParticleWorld/shaders on Windows when LOCALAPPDATA is defined,
+and $HOME/.cache/particleworld/shaders otherwise. Independent build directories
+reuse this cache. Override with -DPW_SHADER_CACHE_DIR=/desired/cache/path when
+configuring. Removing the cache only makes the next shader build compile again.
+The build's shaders directory and packaged assets remain separate from it.
+
+Version-2 fingerprints include source name/content, varying definition, all
+bgfx and project .sh include names/content, shaderc executable hash, platform,
+profile, shader type, defines and build recipe hashes. Include scanning is
+conservative: an unused .sh change also invalidates the cache. Include paths
+are relative in the key, permitting reuse across checkout locations. Defines
+are recorded as the exact semicolon-separated shaderc argument string.
+
+Each key has a process-scoped file lock. A hit requires both a parseable
+manifest with the expected fingerprint and a matching binary SHA-256. Missing,
+malformed or corrupt entries are rebuilt. Compilation uses a temporary binary;
+only a successful compiler and manifest generation publish the cache entry and
+copy assets to the build output. A compiler failure leaves previous build
+outputs intact and fails the build with shaderc diagnostics. Shader-only
+changes trigger application asset copying through the link dependency.
+
+The shader_cache CTest uses the actual compiler to verify cache hits, source
+and include invalidation, defines, output/source relocation, corrupt binary
+and malformed manifest recovery, and retention after invalid shader source.
+
+Runtime program reload with retain-last-good handles is still pending. Build
+failure retention does not implement live reload, and a successful shaderc
+invocation does not replace backend execution tests. Windows shader compilation
+and cache behavior still require a Windows run.

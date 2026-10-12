@@ -5,6 +5,12 @@ else()
   set(PW_SHADER_PLATFORM windows)
   set(PW_SHADER_PROFILE s_5_0)
 endif()
+if(WIN32 AND DEFINED ENV{LOCALAPPDATA})
+  set(default_shader_cache "$ENV{LOCALAPPDATA}/ParticleWorld/shaders")
+else()
+  set(default_shader_cache "$ENV{HOME}/.cache/particleworld/shaders")
+endif()
+set(PW_SHADER_CACHE_DIR "${default_shader_cache}" CACHE PATH "Shared content-addressed shader cache")
 file(GLOB_RECURSE PW_SHADER_INCLUDES CONFIGURE_DEPENDS ${bgfx_cmake_SOURCE_DIR}/bgfx/src/*.sh)
 file(GLOB_RECURSE PW_PROJECT_SHADER_INCLUDES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/shaders/*.sh)
 set(PW_SHADER_OUTPUTS)
@@ -23,20 +29,16 @@ foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_
   endif()
   set(output ${CMAKE_BINARY_DIR}/shaders/${shader}.bin)
   add_custom_command(OUTPUT ${output} ${output}.json
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/shaders
-    COMMAND $<TARGET_FILE:shaderc> -f ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
-      -o ${output} --type ${kind} --platform ${PW_SHADER_PLATFORM} --profile ${PW_SHADER_PROFILE}
-      --varyingdef ${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
-      -i ${bgfx_cmake_SOURCE_DIR}/bgfx/src
     COMMAND ${CMAKE_COMMAND}
       -DSOURCE=${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
       -DVARYING=${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       -DINCLUDE_ROOT=${bgfx_cmake_SOURCE_DIR}/bgfx/src
       -DPROJECT_INCLUDE_ROOT=${PROJECT_SOURCE_DIR}/shaders
       -DCOMPILER=$<TARGET_FILE:shaderc> -DBINARY=${output} -DOUTPUT=${output}.json
+      -DCACHE_DIR=${PW_SHADER_CACHE_DIR}
       -DPLATFORM=${PW_SHADER_PLATFORM} -DPROFILE=${PW_SHADER_PROFILE} -DKIND=${kind}
-      -P ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake
-    DEPENDS shaderc ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
+      -P ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake
+    DEPENDS shaderc ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake ${PROJECT_SOURCE_DIR}/cmake/ShaderFingerprint.cmake ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
       ${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_shader.sh
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_compute.sh

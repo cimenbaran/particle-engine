@@ -154,8 +154,10 @@ S1-03: Structured supported/degraded/unavailable JSON and actionable startup
        checks implemented; synthetic capability and CLI tests pass. Device
        report execution is pending the running soak. The 256-thread variant
        and backend validation remain; current shaders use 128 threads.
-S1-04: Shader compilation, packaging and SHA-256 provenance manifests implemented.
-       Shared content-addressed cache and retain-last-good shader reload remain.
+S1-04: Shader compilation, packaging, shared content-addressed cache and SHA-256
+       provenance manifests implemented. Compiler tests cover reuse, changed
+       inputs, corrupt entries and failed-build output retention. Runtime
+       retain-last-good program reload remains.
 S1-05: Ordered compute/draw path and deferred handle destruction implemented.
        Expand ownership/resize tests and fixed-graph declarations as needed.
 S1-06: ImGui and fixed-box spawn/remove/impulse controls implemented. Free-fly
@@ -191,7 +193,7 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Complete shader cache/reload and validate the platform capability report.
+1. Complete runtime shader reload and validate the platform capability report.
 2. Complete the ten-minute large-pool soak and inspect its report; collect
    controlled repeat and reference-machine timings.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
