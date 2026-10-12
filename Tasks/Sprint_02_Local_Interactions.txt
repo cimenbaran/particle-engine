@@ -22,6 +22,9 @@ These fixtures do not complete the broad stability or ten-minute soak gates.
 Settling-candidate hysteresis, interior terrain, detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
+Settling state-machine and geometric reference preparation is described in
+../docs/Settling_Candidates.txt; live GPU tracking remains open.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

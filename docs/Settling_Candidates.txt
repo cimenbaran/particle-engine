@@ -1,0 +1,46 @@
+SETTLING CANDIDATE CONTRACT (CPU PREPARATION)
+
+S2-09 remains open. src/core/Settling.hpp implements and tests the sidecar state
+transition; tests/reference/SettlingSupport.hpp is an independent all-pairs
+support oracle. Neither is wired into the live GPU path yet. This preparation
+defines the expected behavior for the upcoming GPU implementation and fixtures.
+
+One 16-byte history belongs to one physical slot: generation, consecutive quiet
+ticks, consecutive unsupported ticks and candidate (0/1). History never changes
+particle alive flags, inverse mass, velocity, allocation or rendering. Candidates
+remain active matter. They are not sleeping particles or acknowledged deposition.
+The owner must clear all histories on scene/mode reset, including when generations
+are reused, and advance exactly once per completed fixed tick, not per substep
+or render frame. A recycled generation starts fresh. Failed ticks, nonfinite or
+negative speed, zero generation, and ineligible bodies invalidate history.
+
+Default acquisition requires 30 consecutive ticks at speed <=0.05 m/s with tight
+support contact. An interruption resets acquisition. A candidate survives speed
+up to 0.1 m/s and a looser contact test. Speed >0.1 releases immediately. Three
+consecutive unsupported ticks release; recovery resets the missing-contact count.
+All thresholds are inclusive except the release speed comparison. Counters are
+bounded; even UINT32_MAX dwell/grace profiles cannot wrap. Profiles must have
+finite nonnegative entry speed, a strictly greater exit speed, and positive tick
+counts. Replacing a profile requires an owner reset; structurally invalid history
+is also discarded defensively. Invalid contact flags (entry without retention)
+are a caller error and throw rather than silently admitting inconsistent evidence.
+
+Initial geometry contract: common radius 0.0625 m, floor at y=0, gravity down Y.
+Eligible candidates are live dynamic solids. Support may be another live solid,
+including a static one. Sphere contact normals must point upward with Y >=0.5;
+side/upper contacts and coincident centres do not qualify. Tight support allows
+surface gap <=0.0001 m; retention permits <=0.002 m. Penetration deeper than
+0.00625 m (10% of radius) disqualifies that contact for either test. Floor support
+uses the same gap/penetration limits. Nonfinite geometry cannot supply support.
+This is local candidate evidence, not proof that the support chain reaches ground.
+
+Validation covers exact dwell boundaries, speed/contact dead bands, interrupted
+acquisition, support-loss grace and recovery, impulses, recycling, deletion/phase
+ineligibility, failed ticks, nonfinite inputs, malformed history, one-tick and
+UINT32_MAX profiles, 100,000 steady ticks, floor/stack/static support, side contacts,
+coincident centres and deep overlap. CTest name: settling_hysteresis.
+
+Next: compute support from the final committed GPU state, preserve fault gating
+and slot generations, compare per-slot history to these references, expose counts
+in diagnostics, and verify candidates remain in the physical active list. Do not
+use snapshot-only diagnostics to accumulate dwell: they miss intervening ticks.
