@@ -29,6 +29,27 @@ void main() {
       uvec3 c=uvec3(vec3(32.0+223.0*t,96.0*(1.0-t),255.0*(1.0-t))+vec3_splat(0.5));
       color=c.x|(c.y<<8u)|(c.z<<16u)|0xff000000u;
     }
+  } else if(mode==4u) {
+    vec3 v=b_state[id*4u+1u].xyz;
+    if(!finiteValue(v.x) || !finiteValue(v.y) || !finiteValue(v.z))color=0xffff00ffu;
+    else {
+      // Construct exponent-scaled components without dividing by an extreme
+      // float: reciprocal(max-float) can flush to zero on GPU backends.
+      uvec3 bits=floatBitsToUint(v),exponents=(bits>>23u)&uvec3_splat(255u);
+      uint largest=max(exponents.x,max(exponents.y,exponents.z));
+      vec3 scaled=vec3_splat(0.0);
+      for(int axis=0;axis<3;++axis) {
+        if(exponents[axis]!=0u && largest-exponents[axis]<127u) {
+          float mantissa=uintBitsToFloat((bits[axis]&0x807fffffu)|0x3f800000u);
+          float factor=uintBitsToFloat((127u-(largest-exponents[axis]))<<23u);
+          scaled[axis]=mantissa*factor;
+        }
+      }
+      vec3 direction=vec3_splat(0.0);
+      if(largest!=0u)direction=scaled/sqrt(dot(scaled,scaled));
+      uvec3 c=uvec3((direction*0.5+vec3_splat(0.5))*255.0+vec3_splat(0.5));
+      color=c.x|(c.y<<8u)|(c.z<<16u)|0xff000000u;
+    }
   } else if(mode==2u) {
     if(p.x< -8.0 || p.x>=8.0 || p.y<0.0 || p.y>=16.0 || p.z< -8.0 || p.z>=8.0)color=0xffff00ffu;
     else {

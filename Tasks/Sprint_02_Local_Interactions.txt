@@ -33,7 +33,7 @@ Metal and D3D11 WARP app-path tests prove candidates remain active and reset
 correctly. Run 38319532572 passes 45 tracker fixtures and live integration checks
 at both workgroup sizes; its separate pile-stability gate still fails.
 
-Material, speed, spatial-cell and settling debug views are available in the live
+Material, speed, velocity-direction, spatial-cell and settling debug views are available in the live
 granular UI; see ../docs/Particle_Debug_Views.txt. Collision normals and detailed
 occupancy/probe/pair/timing instrumentation remain open.
 

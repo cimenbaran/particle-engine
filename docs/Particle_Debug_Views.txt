@@ -1,7 +1,7 @@
 GRANULAR PARTICLE DEBUG VIEWS
 
 With particle collisions enabled, the Particle view menu offers Material, Speed,
-Spatial cells and Settling. Selection changes presentation immediately while
+Spatial cells, Settling and Velocity direction. Selection changes presentation immediately while
 paused. It does not advance simulation, commands, age, settling history or pool
 membership. Switching back to Material restores current material colors.
 
@@ -9,6 +9,18 @@ Speed maps 0..12 m/s from blue (32,96,255) to red (255,0,0); speeds above 12 cla
 to red. Nonfinite velocity is magenta. Speed is magnitude, not direction. The
 existing sphere-lighting shader shades these colors, so rendered pixels are not
 a raw numeric color scale. The UI shows the scale endpoints.
+
+Velocity direction maps the normalized signed XYZ components to RGB: each channel
+runs from 0 for -1 through 128 for 0 to 255 for +1. Thus +X is (255,128,128),
+-X is (0,128,128), +Y is (128,255,128) and +Z is (128,128,255). Zero velocity is
+gray; nonfinite velocity is magenta. This view encodes direction independently of
+speed and does not draw arrows. The same lighting caveat applies. Subnormal
+components are treated as zero across backends. Exponent scaling avoids overflow,
+underflow and a flushed reciprocal of a maximum-sized finite velocity.
+GPU tests include all signed axes, diagonals, zero/signed zero, nonfinite values,
+maximum floats, minimum normal floats and subnormals, with independent double
+precision direction/color expectations. Direction changes preserve all simulation
+and history bytes just like the other views.
 
 Spatial cells assigns a deterministic color from the full flattened grid key.
 Cell width is 0.125 m. Signed floor coordinates match key emission, including
@@ -32,7 +44,7 @@ buffers. It runs in view 5 immediately before visibility compaction, after all
 physics ticks in views 1..4. It also runs on paused frames, avoiding stale debug
 colors after scene reset or material reload. Cosmetic particles are unchanged.
 
---gpu-test checks 42 mode changes across seven workgroup-edge capacities, including
+--gpu-test checks 49 mode changes across seven workgroup-edge capacities, including
 returning to material colors without a tick. Full render instances are compared,
 not only colors. Tests cover speed scale points and overflow, negative/subnormal
 cell boundaries, domain exits, all settling colors, stale generations and tracker

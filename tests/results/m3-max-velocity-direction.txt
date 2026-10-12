@@ -1,0 +1,15 @@
+VELOCITY DIRECTION DEBUG VIEW — METAL
+M3 Max, 48 GiB; development worktree based on 0f15720 with accompanying direction view.
+Full GPU suites pass at workgroup sizes 128 and 256. Default restored to 128.
+49 presentation mode changes across seven workgroup-edge capacities, full render
+instances compared to independent expectations; original state/history byte checks pass.
+Includes signed axes, diagonal vectors, maximum/minimum normal floats, subnormals,
+zero/signed zero, invalid velocities, and return to material view without simulation.
+Initial maximum-float fixture exposed a flushed reciprocal; exponent-based scaling fixes it.
+No Windows runtime or native menu interaction certification is claimed here.
+Installed app remains 6dad618 while its ten-minute soak runs.
+
+out/velocity-direction128.log sha256=d4a096574b01c14bbd332819b336f9627918573574e47667f00457eafae2a0a8
+GPU particle debug passed: 49 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history
+out/velocity-direction256.log sha256=4c6a458c826fb3d74b60b6dda8753460b09891a453fedc0429d9b44171619138
+GPU particle debug passed: 49 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history

@@ -12,7 +12,7 @@ GpuParticleDebug::~GpuParticleDebug(){if(bgfx::isValid(program_))bgfx::destroy(p
 void GpuParticleDebug::submit(std::uint16_t view,std::uint32_t capacity,ParticleDebugMode mode,
     bgfx::DynamicVertexBufferHandle state,bgfx::DynamicVertexBufferHandle materials,std::uint32_t count,
     bgfx::DynamicVertexBufferHandle history,bgfx::DynamicIndexBufferHandle status,bgfx::DynamicVertexBufferHandle instances) {
-    if(capacity>1048576 || std::uint32_t(mode)>3 || !count || count>65536 ||
+    if(capacity>1048576 || std::uint32_t(mode)>std::uint32_t(ParticleDebugMode::VelocityDirection) || !count || count>65536 ||
        !bgfx::isValid(state) || !bgfx::isValid(materials) || !bgfx::isValid(history) || !bgfx::isValid(status) || !bgfx::isValid(instances) ||
        state.idx==materials.idx || state.idx==history.idx || materials.idx==history.idx ||
        instances.idx==state.idx || instances.idx==materials.idx || instances.idx==history.idx)

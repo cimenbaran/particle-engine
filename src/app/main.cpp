@@ -993,10 +993,11 @@ int main(int argc, char** argv) {
                 if(tracking.valid) ImGui::Text("Settling candidates: %u | Acquiring: %u | Contact grace: %u",tracking.free,tracking.reserved,tracking.rejected);
                 else ImGui::TextDisabled("Waiting for settling snapshot...");
                 ImGui::TextDisabled("Candidates remain active particles");
-                ImGui::Combo("Particle view",&particles.debugMode,"Material\0Speed\0Spatial cells\0Settling\0");
+                ImGui::Combo("Particle view",&particles.debugMode,"Material\0Speed\0Spatial cells\0Settling\0Velocity direction\0");
                 if(particles.debugMode==1) ImGui::TextDisabled("Speed: blue = 0, red = 12+ m/s");
                 if(particles.debugMode==2) ImGui::TextDisabled("Color by 0.125 m cell; magenta = outside grid");
                 if(particles.debugMode==3) ImGui::TextWrapped("Gray: active | Yellow: acquiring | Green: candidate | Orange: contact grace | Magenta: tracking fault");
+                if(particles.debugMode==4) ImGui::TextWrapped("Direction: RGB = XYZ, dark = negative, bright = positive. Gray: zero | Magenta: invalid velocity");
                 if(particles.granularFault) ImGui::TextWrapped("Solver error 0x%x / tracking error 0x%x: paused. Reset or load a valid scene to resume.",g.active,tracking.active);
             }
             if(!particles.solverMessage.empty()) ImGui::TextWrapped("%s",particles.solverMessage.c_str());

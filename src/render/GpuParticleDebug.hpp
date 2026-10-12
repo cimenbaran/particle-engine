@@ -2,7 +2,7 @@
 #include <bgfx/bgfx.h>
 #include <filesystem>
 namespace pw {
-enum class ParticleDebugMode:std::uint32_t {Material,Speed,Cells,Settling};
+enum class ParticleDebugMode:std::uint32_t {Material,Speed,Cells,Settling,VelocityDirection};
 // Refreshes render instances without advancing or modifying simulation state.
 class GpuParticleDebug {
 public:
