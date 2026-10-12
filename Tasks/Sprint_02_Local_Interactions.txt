@@ -17,11 +17,12 @@ Exact-key GPU hashing and failure-gated queries are covered by
 membership fixtures are described in ../docs/GPU_Neighbors.txt. Live neighbor
 consumption and index recovery remain open. An isolated position-only Jacobi
 iteration is described in ../docs/GPU_Jacobi_Contacts.txt; live time stepping,
-contact velocity response, terrain handling and stability gates remain open.
+terrain handling and stability gates remain open.
 Position-derived velocity reconstruction is validated separately in
 ../docs/GPU_Velocity_Reconstruction.txt. Restitution/friction have an independent
 CPU reference and invariant fixtures in ../docs/Contact_Velocity_Reference.txt;
-the GPU response and live integration are not yet implemented.
+the isolated GPU response is described in ../docs/GPU_Contact_Velocity.txt.
+Live granular integration and cross-backend response validation remain open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

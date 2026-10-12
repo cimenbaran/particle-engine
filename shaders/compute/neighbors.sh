@@ -1,4 +1,7 @@
 #include "cell_lookup.sh"
+#ifndef PW_STATE_STRIDE
+#define PW_STATE_STRIDE 4u
+#endif
 // Lift tiny coordinates before subtraction so Metal's subnormal flushing does
 // not erase separations. 2^64 keeps every coordinate in this grid finite.
 float liftedCoordinate(float value) {
@@ -39,7 +42,7 @@ uvec4 visitNeighbors(uint queryIndex,vec4 config) {
   uint key=b_sorted[queryIndex*2u],querySlot=b_sorted[queryIndex*2u+1u];
   if(key==0xffffffffu) return uvec4(0u,0u,0u,1u);
   if(key>=2097152u || querySlot>=capacity) return uvec4(0u,0u,0u,3u);
-  vec3 position=b_state[querySlot*4u].xyz;
+  vec3 position=b_state[querySlot*PW_STATE_STRIDE].xyz;
   // Grid diameter is below 32 m. Saturating larger finite supports preserves
   // membership while avoiding squared-distance/float-to-int overflow.
   // Preserve subnormal bits: an arithmetic min may flush them to zero.
@@ -64,7 +67,7 @@ uvec4 visitNeighbors(uint queryIndex,vec4 config) {
       uint slot=b_sorted[i*2u+1u];++candidates;
       if(slot>=capacity || b_sorted[i*2u]!=cellKey) return uvec4(accepted,candidates,probes,3u);
       if(slot==querySlot) continue;
-      vec3 candidatePosition=b_state[slot*4u].xyz;
+      vec3 candidatePosition=b_state[slot*PW_STATE_STRIDE].xyz;
       vec3 delta=candidatePosition-position;
       float distanceSquared=dot(delta,delta);
       if(withinSupport(position,candidatePosition,support,distanceSquared)) {

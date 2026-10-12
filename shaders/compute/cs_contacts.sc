@@ -8,22 +8,9 @@ BUFFER_RO(b_meta,uint,4);
 BUFFER_RW(b_corrections,vec4,5);
 uniform vec4 u_neighbors;
 uniform vec4 u_contacts; // capacity, common radius, relaxation, correction limit
-bool validMass(float value) {
-  uint bits=floatBitsToUint(value),magnitude=bits&0x7fffffffu;
-  return magnitude==0u || ((bits&0x80000000u)==0u && magnitude>=0x00800000u && magnitude<0x7f800000u);
-}
+#include "contact_math.sh"
 bool validContactSlot(uint slot) {
   return b_state[slot*4u].w==u_contacts.y && validMass(b_state[slot*4u+1u].w);
-}
-float massWeight(float a,float b) {
-  // Direct division by FLT_MAX can become a flushed reciprocal on Metal.
-  // Normalize exponent/mantissa parts before division; denominator is [1,4).
-  uint bitsA=floatBitsToUint(a)&0x7fffffffu,bitsB=floatBitsToUint(b)&0x7fffffffu;
-  uint exponentA=bitsA>>23u,exponentB=bitsB>>23u,common=max(exponentA,exponentB);
-  float scaledA=uintBitsToFloat((bitsA&0x007fffffu)|0x3f800000u)*exp2(float(int(exponentA)-int(common)));
-  float scaledB=0.0;
-  if(bitsB!=0u) scaledB=uintBitsToFloat((bitsB&0x007fffffu)|0x3f800000u)*exp2(float(int(exponentB)-int(common)));
-  return scaledA/(scaledA+scaledB);
 }
 void contact(uint queryIndex,uint slot,vec3 delta,float distanceSquared) {
   uint query=b_sorted[queryIndex*2u+1u];
@@ -35,13 +22,7 @@ void contact(uint queryIndex,uint slot,vec3 delta,float distanceSquared) {
   float a=b_state[query*4u+1u].w,b=b_state[slot*4u+1u].w;
   if(a==0.0) return;
   float weight=massWeight(a,b);
-  vec3 direction;
-  if(distanceSquared>1e-12) direction=-delta/distance;
-  else {
-    // Antisymmetric deterministic direction for coincident/near-coincident IDs.
-    uint axis=(min(query,slot)*1664525u+max(query,slot)*1013904223u)%3u;
-    direction=vec3(0.0,0.0,0.0);direction[int(axis)]=query<slot?-1.0:1.0;
-  }
+  vec3 direction=contactNormal(query,slot,delta,distanceSquared);
   vec4 correction=b_corrections[query*2u];correction.xyz+=direction*(penetration*weight);
   b_corrections[query*2u]=correction;
 }

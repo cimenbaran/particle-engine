@@ -1,0 +1,29 @@
+METAL CONTACT VELOCITY VALIDATION
+Date: 2026-10-13 (Europe/Istanbul)
+Machine: Apple M3 Max, 48 GB; Metal backend, macos-release.
+Source: commit containing this evidence; prior HEAD a4096c2.
+
+Final shared-normal implementation passed the full --gpu-test suite with
+PW_WORKGROUP_SIZE=256 and 128. Each run included 74 contact-response fixtures,
+38 Jacobi fixtures, 43 velocity-reconstruction fixtures and all existing GPU
+index, pool, rendering and reload tests. The default 128 build was restored.
+10/10 CTests passed for each variant (256 CTest run preceded the shared-normal
+component rewrite; the complete 256 GPU suite was rerun after that rewrite).
+
+Velocity oracle tolerance: 2e-5 * max(1, abs(expected)); exact snapshots and
+preserved fields. Dense fixture checks 1,023 incident contacts. Closed collision
+checks cover energy/momentum; isolated pairs check tangential non-reversal.
+Full chained Jacobi/reconstruction/response fixture has an independent analytic
+outcome, velocities -0.5/+0.5 m/s, without intermediate CPU readback.
+
+Windows run 38311216237, source a4096c2: job 115017132608 failed compiling
+cs_contacts with D3DCompile X3531 (cannot unroll loops marked loop). This run
+predates GPU response. Explicit xyz construction replaces the dynamic normal
+component assignment as a candidate fix. Windows confirmation remains pending;
+Metal results do not establish D3D11 compatibility or live granular stability.
+
+Local log SHA-256 (logs excluded from git):
+6fa7c5737a2f93f491bfb469851ef2301c39b1ea2ddb6c4abc59af4d82fcd4a3  out/response-256-component-gpu.log
+7f22b0212a130d1250907b14787350920937f7634fa8a999c956192a4dd00799  out/response-256-ctest.log
+2a173baae5fa40d3e48eaf35e8fbc526662bd96973e800aa9eb97caac5d2e533  out/response-restore-gpu.log
+b2eeac7b884b55fe4198def3fba498698670fe9ca49f889cf2c1d97d277bb383  out/response-restore-ctest.log

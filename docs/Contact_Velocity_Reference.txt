@@ -2,7 +2,7 @@ CONTACT VELOCITY RESPONSE - CPU REFERENCE AND GPU IMPLEMENTATION CONTRACT
 
 Scope
 tests/reference/ContactVelocity.hpp is a double-precision, all-pairs reference
-for the next GPU restitution/friction pass. It is test-only and is not called
+for the GPU restitution/friction pass. It is test-only and is not called
 by live simulation. S2-07 remains open. It complements position-only Jacobi
 contacts and position-derived velocity reconstruction; it does not replace them.
 
@@ -23,7 +23,7 @@ float range, matching the GPU contact profile.
 
 The caller supplies a conservative maximum displacement from prediction to
 correction, default 0.25 m. Validation includes a 1e-5 m numerical allowance.
-The future GPU query support must be at least
+The GPU query support must be at least
  max(0.125 + 2*(maxDisplacement + 1e-5), 0.125 + slop).
 Validate the displacement bound before allowing publication; do not silently
 miss predicted contacts when the bound is exceeded. The all-pairs reference
@@ -81,26 +81,8 @@ step with gravity, position correction, terrain or repeated simulation. Resting
 piles, closed-world energy and long-soak gates remain open. Empty/inactive and
 invalid profile/ID/displacement cases are also checked.
 
-Planned GPU implementation (not implemented here)
-Preserve the predicted and reconstructed snapshots rather than overwriting the
-incoming velocity. A packed compute snapshot can use eight vec4 lanes per slot:
-0..3 reconstructed ParticleGpu, 4 predicted position/radius, 5 incoming velocity/
-inverse mass, 6 immutable validation/material fields, 7 degree/error diagnostics.
-The spatial index is built from the ordinary reconstructed ParticleGpu buffer.
-The shared visitor would need a configurable state stride (currently four),
-while still addressing corrected positions in lane zero.
-
-A pack/validate pass can stay within six compute bindings using predicted,
-reconstructed, materials, upstream status, packed state and aggregate status.
-A degree pass writes only lane seven; it must read immutable validation in lane
-six, never another thread's changing degree/error row. A response pass reads
-those frozen degrees and writes separate candidate velocities/diagnostics.
-Reduction then controls a whole-pool apply pass: any error preserves the entire
-reconstructed input and remains visible to the time-step owner. Only velocity xyz
-may change; static/excluded state and all other fields retain their bits.
-
-Use the validated key/sort/range/hash pipeline, reject invalid snapshots or
-non-finite intermediate/output values, and preserve the six-binding capability
-floor. The GPU response must be tested against this independent reference before
-connecting it to live granular time stepping. No GPU restitution/friction result
-is claimed by this document.
+GPU implementation
+GpuContactVelocity implements this contract in isolated GPU tests. See
+GPU_Contact_Velocity.txt for snapshot layout, publication gates and validation.
+The CPU reference remains independent and uses all pairs rather than the GPU
+spatial index. Neither implementation is connected to live time stepping yet.
