@@ -1,4 +1,5 @@
 #include "GpuJacobiContacts.hpp"
+#include "../../tests/reference/PositionFriction.hpp"
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
 #include "core/ParticleTypes.hpp"
@@ -24,7 +25,7 @@ template<class T> struct ContactHandle {
 };
 void require(bool ok,const char* message){if(!ok) throw std::runtime_error(message);}
 struct ReferenceStep {std::vector<ParticleGpu> state;std::uint32_t error=0,maxContacts=0;};
-ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,float limit,bool bounded=false) {
+ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxation,float limit,bool bounded=false,const std::vector<ParticleGpu>* start=nullptr,const std::array<MaterialGpu,4>* materials=nullptr) {
     ReferenceStep result{input};const auto count=std::uint32_t(input.size());
     const SpatialGrid grid({0,0,0},0.125f,{-64,0,-64},{128,128,128});
     std::vector<bool> included(count);
@@ -41,6 +42,14 @@ ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,f
         if(p.positionRadius[3]!=GpuJacobiContacts::radius || !std::isfinite(mass) || mass<0 || (mass!=0 && mass<std::numeric_limits<float>::min())) result.error|=4;
     }
     if(result.error) return result;
+    if(start) for(std::uint32_t i=0;i<count;++i) if(included[i]) {
+        const auto& old=(*start)[i];const auto& p=input[i];const float mu=(*materials)[p.identity[0]].mechanical[1];
+        if(std::memcmp(old.identity,p.identity,16) || old.positionRadius[3]!=p.positionRadius[3] ||
+           std::memcmp(&old.velocityInvMass[3],&p.velocityInvMass[3],4) ||
+           !grid.keyAt({old.positionRadius[0],old.positionRadius[1],old.positionRadius[2]}) ||
+           !std::isfinite(mu) || mu<0 || mu>1) result.error|=32;
+    }
+    if(result.error)return result;
     if(bounded) for(std::uint32_t i=0;i<count;++i) if(included[i] && input[i].velocityInvMass[3]!=0)
         for(unsigned axis=0;axis<3;++axis) if(input[i].positionRadius[axis]<(axis==1?0.0625f:-7.9375f) || input[i].positionRadius[axis]>(axis==1?15.9375f:7.9375f)) result.error|=16;
     if(result.error) return result;
@@ -55,14 +64,38 @@ ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,f
             std::array<double,3> direction{};
             if(squared>1e-12) for(unsigned axis=0;axis<3;++axis) direction[axis]=-delta[axis]/distance;
             else direction[(std::min(i,j)*1664525u+std::max(i,j)*1013904223u)%3]=i<j?-1:1;
-            for(unsigned axis=0;axis<3;++axis) correction[axis]+=direction[axis]*penetration*wi/(wi+wj);
+            reference::FrictionVector friction{};
+            if(start && squared>1e-12) {
+                reference::FrictionVector relative{};
+                for(unsigned axis=0;axis<3;++axis)relative[axis]=(double(a.positionRadius[axis])-(*start)[i].positionRadius[axis])-(double(b.positionRadius[axis])-(*start)[j].positionRadius[axis]);
+                const double mu=std::sqrt(double((*materials)[a.identity[0]].mechanical[1])*(*materials)[b.identity[0]].mechanical[1]);
+                friction=reference::positionFriction(relative,direction,penetration,mu,0);
+            }
+            for(unsigned axis=0;axis<3;++axis) correction[axis]+=(direction[axis]*penetration+friction[axis])*wi/(wi+wj);
         }
         result.maxContacts=std::max(result.maxContacts,contacts);
         double squared=0;for(auto& x:correction) {x*=relaxation;squared+=x*x;}
         if(squared>double(limit)*limit) for(auto& x:correction) x*=limit/std::sqrt(squared);
         for(unsigned axis=0;axis<3;++axis) result.state[i].positionRadius[axis]=float(double(a.positionRadius[axis])+correction[axis]);
-        if(bounded && a.velocityInvMass[3]!=0) for(unsigned axis=0;axis<3;++axis)
-            result.state[i].positionRadius[axis]=std::clamp(result.state[i].positionRadius[axis],axis==1?0.0625f:-7.9375f,axis==1?15.9375f:7.9375f);
+        if(bounded && a.velocityInvMass[3]!=0) {
+            reference::FrictionVector projected{},normalDelta{},tangent{};
+            double depth=0;
+            for(unsigned axis=0;axis<3;++axis){
+                const auto position=result.state[i].positionRadius[axis];projected[axis]=std::clamp(position,axis==1?0.0625f:-7.9375f,axis==1?15.9375f:7.9375f);
+                normalDelta[axis]=projected[axis]-position;depth+=normalDelta[axis]*normalDelta[axis];
+            }
+            depth=std::sqrt(depth);
+            if(start && depth>0) {
+                for(unsigned axis=0;axis<3;++axis)tangent[axis]=normalDelta[axis]!=0?0:projected[axis]-(*start)[i].positionRadius[axis];
+                for(auto& value:normalDelta)value/=depth;
+                const auto friction=reference::positionFriction(tangent,normalDelta,depth,(*materials)[a.identity[0]].mechanical[1],0);
+                for(unsigned axis=0;axis<3;++axis)projected[axis]+=friction[axis];
+            }
+            double combined=0;
+            for(unsigned axis=0;axis<3;++axis){projected[axis]=std::clamp(projected[axis],axis==1?0.0625:-7.9375,axis==1?15.9375:7.9375);correction[axis]=projected[axis]-a.positionRadius[axis];combined+=correction[axis]*correction[axis];}
+            if(combined>double(limit)*limit)for(auto& value:correction)value*=limit/std::sqrt(combined);
+            for(unsigned axis=0;axis<3;++axis)result.state[i].positionRadius[axis]=float(double(a.positionRadius[axis])+correction[axis]);
+        }
         const auto& p=result.state[i];if(!grid.keyAt({p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]})) result.error|=16;
     }
     if(result.error) result.state=input;
@@ -71,16 +104,18 @@ ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,f
 }
 void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     std::array<MaterialGpu,4> materials{};for(unsigned i=0;i<4;++i) {materials[i].identity[0]=i;materials[i].identity[1]=i==3?0:i;}
+    materials[0].mechanical[1]=0.5f;materials[3].mechanical[1]=0.25f;
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
     ContactHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
     ContactHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     ContactHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     unsigned cases=0;
-    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr,bool bounded=false) {
+    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr,bool bounded=false,const std::vector<ParticleGpu>* baseline=nullptr) {
         const auto count=std::uint32_t(input.size());
         auto owned=reused?nullptr:std::make_unique<GpuJacobiContacts>(assets,count,relaxation,limit,bounded);
         auto& solver=reused?*reused:*owned;
         ContactHandle state(bgfx::createDynamicVertexBuffer(bgfx::copy(input.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
+        ContactHandle oldState(bgfx::createDynamicVertexBuffer(bgfx::copy(baseline?baseline->data():input.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
         ContactHandle image(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
         ContactHandle staging(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         ContactHandle originalImage(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -89,8 +124,8 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
         ContactHandle statStaging(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         auto expected=input;ReferenceStep last;auto current=state.value;
         for(unsigned iteration=0;iteration<iterations;++iteration) {
-            last=reference(expected,relaxation,limit,bounded);expected=last.state;
-            solver.submit(0,current,materialBuffer.value,std::uint32_t(materials.size()));current=solver.output();
+            last=jacobiReference(expected,relaxation,limit,bounded,baseline,&materials);expected=last.state;
+            solver.submit(0,current,materialBuffer.value,std::uint32_t(materials.size()),baseline?oldState.value:bgfx::DynamicVertexBufferHandle{bgfx::kInvalidHandle});current=solver.output();
         }
         const float p[]{0,float(count),0,4};bgfx::setUniform(uniform.value,p);
         bgfx::setViewMode(1,bgfx::ViewMode::Sequential);bgfx::setBuffer(0,current,bgfx::Access::Read);
@@ -120,6 +155,13 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
                 const double d=double(actual[i].positionRadius[axis])-input[i].positionRadius[axis];displacement+=d*d;
             }
             require(std::sqrt(displacement)<=double(iterations)*limit+2e-6,"Jacobi correction bound exceeded");
+        }
+        if(baseline) {
+            bgfx::setUniform(uniform.value,p);bgfx::setBuffer(0,oldState.value,bgfx::Access::Read);
+            bgfx::setImage(1,originalImage.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,exporter.value,dispatchGroups(count));
+            src.handle=originalImage.value;dst.handle=originalStaging.value;bgfx::blit(2,dst,src);ready=bgfx::read(dst,original.data());
+            while(bgfx::frame()<ready)SDL_PumpEvents();
+            require(std::memcmp(original.data(),baseline->data(),count*sizeof(ParticleGpu))==0,"Jacobi mutated substep baseline");
         }
         ++cases;
     };
@@ -182,6 +224,42 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
         require(status==std::array<std::uint32_t,4>{0,0,0,0},"Zero-capacity Jacobi iteration failed");++cases;
     }
     auto empty=fixture(129);for(auto& p:empty) p.identity[1]=0;check(empty);
+    pair=fixture(2);pair[1].positionRadius[0]=0.0625f;auto baseline=pair;
+    baseline[0].positionRadius[1]-=0.001953125f;
+    check(pair,1,1,0.0625f,nullptr,false,&baseline);check(pair,4,0.8f,0.03125f,nullptr,true,&baseline);
+    baseline=pair;baseline[0].positionRadius[1]-=0.125f;check(pair,1,1,0.0625f,nullptr,false,&baseline); // sliding: no extra position friction
+    baseline=pair;for(auto& body:baseline)body.positionRadius[1]-=0.001953125f;check(pair,1,1,0.0625f,nullptr,false,&baseline);
+    for(unsigned axis:{1u,2u})for(float inverseMass:{0.0f,0.25f,1.0f,4.0f}) {
+        pair=fixture(2);pair[1].positionRadius[0]=0.0625f;pair[1].velocityInvMass[3]=inverseMass;baseline=pair;
+        baseline[0].positionRadius[axis]-=0.001953125f;check(pair,1,1,0.0625f,nullptr,false,&baseline);
+    }
+    pair=fixture(129);baseline=pair;for(unsigned i=0;i<129;++i)baseline[i].positionRadius[1]-=float(i%3)*0.001953125f;
+    check(pair,4,0.8f,0.03125f,nullptr,true,&baseline);
+    for(unsigned axis=0;axis<3;++axis)for(bool high:{false,true}) {
+        auto wall=fixture(2);wall[0].identity[0]=wall[1].identity[0]=0;
+        wall[0].positionRadius[0]=wall[1].positionRadius[0]=0;
+        const float face=axis==1?(high?15.9375f:0.0625f):(high?7.9375f:-7.9375f);
+        wall[0].positionRadius[axis]=face;wall[1].positionRadius[axis]=face+(high?-0.0625f:0.0625f);
+        auto old=wall;const unsigned tangent=(axis+1)%3;old[0].positionRadius[tangent]-=0.001953125f;
+        check(wall,1,1,0.0625f,nullptr,true,&old);
+    }
+    for(unsigned invalid=0;invalid<5;++invalid){baseline=pair;
+        if(invalid==0)baseline[7].identity[3]++;
+        if(invalid==1)baseline[7].velocityInvMass[3]=2;
+        if(invalid==2)baseline[7].positionRadius[3]=0.05f;
+        if(invalid==3)baseline[7].positionRadius[0]=std::numeric_limits<float>::quiet_NaN();
+        if(invalid==4)baseline[7].positionRadius[0]=9;
+        check(pair,1,0.8f,0.03125f,nullptr,true,&baseline);
+    }
+    pair=fixture(2);pair[1].positionRadius[0]=0.0625f;baseline=pair;baseline[0].positionRadius[1]-=0.001953125f;
+    for(float mu:{0.0f,1.0f,-1.0f,1.1f,-std::numeric_limits<float>::denorm_min(),std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()}) {
+        materials[0].mechanical[1]=mu;bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));
+        check(pair,1,1,0.0625f,nullptr,false,&baseline);
+    }
+    materials[0].mechanical[1]=0.5f;bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));
+    auto corner=fixture(3);for(auto& body:corner){body.identity[0]=0;body.positionRadius[0]=body.positionRadius[2]=-7.9375f;body.positionRadius[1]=4;}
+    corner[1].positionRadius[0]+=0.0625f;corner[2].positionRadius[2]+=0.0625f;
+    baseline=corner;baseline[0].positionRadius[1]-=0.001953125f;check(corner,1,1,0.03125f,nullptr,true,&baseline);
     std::cout<<"GPU Jacobi immutable-input corrections passed: "<<cases<<" fixtures, mass weighting, coincident pairs, bounds, failure rollback and multi-iteration rebuilds\n";
 }
 }

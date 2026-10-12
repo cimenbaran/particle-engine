@@ -1,6 +1,7 @@
 POSITION FRICTION REFERENCE AND OPEN WINDOWS STABILITY FAILURE
 
-The current GPU solver remains unchanged. Windows run 38318259479 at source
+The GPU solver now uses optional positional static traction, described below.
+Windows run 38318259479 at source
 cac5ae80fed79c819148f4bad974a620a5b22053 fails the resting_pile_64 settling gate
 at both workgroup sizes. The final two-second window has maximum speed
 0.11413439755950908 m/s at tick 480, above 0.1 m/s. Overlap coverage passes.
@@ -26,11 +27,22 @@ velocity. The positional constraint holds displacement below 1e-12 m. Randomized
 checks verify unchanged mass-weighted centre, no normal displacement, bounded
 traction and no reversal of tangential movement. CTest: position_friction_reference.
 
-GPU integration must retain the old substep positions throughout Jacobi iteration,
-validate snapshot identity, preserve immutable iteration inputs, constrain combined
-correction length, and rebuild neighborhoods after position changes. The current
-material schema has one friction coefficient; static/kinetic behavior must be
-explicitly defined without accidentally applying sliding friction twice. Existing
-boundary sweeping, correction-relative reconstruction, restitution, speed limits,
-whole-tick rollback and allocation ownership must continue to pass. Keep the
-0.1 m/s settling gate unchanged while testing any proposed fix on both backends.
+GPU integration (static_traction_v1)
+GpuGranularStep retains immutable start-of-substep state through all Jacobi
+iterations. A packing pass validates identity, radius, mass, start position and
+material friction, and supplies the snapshot without increasing the solver's
+six-binding maximum. Invalid snapshots roll back the full iteration (error 32).
+For noncoincident overlapping pairs, relative tangential displacement is removed
+when its length is within sqrt(muA*muB)*penetration. Otherwise this stage applies
+no tangential correction; sliding friction remains in the velocity response.
+Inverse-mass weighting, relaxation and combined correction limits still apply.
+Inset-wall projections similarly remove static tangential displacement within
+mu*projection-depth, using the common tangent for simultaneous wall planes.
+Combined updates are clamped and bounded again. Coincident pairs retain their
+normal-only separation rule. Omitting the snapshot preserves normal-only solving.
+
+Metal 128/256 passes all seven unchanged stability fixtures, 85 Jacobi fixtures,
+the full GPU suite and 13 CTests. The new profile passes a five-second allocation
+soak. See tests/results/m3-max-static-friction.txt. The earlier ten-minute soak
+uses pre-change physics and is recorded separately. Windows cross-backend
+stability remains open pending a fresh run; the 0.1 m/s gate was not widened.

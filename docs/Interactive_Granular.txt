@@ -42,7 +42,7 @@ report modes rather than labelling their old reports as granular results.
 Resource accounting
 The allocation panel adds solver payload and the extra diagnostic ring. With
 N=max(1,capacity), S=sum over prefix-scan levels of 4*(max(1,count)+groups), and
-H=bit_ceil(2*capacity+2), solver bytes are 1184*N + 256 + 4*S + 16*H. This covers
+H=bit_ceil(2*capacity+2), solver bytes are 1312*N + 256 + 4*S + 16*H. This covers
 the coordinator/components, both spatial indices, four scans and status buffers;
 it excludes driver alignment, shaders/uniforms and pending deferred destruction.
 Settling adds 80*N + 96 + 2*S + 8*H bytes for its history, index and fault latch.

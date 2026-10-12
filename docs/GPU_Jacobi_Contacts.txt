@@ -40,7 +40,7 @@ Repeated submits in the same view do not require CPU readback or synchronization
 The full index is rebuilt every iteration; no stale-neighborhood reuse is used.
 
 The class owns two 64-byte-per-slot state buffers, a 32-byte-per-slot correction/
-metrics buffer, its index pipeline and 16-byte diagnostics. There are no
+metrics buffer, a 128-byte-per-slot packed snapshot buffer, its index pipeline and 16-byte diagnostics. There are no
 allocations or CPU readbacks inside submit. At most six compute bindings are
 used in any pass. Input/material buffers must remain alive until GPU execution
 finishes. Material storage must contain the stated material count. State storage
@@ -55,6 +55,7 @@ count, maximum hash probes. Error bits are:
   4 unsupported radius or inverse mass
   8 non-finite correction
  16 proposed corrected centre outside the bounded domain
+ 32 invalid optional substep snapshot or material friction
 Any error makes the apply pass copy the entire input unchanged. No subset of
 particles receives a correction from a failed iteration. The error must still
 be handled by the future live owner; unchanged output is not successful physics.
@@ -104,3 +105,10 @@ interior obstacles or supply wall velocity response. Those remain owner work.
 The bounded profile adds 15 GPU fixtures: each plane at one/eight iterations,
 a repeated corner case, invalid starting overlap rollback, and a static exception.
 Tests compare against CPU projection and check strict inset containment.
+
+Optional positional static friction
+See Position_Friction_Reference.txt for snapshot lifetime, pair and wall traction,
+validation and the static_traction_v1 profile. The pack pass precedes contact
+traversal on every iteration; the original state remains immutable. GPU fixtures
+now total 85, including snapshot rollback, coefficient endpoints, unequal masses,
+dense iterations, six wall planes and a two-plane corner.

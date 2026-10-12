@@ -1,0 +1,32 @@
+METAL POSITIONAL STATIC FRICTION VALIDATION
+M3 Max, 48 GiB; worktree based on cb18b63 with the accompanying static-friction change.
+Both workgroups: full GPU suite, 85 Jacobi fixtures, all 13 CTests passed.
+Seven unchanged stability scenes pass on both workgroups. Windows remains unverified.
+WG128 stability preceded only additional tests and report profile label; physics is identical.
+Default build restored to WG128. No performance or hardware-D3D certification.
+
+out/static-friction-final128.log sha256=10e3ed7ce496f2dc3cc4a89901ebc812d3b835eb2ed11e338aca6192e94ce657
+out/static-friction256.log sha256=7ad709038730cc20857932759128797603776d0aa1adf0bc27cdecd1feca716d
+out/static-friction-ctest128.log sha256=7def618b211b1dad99e086e05bab779851d70d5d50f29ea2d4731fc029daf479
+out/static-friction-ctest256.log sha256=8c672ba91dbd2449482a0aa0c54dc6820b643e439ef8c71996defd59751ac8c4
+out/static-friction-wall-stability128.json sha256=f53bfaa0a9f9663daaf21cc55883327d701bee94a3e73815ad9861330bf1f081
+build={"binary_sha256": "b3a513248492738d34f3f4da13a15a2001068eace59bdaf30a23dc202620f87f", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "cb18b63a7cf39c6082f2268e534b22c72edda1c8", "schema": 1, "worktree_dirty": true}
+{"last_verified_tick": 600, "name": "falling_column_16", "passed": true, "tail_max_speed": 4.861690104007721e-05, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "resting_pile_64", "passed": true, "tail_max_speed": 3.3391017950634705e-06, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "wall_pile_64", "passed": true, "tail_max_speed": 0.022653669133305222, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.777768387270639, "tail_overlap_passed": true}
+{"last_verified_tick": 30, "name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"last_verified_tick": 60, "name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}
+out/static-friction-stability256.json sha256=43afaa0c53b194b0c824ada2787c7ec0c4f9e141c93209886848f509f0f54984
+build={"binary_sha256": "4f03cdcedfcb6c7e774bffeac26de9763f8fafaf33e13b3d952f6610ac67066a", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "cb18b63a7cf39c6082f2268e534b22c72edda1c8", "schema": 1, "worktree_dirty": true}
+{"last_verified_tick": 600, "name": "falling_column_16", "passed": true, "tail_max_speed": 4.861690104007721e-05, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "resting_pile_64", "passed": true, "tail_max_speed": 3.3391017950634705e-06, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "wall_pile_64", "passed": true, "tail_max_speed": 0.022653669133305222, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"last_verified_tick": 600, "name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.777768387270639, "tail_overlap_passed": true}
+{"last_verified_tick": 30, "name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"last_verified_tick": 60, "name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}
+out/static-friction-soak-smoke.json sha256=561b555241a5afc55826e24b596cd085d64b92b30195c23468c2fb7abeb4d2f0
+build={"binary_sha256": "2cce7a6b612d96fd9606f05822db525381fb428dad03a332a651f73e054b36b0", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "cb18b63a7cf39c6082f2268e534b22c72edda1c8", "schema": 1, "worktree_dirty": true}
+{"completed_cycles": 1, "elapsed_seconds": 5.085574791, "failure": "", "final_snapshot": {"active": 129, "checked_slots": 129, "free": 0, "identity_error": false, "ownership_error": false, "rejected_spawns": 2112504, "state_error": false, "tick": 318}, "passed": true, "ticks": 318}

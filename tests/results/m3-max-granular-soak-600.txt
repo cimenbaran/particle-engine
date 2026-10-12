@@ -1,0 +1,64 @@
+TEN-MINUTE METAL GRANULAR SOAK
+Pre-static-friction source be2636; does not validate subsequent physics changes.
+Report out/granular-soak-600-metal128.json sha256=bf7f731c79016e3221b718cfe4534295b2bc1f5562aac96b6c79d90af04fa23c
+{
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "2d4277c19640174ee39780682313bc5926c2f36be6f695d1f4af77ca43d5a20c",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "be2636bcdbdb6b2de4a7c4910afa3eebfb3a1c6c",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "completed_cycles": 151,
+  "discarded_samples": 0,
+  "elapsed_seconds": 600.065071083,
+  "failure": "",
+  "final_snapshot": {
+    "active": 129,
+    "checked_slots": 129,
+    "free": 0,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 245033694,
+    "state_error": false,
+    "tick": 38763
+  },
+  "granular": {
+    "final_acquiring": 52,
+    "final_candidates": 60,
+    "final_contact_grace": 0,
+    "initial_scene": {
+      "count": 129,
+      "materials": [
+        "Sand"
+      ],
+      "maximum": [
+        0.75,
+        2.5,
+        0.75
+      ],
+      "minimum": [
+        -0.75,
+        1.0,
+        -0.75
+      ],
+      "name": "Granular sand drop"
+    },
+    "iterations": 4,
+    "radius": 0.0625,
+    "saw_settling_candidates": true,
+    "solver_error": 0,
+    "speed_limit": 12,
+    "substeps": 4,
+    "tracking_error": 0
+  },
+  "passed": true,
+  "saw_empty": true,
+  "saw_full": true,
+  "saw_overflow": true,
+  "slot_checks": 5000427,
+  "ticks": 38763,
+  "workgroup_size": 128
+}
