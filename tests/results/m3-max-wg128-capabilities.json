@@ -1,0 +1,87 @@
+{
+  "backend": "Metal",
+  "can_run": true,
+  "checks": [
+    {
+      "action": "",
+      "actual": true,
+      "feature": "compute",
+      "required": true,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": 16,
+      "feature": "compute_bindings",
+      "required": 6,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": 16,
+      "feature": "instance_data_slots",
+      "required": 2,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": true,
+      "feature": "index32",
+      "required": true,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": true,
+      "feature": "image_read_write",
+      "required": true,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": true,
+      "feature": "rgba32u_image_write",
+      "required": true,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "actual": 4096,
+      "feature": "views",
+      "required": 21,
+      "status": "supported"
+    },
+    {
+      "action": "",
+      "available": true,
+      "enabled": true,
+      "feature": "indirect_draw",
+      "status": "supported"
+    }
+  ],
+  "compute": {
+    "buffer_read_write_probe": "verified by startup GPU tests, not a separate capability bit",
+    "build_variants": [
+      128,
+      256
+    ],
+    "selection": "compile_time",
+    "workgroup_limit_probe": "not exposed by pinned bgfx API",
+    "workgroup_threads": 128
+  },
+  "conventions": {
+    "distance_unit": "metre",
+    "handedness": "right",
+    "ndc_depth": "zero_to_one",
+    "origin_bottom_left": false,
+    "up_axis": "Y"
+  },
+  "draw_path": "gpu_indirect",
+  "evidence": "advertised_caps_only",
+  "gpu_device_id": 1009,
+  "gpu_vendor_id": 4203,
+  "renderer_type": 5,
+  "runtime_validation": "Shader creation, buffer/image access, blits and readback still require successful GPU tests.",
+  "schema_version": 1,
+  "status": "supported"
+}

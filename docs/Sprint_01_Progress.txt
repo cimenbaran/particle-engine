@@ -124,6 +124,12 @@ Verified evidence
   swaps and post-reload GPU execution. Native reload preserved paused tick
   1993 after failure/recovery. A compiled color change and restoration both
   applied at paused tick 460, preserving 16,384 particles and the scene.
+- Both 128- and 256-thread variants passed CTest and the expanded Metal GPU
+  suites at 1/127/128/129/255/256/257 slots (plus 16,384 for pool/visibility).
+  The 256-thread package passed a 10.021-second maximum-capacity soak at
+  1,048,576 slots: 1,186 ticks, four cycles and 1,243,611,136 slot checks with
+  no audit flags. Actual 256-thread shader assets were rejected by the
+  128-thread executable; restored assets passed the GPU suite again.
 - Ten-minute packaged Metal soak passed: 600.022 seconds, 71,661 ticks,
   279 complete cycles, 71.661 billion slot checks, 2,251 retained snapshots
   and no audit errors. Full/empty/overflow and 280 expected CPU rejections

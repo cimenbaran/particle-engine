@@ -59,3 +59,10 @@ LOCAL CHECKS (APPLE M3 MAX, 48 GB)
   rejections passed. Clean packaged build e038c0a; report saved as
   tests/results/m3-max-million-600s.json. The local Metal duration gate passes.
   Windows/D3D11 and reference-machine validation remain unverified.
+
+- Alternate 256-thread build: 1,048,576 slots, 10.021 seconds, 1,186 ticks,
+  four complete cycles and 1,243,611,136 slot checks; no audit errors and
+  full/empty/overflow coverage passed. Report:
+  tests/results/m3-max-wg256-capacity-limit.json (clean build 5f5600a).
+  This short alternate-variant check does not replace the 128-thread ten-minute
+  result or establish a performance advantage for either workgroup size.

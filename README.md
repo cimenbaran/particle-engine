@@ -94,3 +94,8 @@ Use **Reload shaders** in the app after rebuilding shader assets. Reload keeps
 the scene and paused tick, and retains the working programs on detectable load
 failure. See [shader reload](docs/Shader_Pipeline.txt) for the asset workflow and
 compatibility limits.
+
+Bulk compute supports 128-thread (default) and 256-thread builds. Configure with
+`-DPW_WORKGROUP_SIZE=256` to select the alternate variant; matching shader
+assets are required. Both passed local Metal GPU tests. See
+[capability reporting](docs/Capabilities.txt) for build and validation details.
