@@ -1,0 +1,25 @@
+GPU SWEPT BOUNDARY VALIDATION
+Date: 2026-10-13, Apple M3 Max, Metal, macos-release.
+Source: commit containing this evidence; prior HEAD 2fdd666.
+
+Full GPU suite passed at workgroup 128 and 256; each included 45 new swept-boundary
+fixtures and all previous GPU pool/index/contact/GUI/reload tests.
+11/11 CTests passed at each size. Default 128 build restored successfully.
+
+Independent double CPU trajectory oracle checks pose and velocity; preserved
+fields and immutable inputs are exact. Position tolerance 2e-4 m, velocity
+2e-4 * max(1, abs(expected)). Strict geometric containment, energy/cap bounds,
+cap/event/plane counts, whole-pool failure rollback and recovery are checked.
+Random cases cover 257 bodies at nine restitution/friction combinations. Analytic
+cases cover floor, endpoint, low bounce, grazing, friction, simultaneous corners.
+Includes FLT_MAX velocity speed cap, signed-zero static bodies outside boundaries,
+dead invalid metadata, phase exclusions and malformed profile/state faults.
+
+No live granular or D3D11 claim. GPU sweeps still require integration with forces,
+contact correction/reconstruction, visible diagnostics and recording profiles.
+
+Log SHA-256:
+f7ca43dccacae7174a6de1eae96bc3c7302c7121d620481dd82000685f09fb41  out/sweep-final128-gpu.log
+124b9c99b293ca91c7729c4ca069fb55560f4037ca89a0f440e18ac79de00233  out/sweep-final128-ctest.log
+f8a6ad7cece90d96f32317d2e55ef2cbb746ccb412173292510536cd9e490d62  out/sweep-256-gpu.log
+5e83437793eae4304ffe4ba33c81ceab4ba02e549b94faa23d818e690df4f815  out/sweep-256-ctest.log

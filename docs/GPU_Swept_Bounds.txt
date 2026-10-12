@@ -1,0 +1,76 @@
+GPU SWEPT BOUNDARIES
+
+Scope
+GpuSweptBounds performs constant-velocity sphere sweeps inside six analytic
+boundary planes and caps incoming speed. It is currently exercised only by
+--gpu-test. It does not apply gravity, advance lifetime, rebuild the particle
+pool, resolve other particles, or replace the live ballistic integrator.
+Swept_Bounds_Reference.txt defines the independent CPU oracle and substep plan.
+
+Input profile
+Immutable ParticleGpu input, material table and upstream error status. Capacity
+0..1,048,576. dt is a positive normal float <=1 second. Speed limit is finite in
+[0.001,1,000,000] m/s (default 12); bounce threshold is finite and nonnegative
+(default 0.5); event budget is 1..1024 (default 16). Material count is 1..65536.
+Bodies must be alive solids with slot identity matching storage, positive
+generation, radius 0.0625, finite pose/velocity and zero or positive normal finite
+inverse mass. Material friction/restitution must be in [0,1], including rejection
+of negative subnormal coefficients. Dead slots are skipped before material access;
+liquid/gas and valid static solids preserve their complete records. Static poses
+may lie outside the domain because they are not advanced.
+
+Dynamic centres must start within [-7.9375,7.9375] x [0.0625,15.9375] x
+[-7.9375,7.9375]. Invalid initial overlap/outside state is a visible error rather
+than an implicit teleport. The ceiling is part of this bounded granular profile;
+recordings/UI must distinguish it from the current open-top ballistic model.
+
+Sweep and speed limit
+Normalize velocity using a scaled vector, avoiding overflowing its squared length
+or dividing directly by FLT_MAX on Metal. If speed exceeds the limit, rescale it
+with a four-float-epsilon margin and count the capped body. Reflecting and friction
+responses cannot increase speed. The final position is the result of consuming
+remaining time after each impact, rather than clamping the original endpoint.
+
+Find the earliest of three per-axis plane times. Equal float times resolve
+simultaneous normals together; friction acts in the common tangent space using
+the combined normal impulse magnitude. Low-speed normal impacts resolve to zero.
+The CPU oracle uses double arithmetic, so extremely close impacts may group
+differently within float rounding; agreement tests use explicit tolerances.
+Starting on a plane and moving outward is a zero-time event; grazing/inward
+motion is not a collision. A final clamp removes endpoint rounding at the planes.
+
+Publication and diagnostics
+A sequential view clears status, computes candidates and atomically aggregates
+errors, then publishes in a separate apply dispatch. Any error copies the entire
+original pool unchanged. Upstream failure blocks processing. Input is immutable.
+Status: [error bits, proposed capped bodies, completed-body collision events,
+completed-body incident planes]. Metrics describe candidate work and must not be
+interpreted as committed changes when error bits are nonzero.
+Error bits: 1 upstream, 2 invalid state/material/profile, 4 event budget exhausted,
+8 nonfinite result. Exhaustion does not silently discard remaining travel.
+
+Two outputs alternate to avoid input/output aliasing; scratch candidate storage
+is separate. Payload is 192 bytes per slot plus 16-byte status (minimum one slot
+allocated at capacity zero). No allocation/readback during submit. At most five
+compute bindings. Uses the existing velocity clear/apply shaders; invalid handles,
+scratch/material aliases and the component's own status as upstream are rejected.
+A caller performing repeated steps must retain/aggregate errors separately before
+clearing this component's status on a later submission.
+
+Validation
+45 fixtures at both Metal workgroup sizes: CPU trajectory comparisons across
+workgroup boundaries; nine restitution/friction combinations on 257 seeded bodies;
+analytic floor/endpoint/grazing/corner cases; speed caps including FLT_MAX input;
+static/phase/dead exclusions; invalid identity/radius/mass/material/nonfinite data;
+upstream failure, exhaustion, whole-pool rollback and bad-then-valid reuse.
+Input/persistent fields and excluded/failed state are compared exactly. Position
+error limit is 2e-4 m; velocity limit is 2e-4 * max(1, abs(expected)). Tests also
+check strict geometric containment, diagnostics and energy/cap bounds.
+See tests/results/m3-max-swept-bounds.txt for local evidence. D3D11 is pending.
+
+Remaining integration
+Apply forces before each sweep, expose cap/error diagnostics in the UI, preserve
+snapshots for contact reconstruction, handle correction-induced boundary overlap,
+and publish a complete granular step transactionally. Internal terrain sweeps,
+settling, cross-backend stability, performance and soaks remain open. The planner's
+half-feature travel guarantee is not a guarantee about position-solver corrections.
