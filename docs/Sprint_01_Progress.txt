@@ -165,8 +165,9 @@ S1-02: Metal lifecycle/resize/close exercised. Minimize/focus-loss stress and
 S1-03: Structured supported/degraded/unavailable JSON and actionable startup
        checks implemented; synthetic capability and CLI tests pass. Device
        reports passed on Metal for supported and forced-fallback modes. The
-       256-thread variant and Windows validation remain; current shaders use
-       128 threads.
+       128/256-thread build variants share dispatch/shader settings and both
+       passed CPU and Metal GPU suites, including 255/256/257 boundaries.
+       Wrong-variant reload is rejected. Windows validation remains.
 S1-04: Shader compilation, packaging, shared content-addressed cache and SHA-256
        provenance manifests implemented. Compiler tests cover reuse, changed
        inputs, corrupt entries and failed-build output retention. Transactional
@@ -209,7 +210,7 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Implement and validate the 256-thread workgroup variant.
+1. Add free camera and pointer-positioned brushes, then scene/command recording.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
 3. Add cosmetic pools, presets and real-device benchmark output; run the

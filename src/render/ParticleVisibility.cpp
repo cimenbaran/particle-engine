@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "ParticleVisibility.hpp"
 #include "Shaders.hpp"
 #include <stdexcept>
@@ -33,11 +34,11 @@ void ParticleVisibility::prepare(std::uint16_t view,bgfx::DynamicVertexBufferHan
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     const float config[]{float(capacity_),cull?1.0f:0.0f,0,0};
     bgfx::setUniform(config_,config);bgfx::setBuffer(0,instances_,bgfx::Access::Write);
-    bgfx::setBuffer(1,counts_,bgfx::Access::Write);bgfx::dispatch(view,clear_,(capacity_+127)/128);
+    bgfx::setBuffer(1,counts_,bgfx::Access::Write);bgfx::dispatch(view,clear_,pw::dispatchGroups(capacity_));
     bgfx::setUniform(config_,config);bgfx::setUniform(planes_,planes.data(),6);
     bgfx::setBuffer(0,instances,bgfx::Access::Read);bgfx::setBuffer(1,instances_,bgfx::Access::Write);
     bgfx::setBuffer(2,counts_,bgfx::Access::ReadWrite);bgfx::setBuffer(3,active,bgfx::Access::Read);
-    bgfx::setBuffer(4,pool,bgfx::Access::Read);bgfx::dispatch(view,cull_,(capacity_+127)/128);
+    bgfx::setBuffer(4,pool,bgfx::Access::Read);bgfx::dispatch(view,cull_,pw::dispatchGroups(capacity_));
     if(supportsIndirect()) {
         bgfx::setUniform(config_,config);bgfx::setBuffer(0,counts_,bgfx::Access::Read);
         bgfx::setBuffer(1,indirect_,bgfx::Access::Write);bgfx::dispatch(view,args_,1);

@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "platform/Window.hpp"
 #include "Benchmark.hpp"
 #include "core/RunOptions.hpp"
@@ -194,7 +195,7 @@ struct Particles {
         bgfx::setBuffer(1,state[0],bgfx::Access::Write);
         bgfx::setBuffer(2,instances,bgfx::Access::Write);
         bgfx::setBuffer(3,materialBuffer,bgfx::Access::Read);
-        bgfx::dispatch(0,initialize,(particleCount+127)/128);
+        bgfx::dispatch(0,initialize,pw::dispatchGroups(particleCount));
         bgfx::destroy(upload); // bgfx defers destruction past submitted work.
         current=0;
         pool->rebuild(0,state[current],true);
@@ -229,7 +230,7 @@ struct Particles {
         bgfx::setBuffer(1,state[1-current],bgfx::Access::Write);
         bgfx::setBuffer(2,instances,bgfx::Access::Write);
         bgfx::setBuffer(3,materialBuffer,bgfx::Access::Read);
-        bgfx::dispatch(view,compute,(particleCount+127)/128);
+        bgfx::dispatch(view,compute,pw::dispatchGroups(particleCount));
         current=1-current;
         pool->rebuild(view,state[current]);
     }
@@ -419,7 +420,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     if(particles.commands.rejected()!=rejectedCommands) failure="Unexpected CPU rejection count";
     if(failure.empty() && (ticks<256 || !sawFull || !sawEmpty || !sawOverflow)) failure="Soak did not complete required full/empty/overflow coverage";
     const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
-    Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+    Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
         {"slot_checks",ticks*options.capacity},{"completed_cycles",ticks/256},{"spawn_requests",spawnRequests},
         {"intentional_cpu_rejections",rejectedCommands},{"saw_full",sawFull},{"saw_empty",sawEmpty},{"saw_overflow",sawOverflow},
@@ -457,7 +458,7 @@ int main(int argc, char** argv) {
             return capabilities["can_run"].get<bool>()?0:1;
         }
         if(!capabilities["can_run"].get<bool>()) throw std::runtime_error("Required GPU capabilities unavailable; see individual failures above");
-        std::cout << "Submission: compact visible instances; workgroup: 128\n";
+        std::cout << "Submission: compact visible instances; workgroup: " << pw::workgroupSize << '\n';
         const char* basePath=SDL_GetBasePath();
         if(!basePath) throw std::runtime_error("SDL cannot resolve application assets");
         const std::filesystem::path assets=std::filesystem::path(basePath)/"assets";

@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "ParticleAudit.hpp"
 #include "Shaders.hpp"
 #include <stdexcept>
@@ -27,12 +28,12 @@ void ParticleAudit::prepare(std::uint16_t view,bgfx::DynamicVertexBufferHandle s
     const float config[]{float(capacity_),float(materials),clearErrors_?1.0f:0.0f,0};clearErrors_=false;
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     bgfx::setUniform(config_,config);bgfx::setBuffer(0,owners_,bgfx::Access::Write);bgfx::setBuffer(1,result_,bgfx::Access::ReadWrite);
-    bgfx::dispatch(view,clear_,(capacity_+127)/128);
+    bgfx::dispatch(view,clear_,pw::dispatchGroups(capacity_));
     bgfx::setUniform(config_,config);bgfx::setBuffer(0,state,bgfx::Access::Read);
     bgfx::setBuffer(1,active,bgfx::Access::Read);bgfx::setBuffer(2,free,bgfx::Access::Read);bgfx::setBuffer(3,pool,bgfx::Access::Read);
     bgfx::setBuffer(4,owners_,bgfx::Access::ReadWrite);bgfx::setBuffer(5,result_,bgfx::Access::ReadWrite);
-    bgfx::dispatch(view,membership_,(capacity_+127)/128);
+    bgfx::dispatch(view,membership_,pw::dispatchGroups(capacity_));
     bgfx::setUniform(config_,config);bgfx::setBuffer(0,state,bgfx::Access::Read);bgfx::setBuffer(1,owners_,bgfx::Access::Read);
-    bgfx::setBuffer(2,result_,bgfx::Access::ReadWrite);bgfx::dispatch(view,state_,(capacity_+127)/128);
+    bgfx::setBuffer(2,result_,bgfx::Access::ReadWrite);bgfx::dispatch(view,state_,pw::dispatchGroups(capacity_));
 }
 }

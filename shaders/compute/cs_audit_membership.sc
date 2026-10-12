@@ -1,4 +1,5 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 BUFFER_RO(b_state,vec4,0);
 BUFFER_RO(b_active,uint,1);
 BUFFER_RO(b_free,uint,2);
@@ -12,7 +13,7 @@ void checkOwner(uint slot,bool alive) {
   bool actual=(floatBitsToUint(b_state[slot*4u+3u]).y&1u)!=0u;
   if(actual!=alive) atomicOr(b_result[1],1u);
 }
-NUM_THREADS(128,1,1)
+NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint id=gl_GlobalInvocationID.x,capacity=uint(u_audit.x);
   if(id>=capacity) return;

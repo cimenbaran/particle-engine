@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "Benchmark.hpp"
 #include "core/TimingSummary.hpp"
 #include <SDL3/SDL.h>
@@ -47,7 +48,7 @@ void Benchmark::write(const std::filesystem::path& assets,int width,int height,b
         {"warmup_frames",options_.warmup},{"measured_frames",samples_.size()},
         {"render_target","offscreen_rgba8_d32f"},{"resolution",{{"width",width},{"height",height}}},{"vsync",false},{"gui",false},
         {"timed_diagnostics",false},{"frustum_culling",true},{"indirect",indirect},
-        {"ticks_per_frame",1},{"tick_seconds",1.0/60.0},{"workgroup_size",128},
+        {"ticks_per_frame",1},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},
         {"backend",bgfx::getRendererName(caps.rendererType)},
         {"machine",{{"platform",SDL_GetPlatform()},{"cpu_model",cpuModel},{"logical_cpus",SDL_GetNumLogicalCPUCores()},{"ram_mb",SDL_GetSystemRAM()},{"gpu_vendor_id",caps.vendorId},{"gpu_device_id",caps.deviceId}}},
         {"particle_buffer_bytes_estimate",std::uint64_t(options_.capacity)*200+32+(indirect?32:0)},

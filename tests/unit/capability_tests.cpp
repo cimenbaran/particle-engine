@@ -34,6 +34,7 @@ int main() {
     const auto report=pw::capabilityReport(caps,true);
     CHECK(report["conventions"]["ndc_depth"]=="minus_one_to_one");
     CHECK(report["conventions"]["origin_bottom_left"]==true);
+    CHECK(report["compute"]["workgroup_threads"]==pw::workgroupSize);
     CHECK(report["evidence"]=="advertised_caps_only");
     std::cout<<"Capability classification passed\n";
 }

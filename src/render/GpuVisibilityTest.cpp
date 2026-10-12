@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "GpuVisibilityTest.hpp"
 #include "ParticleVisibility.hpp"
 #include "PoolDiagnostics.hpp"
@@ -26,7 +27,7 @@ void runGpuVisibilityTest(const std::filesystem::path& assets) {
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).add(bgfx::Attrib::TexCoord1,4,bgfx::AttribType::Float).end();
     const float identity[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
     const auto planes=extractFrustum(identity,true);
-    for(bool allowIndirect:{false,true}) for(uint32_t capacity:{1u,127u,128u,129u,16384u}) {
+    for(bool allowIndirect:{false,true}) for(uint32_t capacity:{1u,127u,128u,129u,255u,256u,257u,16384u}) {
         ParticleVisibility visibility(assets,capacity,allowIndirect);
         PoolDiagnostics diagnostic(assets);
         Owned output(bgfx::createTexture2D(2,uint16_t(capacity),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -58,7 +59,7 @@ void runGpuVisibilityTest(const std::filesystem::path& assets) {
             bgfx::setViewMode(1,bgfx::ViewMode::Sequential);
             bgfx::setUniform(sim.value,params);bgfx::setBuffer(0,visibility.instances(),bgfx::Access::Read);
             bgfx::setImage(1,output.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-            bgfx::dispatch(1,exporter.value,(capacity+127)/128);
+            bgfx::dispatch(1,exporter.value,pw::dispatchGroups(capacity));
             std::array<uint32_t,8> arguments{};
             if(visibility.supportsIndirect()) {
                 const float argParams[]{0,1,0,2};bgfx::setUniform(sim.value,argParams);

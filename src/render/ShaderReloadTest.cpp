@@ -1,4 +1,5 @@
 #include "Shaders.hpp"
+#include "core/ComputeDispatch.hpp"
 #include "PoolDiagnostics.hpp"
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
@@ -66,6 +67,14 @@ void runShaderReloadTest(const std::filesystem::path& assets) {
         try {reload.compute(f.clear,"missing_compute");} catch(const std::exception&) {}
         bool refused=false;try {reload.commit();} catch(const std::exception&) {refused=true;}
         if(!refused || f.clear.idx!=originalClear) throw std::runtime_error("Failed reload was partially committed");
+    }
+    {
+        const auto path=f.assets/"shaders/cs_pool_clear.bin.json";
+        std::ifstream input(path);nlohmann::json metadata;input>>metadata;input.close();
+        metadata["defines"]="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize==128?256:128);
+        std::ofstream output(path);output<<metadata;output.close();
+        reject([&](auto& reload){reload.compute(f.draw,"cs_pool_clear");});
+        std::filesystem::copy_file(assets/"shaders/cs_pool_clear.bin.json",path,std::filesystem::copy_options::overwrite_existing);
     }
     reject([&](auto& reload){reload.compute(f.clear,"cs_pool_clear");}); // duplicate target
     bgfx::destroy(f.clear);f.clear=loadCompute(f.assets,"cs_reset");

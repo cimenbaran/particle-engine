@@ -1,4 +1,5 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 BUFFER_RO(b_input, vec4, 0);
 BUFFER_RW(b_output, vec4, 1);
 BUFFER_RW(b_counts, uint, 2);
@@ -6,7 +7,7 @@ BUFFER_RO(b_active, uint, 3);
 BUFFER_RO(b_pool, uint, 4);
 uniform vec4 u_cull; // capacity, enable frustum culling
 uniform vec4 u_frustum[6];
-NUM_THREADS(128,1,1)
+NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint index=gl_GlobalInvocationID.x;
   if(index>=min(b_pool[0],uint(u_cull.x))) return;

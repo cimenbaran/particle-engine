@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "GpuLayoutTest.hpp"
 #include "Shaders.hpp"
 #include "core/ParticleTypes.hpp"
@@ -46,7 +47,7 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         bgfx::setUniform(uniform.value,parameters);
         bgfx::setBuffer(0,materialBuffer.value,bgfx::Access::Read);
         bgfx::setImage(1,output.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(0,exportState.value,(count+127)/128);
+        bgfx::dispatch(0,exportState.value,pw::dispatchGroups(count));
         bgfx::TextureRegion dst;dst.handle=staging.value;
         bgfx::TextureRegion src;src.handle=output.value;
         bgfx::blit(1,dst,src);
@@ -57,7 +58,7 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         std::cout<<"GPU material ABI round-trip passed: "<<count<<" profiles\n";
     }
     // Exercise workgroup boundaries with exact, non-symmetric values in all lanes.
-    for(uint32_t count : {1u,127u,128u,129u}) {
+    for(uint32_t count : {1u,127u,128u,129u,255u,256u,257u}) {
         std::vector<ParticleGpu> expected(count), actual(count);
         for(uint32_t i=0;i<count;++i) {
             expected[i]={{float(i)+0.25f,-3.5f,7.125f,0.0625f},
@@ -77,11 +78,11 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         bgfx::setBuffer(1,state.value,bgfx::Access::Write);
         bgfx::setBuffer(2,instances.value,bgfx::Access::Write);
         bgfx::setBuffer(3,materialBuffer.value,bgfx::Access::Read);
-        bgfx::dispatch(0,reset.value,(count+127)/128);
+        bgfx::dispatch(0,reset.value,pw::dispatchGroups(count));
         bgfx::setUniform(uniform.value,parameters);
         bgfx::setBuffer(0,state.value,bgfx::Access::Read);
         bgfx::setImage(1,output.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(1,exportState.value,(count+127)/128);
+        bgfx::dispatch(1,exportState.value,pw::dispatchGroups(count));
         bgfx::TextureRegion dst; dst.handle=staging.value;
         bgfx::TextureRegion src; src.handle=output.value;
         bgfx::blit(2,dst,src);
@@ -97,11 +98,11 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         bgfx::setBuffer(1,integrated.value,bgfx::Access::Write);
         bgfx::setBuffer(2,instances.value,bgfx::Access::Write);
         bgfx::setBuffer(3,materialBuffer.value,bgfx::Access::Read);
-        bgfx::dispatch(3,integrate.value,(count+127)/128);
+        bgfx::dispatch(3,integrate.value,pw::dispatchGroups(count));
         bgfx::setUniform(uniform.value,parameters);
         bgfx::setBuffer(0,integrated.value,bgfx::Access::Read);
         bgfx::setImage(1,output.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(4,exportState.value,(count+127)/128);
+        bgfx::dispatch(4,exportState.value,pw::dispatchGroups(count));
         bgfx::blit(5,dst,src);
         const auto integratedReady=bgfx::read(dst,actual.data());
         while(bgfx::frame()<integratedReady) SDL_PumpEvents();
@@ -134,7 +135,7 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         bgfx::setUniform(uniform.value,renderParameters);
         bgfx::setBuffer(0,instances.value,bgfx::Access::Read);
         bgfx::setImage(1,renderOutput.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(6,exportState.value,(count+127)/128);
+        bgfx::dispatch(6,exportState.value,pw::dispatchGroups(count));
         bgfx::TextureRegion renderDst;renderDst.handle=renderStaging.value;
         bgfx::TextureRegion renderSrc;renderSrc.handle=renderOutput.value;
         bgfx::blit(7,renderDst,renderSrc);

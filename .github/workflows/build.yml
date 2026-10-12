@@ -8,8 +8,16 @@ jobs:
         include:
           - os: macos-15
             preset: macos-release
+            workgroup: 128
+          - os: macos-15
+            preset: macos-release
+            workgroup: 256
           - os: windows-2022
             preset: windows-release
+            workgroup: 128
+          - os: windows-2022
+            preset: windows-release
+            workgroup: 256
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +27,7 @@ jobs:
           arch: x64
       - uses: seanmiddleditch/gha-setup-ninja@v5
       - name: Configure pinned dependencies
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset ${{ matrix.preset }} -DPW_WORKGROUP_SIZE=${{ matrix.workgroup }}
       - name: Compile application and backend shaders
         run: cmake --build --preset ${{ matrix.preset }} --parallel 3
       - name: CPU invariants
@@ -28,7 +36,7 @@ jobs:
         run: cmake --install build/${{ matrix.preset }} --prefix out/${{ matrix.preset }}
       - uses: actions/upload-artifact@v4
         with:
-          name: ParticleWorld-${{ matrix.preset }}
+          name: ParticleWorld-${{ matrix.preset }}-wg${{ matrix.workgroup }}
           path: out/${{ matrix.preset }}
 # Hosted compilation does not certify GPU execution. Run --gpu-test and native
 # interaction/soak checks separately on Metal and D3D11 reference hardware.

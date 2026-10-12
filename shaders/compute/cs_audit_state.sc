@@ -1,11 +1,12 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 BUFFER_RO(b_state,vec4,0);
 BUFFER_RO(b_owners,uint,1);
 BUFFER_RW(b_result,uint,2);
 uniform vec4 u_audit;
 // Exponent bits detect NaN/Inf without depending on fast-math comparisons.
 bool finiteLane(vec4 value) {return all(notEqual(floatBitsToUint(value)&uvec4(0x7f800000u),uvec4(0x7f800000u)));}
-NUM_THREADS(128,1,1)
+NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint slot=gl_GlobalInvocationID.x;
   if(slot>=uint(u_audit.x)) return;

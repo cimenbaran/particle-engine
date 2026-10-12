@@ -24,8 +24,10 @@ foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_
   endif()
   if(kind STREQUAL "compute")
     set(folder compute)
+    set(shader_defines "PW_WORKGROUP_SIZE=${PW_WORKGROUP_SIZE}")
   else()
     set(folder render)
+    set(shader_defines "")
   endif()
   set(output ${CMAKE_BINARY_DIR}/shaders/${shader}.bin)
   add_custom_command(OUTPUT ${output} ${output}.json
@@ -35,7 +37,7 @@ foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_
       -DINCLUDE_ROOT=${bgfx_cmake_SOURCE_DIR}/bgfx/src
       -DPROJECT_INCLUDE_ROOT=${PROJECT_SOURCE_DIR}/shaders
       -DCOMPILER=$<TARGET_FILE:shaderc> -DBINARY=${output} -DOUTPUT=${output}.json
-      -DCACHE_DIR=${PW_SHADER_CACHE_DIR}
+      -DCACHE_DIR=${PW_SHADER_CACHE_DIR} -DDEFINES=${shader_defines}
       -DPLATFORM=${PW_SHADER_PLATFORM} -DPROFILE=${PW_SHADER_PROFILE} -DKIND=${kind}
       -P ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake
     DEPENDS shaderc ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake ${PROJECT_SOURCE_DIR}/cmake/ShaderFingerprint.cmake ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc

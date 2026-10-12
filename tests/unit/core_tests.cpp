@@ -1,4 +1,5 @@
 #include "core/Commands.hpp"
+#include "core/ComputeDispatch.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/FixedStep.hpp"
 #include "core/Frustum.hpp"
@@ -12,6 +13,14 @@
 #include <limits>
 #define CHECK(x) do { if (!(x)) { std::cerr << "FAIL line " << __LINE__ << ": " #x "\n"; return EXIT_FAILURE; } } while(false)
 int main() {
+    CHECK(pw::dispatchGroups(0)==0);
+    CHECK(pw::dispatchGroups(1)==1);
+    CHECK(pw::dispatchGroups(pw::workgroupSize-1)==1);
+    CHECK(pw::dispatchGroups(pw::workgroupSize)==1);
+    CHECK(pw::dispatchGroups(pw::workgroupSize+1)==2);
+    CHECK(pw::dispatchGroups(1048576)==1048576/pw::workgroupSize);
+    CHECK(pw::dispatchGroups(UINT32_MAX)==uint64_t(UINT32_MAX)/pw::workgroupSize+1);
+
     const float identityMatrix[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
     const auto symmetric=pw::extractFrustum(identityMatrix,true);
     const auto zeroDepth=pw::extractFrustum(identityMatrix,false);

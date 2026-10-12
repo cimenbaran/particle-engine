@@ -25,7 +25,9 @@ fixed-capacity instancing. No synchronous count readback is introduced.
 
 The pinned bgfx API has no separate compute-buffer read/write or workgroup-
 size capability query. The report explicitly states those limits: packaged
-shaders currently use 128 threads; a 256-thread variant is not implemented.
+bulk shaders support 128 or 256 threads, selected at build time through
+PW_WORKGROUP_SIZE (default 128). Single-thread control/export passes remain
+one thread. Reports state the compiled bulk size, not a queried hardware limit.
 Startup GPU tests validate actual shader execution, read/write buffer access,
 image export, blits, readback, particle ABI, pool ownership and visibility.
 An advertised-capability report alone does not prove execution support,
@@ -33,3 +35,21 @@ resource allocation success, benchmark compatibility or performance.
 
 The coordinate convention is right-handed, Y-up, metres. NDC depth and texture
 origin come from the selected backend rather than platform assumptions.
+
+Configure the alternate variant with:
+cmake --preset macos-release -DPW_WORKGROUP_SIZE=256
+cmake --build --preset macos-release
+ctest --preset macos-release
+./build/macos-release/src/app/ParticleWorld.app/Contents/MacOS/ParticleWorld --gpu-test
+
+Use windows-release on Windows. Restore the default with the same configure
+command and -DPW_WORKGROUP_SIZE=128. Separate build directories may also be
+used. CI declares both variants on both platforms; hosted compilation alone
+does not certify device execution.
+
+The same setting controls C++ ceiling dispatch counts, shader NUM_THREADS,
+shader cache keys and manifests. The loader rejects compute manifests compiled
+for the other size, including during live reload. Benchmark and soak reports
+record workgroup_size. GPU suites cover 1, 127, 128, 129, 255, 256 and 257 slots;
+pool and visibility suites additionally cover 16,384. Both variants passed the
+CPU and Metal GPU suites locally; Windows/D3D11 execution remains unverified.

@@ -1,4 +1,5 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 #include "materials.sh"
 BUFFER_RW(b_state, vec4, 0);
 BUFFER_RW(b_counts, uint, 1);
@@ -17,7 +18,7 @@ void rejectSpawn() {
     observed=previous;
   }
 }
-NUM_THREADS(128,1,1)
+NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint request=gl_GlobalInvocationID.x;
   if(request>=uint(u_pool.y)) return;

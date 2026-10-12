@@ -1,8 +1,9 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 BUFFER_RO(b_state, vec4, 0);
 UIMAGE2D_WO(t_result, rgba32ui, 1);
 uniform vec4 u_sim;
-NUM_THREADS(128, 1, 1)
+NUM_THREADS(PW_WORKGROUP_SIZE, 1, 1)
 void main() {
   uint id = gl_GlobalInvocationID.x;
   if (id >= uint(u_sim.y)) return;

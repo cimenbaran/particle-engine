@@ -1,10 +1,11 @@
 #include <bgfx_compute.sh>
+#include "workgroup.sh"
 BUFFER_RW(b_state, vec4, 0);
 uniform vec4 u_pool; // capacity, 0 impulse / 1 remove
 uniform vec4 u_brushMin; // xyz, material ID
 uniform vec4 u_brushMax;
 uniform vec4 u_brushValue;
-NUM_THREADS(128,1,1)
+NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint slot=gl_GlobalInvocationID.x;
   if(slot>=uint(u_pool.x)) return;

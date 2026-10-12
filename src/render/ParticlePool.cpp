@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "ParticlePool.hpp"
 #include "Shaders.hpp"
 #include <bit>
@@ -35,7 +36,7 @@ void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle st
     bgfx::setUniform(pool_,params);bgfx::setBuffer(0,state,bgfx::Access::Read);
     bgfx::setBuffer(1,counts_,bgfx::Access::ReadWrite);
     bgfx::setBuffer(2,free_,bgfx::Access::Write);bgfx::setBuffer(3,active_,bgfx::Access::Write);
-    bgfx::dispatch(view,classify_,(capacity_+127)/128);
+    bgfx::dispatch(view,classify_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
                         bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command) {
@@ -55,8 +56,8 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(command.type==CommandType::SpawnBrush) {
         bgfx::setBuffer(1,counts_,bgfx::Access::ReadWrite);bgfx::setBuffer(2,free_,bgfx::Access::Read);
         bgfx::setBuffer(3,materials,bgfx::Access::Read);
-        bgfx::dispatch(view,spawn_,(command.count+127)/128);
-    } else bgfx::dispatch(view,brush_,(capacity_+127)/128);
+        bgfx::dispatch(view,spawn_,pw::dispatchGroups(command.count));
+    } else bgfx::dispatch(view,brush_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::stageShaders(ShaderReload& reload) {
     reload.compute(clear_,"cs_pool_clear");

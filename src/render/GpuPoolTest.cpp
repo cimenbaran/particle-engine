@@ -1,3 +1,4 @@
+#include "core/ComputeDispatch.hpp"
 #include "GpuPoolTest.hpp"
 #include "ParticlePool.hpp"
 #include "PoolDiagnostics.hpp"
@@ -31,7 +32,7 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
     bgfx::VertexLayout lanes;lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
     const auto library=loadMaterials(assets/"materials"/"default.json");const auto packed=library.packed();
     Owned materials(bgfx::createDynamicVertexBuffer(bgfx::copy(packed.data(),uint32_t(packed.size()*sizeof(MaterialGpu))),lanes,BGFX_BUFFER_COMPUTE_READ));
-    for(uint32_t capacity:{1u,127u,128u,129u,16384u}) {
+    for(uint32_t capacity:{1u,127u,128u,129u,255u,256u,257u,16384u}) {
         ParticlePool pool(assets,capacity);
         PoolDiagnostics diagnostics(assets);
         uint64_t snapshotTick=0;
@@ -45,7 +46,7 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
         bgfx::setUniform(sim.value,simParams);bgfx::setBuffer(0,upload.value,bgfx::Access::Read);
         bgfx::setBuffer(1,state.value,bgfx::Access::Write);bgfx::setBuffer(2,instances.value,bgfx::Access::Write);
-        bgfx::setBuffer(3,materials.value,bgfx::Access::Read);bgfx::dispatch(0,reset.value,(capacity+127)/128);
+        bgfx::setBuffer(3,materials.value,bgfx::Access::Read);bgfx::dispatch(0,reset.value,pw::dispatchGroups(capacity));
         pool.rebuild(0,state.value,true);
         const uint16_t rows=uint16_t((capacity+1+255)/256);
         Owned out(bgfx::createTexture2D(256,rows,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -58,10 +59,10 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
             bgfx::setBuffer(0,pool.counts(),bgfx::Access::Read);bgfx::setBuffer(1,pool.freeSlots(),bgfx::Access::Read);
             bgfx::setBuffer(2,pool.activeSlots(),bgfx::Access::Read);
             bgfx::setImage(3,out.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-            bgfx::dispatch(1,exportPool.value,(capacity+1+127)/128);
+            bgfx::dispatch(1,exportPool.value,pw::dispatchGroups(capacity+1));
             bgfx::setUniform(sim.value,simParams);bgfx::setBuffer(0,state.value,bgfx::Access::Read);
             bgfx::setImage(1,particleOut.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-            bgfx::dispatch(1,exportState.value,(capacity+127)/128);
+            bgfx::dispatch(1,exportState.value,pw::dispatchGroups(capacity));
             bgfx::TextureRegion dst;dst.handle=staging.value;bgfx::TextureRegion src;src.handle=out.value;
             bgfx::blit(2,dst,src);auto ready=bgfx::read(dst,membership.data());
             dst.handle=particleStaging.value;src.handle=particleOut.value;
@@ -132,13 +133,13 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
         const float step[]{1.0f/60.0f,float(capacity),float(packed.size()),0};
         bgfx::setUniform(sim.value,step);bgfx::setBuffer(0,state.value,bgfx::Access::Read);
         bgfx::setBuffer(1,next.value,bgfx::Access::Write);bgfx::setBuffer(2,instances.value,bgfx::Access::Write);
-        bgfx::setBuffer(3,materials.value,bgfx::Access::Read);bgfx::dispatch(0,integrate.value,(capacity+127)/128);
+        bgfx::setBuffer(3,materials.value,bgfx::Access::Read);bgfx::dispatch(0,integrate.value,pw::dispatchGroups(capacity));
         std::swap(state.value,next.value);pool.rebuild(0,state.value);check(0,127);
         // Export the first two lanes of each texture row to verify dead render records.
         const float renderParams[]{0,float(capacity),0,2};
         bgfx::setUniform(sim.value,renderParams);bgfx::setBuffer(0,instances.value,bgfx::Access::Read);
         bgfx::setImage(1,particleOut.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(1,exportState.value,(capacity+127)/128);
+        bgfx::dispatch(1,exportState.value,pw::dispatchGroups(capacity));
         bgfx::TextureRegion renderDst;renderDst.handle=particleStaging.value;
         bgfx::TextureRegion renderSrc;renderSrc.handle=particleOut.value;
         bgfx::blit(2,renderDst,renderSrc);

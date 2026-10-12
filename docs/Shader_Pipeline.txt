@@ -54,6 +54,9 @@ mismatch, API-reported shader/program rejection and duplicate targets reject
 the entire candidate set. Pending candidates are destroyed; working programs
 remain active. The UI displays the error and permits another reload after repair.
 
+Compute manifests must match the executable's PW_WORKGROUP_SIZE setting;
+loading a 128-thread binary into a 256-thread executable or vice versa fails.
+
 Reload edits must preserve the engine's resource bindings, uniforms, particle
 ABI and workgroup contract. Hash validation checks integrity, not shader
 semantics. Asynchronous driver/compiler failures and device loss are not exposed

@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include "core/ComputeDispatch.hpp"
 #include <nlohmann/json.hpp>
 #include <string>
 namespace pw {
@@ -41,9 +42,9 @@ inline nlohmann::json capabilityReport(const bgfx::Caps& caps, bool allowIndirec
         {"conventions",{{"handedness","right"},{"up_axis","Y"},{"distance_unit","metre"},
             {"ndc_depth",caps.homogeneousDepth?"minus_one_to_one":"zero_to_one"},
             {"origin_bottom_left",caps.originBottomLeft}}},
-        {"compute",{{"workgroup_threads",128},{"workgroup_limit_probe","not exposed by pinned bgfx API"},
+        {"compute",{{"workgroup_threads",workgroupSize},{"workgroup_limit_probe","not exposed by pinned bgfx API"},
             {"buffer_read_write_probe","verified by startup GPU tests, not a separate capability bit"},
-            {"workgroup_256_variant","not implemented"}}},
+            {"build_variants",json::array({128,256})},{"selection","compile_time"}}},
         {"runtime_validation","Shader creation, buffer/image access, blits and readback still require successful GPU tests."}};
 }
 }

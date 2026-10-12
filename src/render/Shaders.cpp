@@ -1,4 +1,5 @@
 #include "Shaders.hpp"
+#include "core/ComputeDispatch.hpp"
 #include <fstream>
 #include <vector>
 #include <stdexcept>
@@ -46,6 +47,8 @@ static bgfx::ShaderHandle shader(const std::filesystem::path& assets, std::strin
        manifest.at("profile")!=profile || manifest.at("type")!=type ||
        manifest.at("shader")!=std::string(name)+".sc" || manifest.at("binary_sha256")!=digest(data))
         throw std::runtime_error("Shader manifest or binary mismatch: "+path.string());
+    if(stage=='C' && manifest.value("defines",std::string{})!="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize))
+        throw std::runtime_error("Shader workgroup variant does not match this executable: "+path.string());
     if(data.size()<22 || data[0]!=stage || data[1]!='S' || data[2]!='H' || data[3]!=12)
         throw std::runtime_error("Shader header incompatible with pinned bgfx: "+path.string());
     auto handle = bgfx::createShader(bgfx::copy(data.data(), static_cast<std::uint32_t>(data.size())));
