@@ -1,0 +1,113 @@
+{
+  "applied_commands": 2,
+  "audit_every_tick": true,
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "e0528b348ff6916bfeeb2e0d1b24334768d0db2d6c763b58709c8d70fdbbfa05",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "c3bb64bf7c88b03be8cc111a592926cb235452d0",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "capacity": 16384,
+  "completed_ticks": 3,
+  "failure": "",
+  "final_snapshot": {
+    "active": 0,
+    "checked_slots": 16384,
+    "free": 16384,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 0,
+    "state_error": false
+  },
+  "indirect": true,
+  "input": {
+    "capacity": 16384,
+    "commands": [
+      {
+        "count": 1024,
+        "material": "Stone",
+        "maximum": [
+          2.0,
+          10.0,
+          2.0
+        ],
+        "minimum": [
+          -2.0,
+          6.0,
+          -2.0
+        ],
+        "parameters": [
+          0.0,
+          0.0,
+          0.0,
+          5.723999977111816
+        ],
+        "sequence": 0,
+        "tick": 1,
+        "type": "spawn"
+      },
+      {
+        "count": 0,
+        "material": "Stone",
+        "maximum": [
+          4.0,
+          12.0,
+          4.0
+        ],
+        "minimum": [
+          -4.0,
+          0.0,
+          -4.0
+        ],
+        "parameters": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sequence": 1,
+        "tick": 2,
+        "type": "remove"
+      }
+    ],
+    "materials_hash": "6e2d0ad62cc37279",
+    "scene": {
+      "count": 0,
+      "materials": [
+        "Stone",
+        "Sand",
+        "Wood",
+        "Ash"
+      ],
+      "maximum": [
+        6.0,
+        11.0,
+        6.0
+      ],
+      "minimum": [
+        -6.0,
+        1.0,
+        -6.0
+      ],
+      "name": "Empty workspace",
+      "schema_version": 1,
+      "seed": 42
+    },
+    "schema_version": 1,
+    "simulation_profile": "ballistic_pool_v1",
+    "tick_hz": 60,
+    "ticks": 3,
+    "workgroup_size": 128
+  },
+  "materials_hash": 7939013633114337913,
+  "note": "Replays configuration and input; does not assert identical particle trajectories across GPUs.",
+  "passed": true,
+  "recorded_workgroup_size": 128,
+  "recording": "/Users/cimen/particleengine/tests/fixtures/recordings/ui-capture.json",
+  "requested_ticks": 3,
+  "schema_version": 1,
+  "workgroup_size": 128
+}

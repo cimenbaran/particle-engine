@@ -76,3 +76,10 @@ empty ticks, zero ticks, capacity rejection preserving the previous recording,
 duplicate or missing batch requests and divergent command counts. Native Metal
 CLI checks cover spawn/impulse/remove and zero ticks; the saved UI capture is
 also exercised through the command-line runner.
+
+Packaged Metal evidence (clean implementation commit c3bb64b) is retained in
+tests/results/m3-max-replay-{three-ticks,zero-ticks,ui-capture}.json with the
+corresponding inputs under tests/fixtures/recordings. All three passed from a
+working directory outside the repo. The masked fallback also passed the
+three-command fixture. A report aimed at its own input was rejected without
+changing the input bytes. Longer workloads and D3D11 remain open gates.

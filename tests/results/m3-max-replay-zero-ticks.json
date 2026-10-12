@@ -1,0 +1,66 @@
+{
+  "applied_commands": 0,
+  "audit_every_tick": true,
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "e0528b348ff6916bfeeb2e0d1b24334768d0db2d6c763b58709c8d70fdbbfa05",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "c3bb64bf7c88b03be8cc111a592926cb235452d0",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "capacity": 129,
+  "completed_ticks": 0,
+  "failure": "",
+  "final_snapshot": {
+    "active": 0,
+    "checked_slots": 129,
+    "free": 129,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 0,
+    "state_error": false
+  },
+  "indirect": true,
+  "input": {
+    "capacity": 129,
+    "commands": [],
+    "materials_hash": "6e2d0ad62cc37279",
+    "scene": {
+      "count": 0,
+      "materials": [
+        "Stone",
+        "Sand",
+        "Wood",
+        "Ash"
+      ],
+      "maximum": [
+        6.0,
+        11.0,
+        6.0
+      ],
+      "minimum": [
+        -6.0,
+        1.0,
+        -6.0
+      ],
+      "name": "Empty workspace",
+      "schema_version": 1,
+      "seed": 42
+    },
+    "schema_version": 1,
+    "simulation_profile": "ballistic_pool_v1",
+    "tick_hz": 60,
+    "ticks": 0,
+    "workgroup_size": 256
+  },
+  "materials_hash": 7939013633114337913,
+  "note": "Replays configuration and input; does not assert identical particle trajectories across GPUs.",
+  "passed": true,
+  "recorded_workgroup_size": 256,
+  "recording": "/Users/cimen/particleengine/tests/fixtures/recordings/zero-ticks.json",
+  "requested_ticks": 0,
+  "schema_version": 1,
+  "workgroup_size": 128
+}
