@@ -1,0 +1,314 @@
+{
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "33cc8588d9a3585dd7f3adbfe005aa98e27045b675b254a118f6fff05598a013",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "48037860a4da7c429904aeb565bce64c66bf2ca2",
+    "schema": 1,
+    "worktree_dirty": true
+  },
+  "capacity": 129,
+  "completed_cycles": 1,
+  "discarded_samples": 0,
+  "elapsed_seconds": 3.017694667,
+  "failure": "",
+  "indirect": true,
+  "intentional_cpu_rejections": 2,
+  "materials": {
+    "materials": [
+      {
+        "burn_rate": 0,
+        "color": [
+          0.45,
+          0.49,
+          0.55,
+          1
+        ],
+        "conductivity": 2.5,
+        "density": 2600,
+        "drag": 0.02,
+        "friction": 0.7,
+        "heat_capacity": 790,
+        "id": 0,
+        "ignition_kelvin": 0,
+        "name": "Stone",
+        "phase": "solid",
+        "restitution": 0.18,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.85,
+          0.58,
+          0.22,
+          1
+        ],
+        "conductivity": 0.27,
+        "density": 1600,
+        "drag": 0.05,
+        "friction": 0.5,
+        "heat_capacity": 830,
+        "id": 1,
+        "ignition_kelvin": 0,
+        "name": "Sand",
+        "phase": "solid",
+        "restitution": 0.12,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.15,
+          0.45,
+          0.85,
+          0.6
+        ],
+        "conductivity": 0.6,
+        "density": 1000,
+        "drag": 0.1,
+        "friction": 0.02,
+        "heat_capacity": 4184,
+        "id": 2,
+        "ignition_kelvin": 0,
+        "name": "Water",
+        "phase": "liquid",
+        "restitution": 0.05,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0.1,
+        "color": [
+          0.32,
+          0.19,
+          0.08,
+          1
+        ],
+        "conductivity": 0.12,
+        "density": 650,
+        "drag": 0.1,
+        "friction": 0.6,
+        "heat_capacity": 1700,
+        "id": 3,
+        "ignition_kelvin": 573,
+        "name": "Wood",
+        "phase": "solid",
+        "restitution": 0.1,
+        "transitions": [
+          4
+        ]
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.35,
+          0.34,
+          0.33,
+          1
+        ],
+        "conductivity": 0.1,
+        "density": 500,
+        "drag": 0.8,
+        "friction": 0.8,
+        "heat_capacity": 1000,
+        "id": 4,
+        "ignition_kelvin": 0,
+        "name": "Ash",
+        "phase": "solid",
+        "restitution": 0.03,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.22,
+          0.22,
+          0.24,
+          0.4
+        ],
+        "conductivity": 0.026,
+        "density": 1.2,
+        "drag": 1.5,
+        "friction": 0,
+        "heat_capacity": 1000,
+        "id": 5,
+        "ignition_kelvin": 0,
+        "name": "Smoke",
+        "phase": "gas",
+        "restitution": 0,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.8,
+          0.85,
+          0.9,
+          0.3
+        ],
+        "conductivity": 0.025,
+        "density": 0.6,
+        "drag": 1,
+        "friction": 0,
+        "heat_capacity": 2000,
+        "id": 6,
+        "ignition_kelvin": 0,
+        "name": "Steam",
+        "phase": "gas",
+        "restitution": 0,
+        "transitions": []
+      }
+    ],
+    "schema_version": 1,
+    "units": {
+      "length": "m",
+      "mass": "kg",
+      "temperature": "K",
+      "time": "s"
+    }
+  },
+  "notes": [
+    "One 1/60-second tick per frame; duration is wall-clock time.",
+    "Every tick audits every slot; error flags remain latched across readback intervals.",
+    "256-tick cycles cover fill/overflow, duplicate removal, reuse, short lifetimes and impulses.",
+    "This is a correctness soak, not a performance benchmark or reference-machine certification."
+  ],
+  "passed": true,
+  "requested_seconds": 3,
+  "resolution": {
+    "height": 1440,
+    "width": 2560
+  },
+  "samples": [
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 0.012380583,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 4096,
+      "state_error": false,
+      "tick": 1
+    },
+    {
+      "active": 0,
+      "checked_slots": 129,
+      "elapsed_seconds": 0.018547917,
+      "free": 129,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 4096,
+      "state_error": false,
+      "tick": 2
+    },
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 1.025691083,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 995199,
+      "state_error": false,
+      "tick": 123
+    },
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 1.092953167,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1052543,
+      "state_error": false,
+      "tick": 130
+    },
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 1.109354958,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1060735,
+      "state_error": false,
+      "tick": 131
+    },
+    {
+      "active": 0,
+      "checked_slots": 129,
+      "elapsed_seconds": 1.109613625,
+      "free": 129,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1060735,
+      "state_error": false,
+      "tick": 132
+    },
+    {
+      "active": 0,
+      "checked_slots": 129,
+      "elapsed_seconds": 1.80953175,
+      "free": 129,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1617146,
+      "state_error": false,
+      "tick": 216
+    },
+    {
+      "active": 0,
+      "checked_slots": 129,
+      "elapsed_seconds": 2.034564708,
+      "free": 129,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1617146,
+      "state_error": false,
+      "tick": 243
+    },
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 2.158931375,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1621113,
+      "state_error": false,
+      "tick": 257
+    },
+    {
+      "active": 0,
+      "checked_slots": 129,
+      "elapsed_seconds": 2.159558167,
+      "free": 129,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 1621113,
+      "state_error": false,
+      "tick": 258
+    },
+    {
+      "active": 129,
+      "checked_slots": 129,
+      "elapsed_seconds": 3.017251292,
+      "free": 0,
+      "identity_error": false,
+      "ownership_error": false,
+      "rejected_spawns": 2464760,
+      "state_error": false,
+      "tick": 361
+    }
+  ],
+  "saw_empty": true,
+  "saw_full": true,
+  "saw_overflow": true,
+  "schema_version": 1,
+  "slot_checks": 46569,
+  "spawn_requests": 2465792,
+  "ticks": 361,
+  "vsync": false
+}

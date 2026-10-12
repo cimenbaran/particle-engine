@@ -11,6 +11,7 @@
 #include "render/ParticlePool.hpp"
 #include "render/PoolDiagnostics.hpp"
 #include "render/ParticleVisibility.hpp"
+#include "render/ParticleAudit.hpp"
 #include "render/GpuVisibilityTest.hpp"
 #include "render/GpuPoolTest.hpp"
 #include <memory>
@@ -26,6 +27,7 @@
 #include <string>
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 
 namespace {
 struct Graphics {
@@ -315,6 +317,116 @@ int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::
     return 0;
 }
 
+int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
+    using Json=nlohmann::json;
+    pw::ParticleAudit audit(assets,options.capacity);
+    const auto* caps=bgfx::getCaps();
+    const bool indirect=options.indirect && particles.visibility->supportsIndirect();
+    int width,height;window.drawable(width,height);
+    float view[16],projection[16],vp[16];
+    bx::mtxLookAt(view,{std::sin(.65f)*24,12,std::cos(.65f)*24},{0,3,0},{0,1,0},bx::Handedness::Right);
+    bx::mtxProj(projection,55,float(width)/height,.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
+    bx::mtxMul(vp,view,projection);const auto frustum=pw::extractFrustum(vp,caps->homogeneousDepth);
+    bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
+    bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
+    bgfx::setViewTransform(10,view,projection);
+    bgfx::frame();
+    std::ifstream buildFile(assets/"build.json");Json build;buildFile>>build;
+    std::ifstream materialsFile(assets/"materials"/"default.json");Json materials;materialsFile>>materials;
+    Json shaderFingerprints=Json::object();
+    for(const auto& entry:std::filesystem::directory_iterator(assets/"shaders")) if(entry.path().extension()==".json") {
+        std::ifstream input(entry.path());Json manifest;input>>manifest;
+        shaderFingerprints[entry.path().filename().string()]=manifest.at("fingerprint");
+    }
+    const auto begin=std::chrono::steady_clock::now();
+    auto elapsed=[&]{return std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();};
+    uint64_t ticks=0,rejectedCommands=0,spawnRequests=0,discardedSamples=0;
+    uint64_t lastSample=UINT64_MAX;
+    double nextSample=0,nextProgress=0;
+    bool sawFull=false,sawEmpty=false,sawOverflow=false;
+    std::string failure;
+    Json samples=Json::array();
+    auto collect=[&](uint32_t frame) {
+        audit.poll(frame);particles.diagnostics->poll(frame);
+        const auto& a=audit.latest();const auto& pool=particles.diagnostics->latest();
+        if(!a.valid || !pool.valid || a.tick!=pool.tick || a.sequence==lastSample) return;
+        lastSample=a.sequence;
+        const bool valid=a.active==options.capacity && !a.free && !a.reserved && !a.rejected;
+        if(!valid) failure="GPU ownership, numeric state or identity audit failed";
+        sawFull=sawFull || pool.active==options.capacity;sawEmpty=sawEmpty || pool.active==0;sawOverflow=sawOverflow || pool.rejected>0;
+        if(samples.size()<8192) samples.push_back({{"tick",a.tick},{"elapsed_seconds",elapsed()},{"checked_slots",a.active},
+            {"ownership_error",bool(a.free)},{"state_error",bool(a.reserved)},{"identity_error",bool(a.rejected)},
+            {"active",pool.active},{"free",pool.free},{"rejected_spawns",pool.rejected}});
+        else ++discardedSamples;
+    };
+    pw::CommandLimits limits;limits.materialCount=uint32_t(particles.materials.entries.size());
+    auto enqueue=[&](pw::Command command) {
+        command.tick=particles.commands.nextTick();
+        if(auto reason=particles.commands.enqueue(command,limits);!reason.empty()) throw std::runtime_error("Soak command unexpectedly rejected: "+std::string(reason));
+        if(command.type==pw::CommandType::SpawnBrush) spawnRequests+=command.count;
+    };
+    while(elapsed()<options.soakSeconds && failure.empty()) {
+        SDL_Event event;
+        while(SDL_PollEvent(&event)) if(event.type==SDL_EVENT_QUIT || event.type==SDL_EVENT_WINDOW_CLOSE_REQUESTED) failure="Soak cancelled";
+        int w,h;window.drawable(w,h);
+        if(w!=width || h!=height || (SDL_GetWindowFlags(window.get())&SDL_WINDOW_MINIMIZED)) failure="Soak interrupted by resize/minimize";
+        if(!failure.empty()) break;
+        const auto phase=ticks%256;
+        pw::Command spawn;spawn.type=pw::CommandType::SpawnBrush;spawn.count=4096;
+        spawn.material=particles.liveMaterialIds[(ticks/8)%particles.liveMaterialIds.size()];
+        spawn.minimum={-6,1,-6};spawn.maximum={6,11,6};
+        if(phase==0) {
+            enqueue(spawn);
+            auto invalid=spawn;invalid.tick=particles.commands.nextTick();invalid.count=4097;
+            if(particles.commands.enqueue(invalid,limits).empty()) throw std::runtime_error("Invalid soak command was accepted");
+            ++rejectedCommands;
+        }
+        if(phase==1 || phase==131) for(auto material:particles.liveMaterialIds) {
+            pw::Command remove;remove.type=pw::CommandType::RemoveBrush;remove.material=material;
+            remove.minimum={-8,-1,-8};remove.maximum={8,1024,8};enqueue(remove);enqueue(remove);
+        }
+        if((phase>=2 && phase<=130) || (phase>=132 && phase<=199)) {
+            spawn.parameters[3]=phase>=132?.25f:0.0f;enqueue(spawn);enqueue(spawn);
+        }
+        if(phase>=132 && phase<=199 && phase%17==0) {
+            auto impulse=spawn;impulse.type=pw::CommandType::ApplyImpulse;impulse.count=0;impulse.parameters={1,2,-1,0};enqueue(impulse);
+        }
+        particles.tick(1);++ticks;
+        audit.prepare(4,particles.state[particles.current],particles.pool->activeSlots(),particles.pool->freeSlots(),particles.pool->counts(),uint32_t(particles.materials.entries.size()));
+        particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
+        if(elapsed()>=nextSample || phase==0 || phase==1 || phase==129 || phase==130 || phase==131 || phase==215) {
+            const bool requested=audit.request(6,ticks);
+            const bool poolRequested=particles.diagnostics->request(6,particles.pool->counts(),ticks);
+            if(requested!=poolRequested) throw std::runtime_error("Soak snapshot rings lost synchronization");
+            if(elapsed()>=nextSample) nextSample=elapsed()+1;
+        }
+        bgfx::touch(10);particles.render(10,indirect);collect(bgfx::frame());
+        if(elapsed()>=nextProgress) {
+            std::cout<<"Soak "<<int(elapsed())<<"/"<<options.soakSeconds<<" seconds; tick "<<ticks<<"; audited snapshots "<<samples.size()<<std::endl;
+            nextProgress=elapsed()+30;
+        }
+    }
+    while(audit.pending() || particles.diagnostics->pending()) collect(bgfx::frame());
+    audit.request(6,ticks);particles.diagnostics->request(6,particles.pool->counts(),ticks);
+    while(audit.pending() || particles.diagnostics->pending()) collect(bgfx::frame());
+    if(particles.commands.rejected()!=rejectedCommands) failure="Unexpected CPU rejection count";
+    if(failure.empty() && (ticks<256 || !sawFull || !sawEmpty || !sawOverflow)) failure="Soak did not complete required full/empty/overflow coverage";
+    const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
+    Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+        {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
+        {"slot_checks",ticks*options.capacity},{"completed_cycles",ticks/256},{"spawn_requests",spawnRequests},
+        {"intentional_cpu_rejections",rejectedCommands},{"saw_full",sawFull},{"saw_empty",sawEmpty},{"saw_overflow",sawOverflow},
+        {"machine",{{"platform",SDL_GetPlatform()},{"logical_cpus",SDL_GetNumLogicalCPUCores()},{"ram_mb",SDL_GetSystemRAM()},{"gpu_vendor_id",caps->vendorId},{"gpu_device_id",caps->deviceId}}},
+        {"final_snapshot",{{"tick",finalAudit.tick},{"checked_slots",finalAudit.active},{"ownership_error",bool(finalAudit.free)},{"state_error",bool(finalAudit.reserved)},{"identity_error",bool(finalAudit.rejected)},{"active",finalPool.active},{"free",finalPool.free},{"rejected_spawns",finalPool.rejected}}},
+        {"backend",bgfx::getRendererName(caps->rendererType)},{"resolution",{{"width",width},{"height",height}}},
+        {"indirect",indirect},{"vsync",false},{"build",build},{"shader_fingerprints",shaderFingerprints},{"materials",materials},{"samples",samples},{"discarded_samples",discardedSamples},
+        {"notes",Json::array({"One 1/60-second tick per frame; duration is wall-clock time.","Every tick audits every slot; error flags remain latched across readback intervals.","256-tick cycles cover fill/overflow, duplicate removal, reuse, short lifetimes and impulses.","This is a correctness soak, not a performance benchmark or reference-machine certification."})}};
+    std::filesystem::path path=options.report;if(!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());
+    std::ofstream output(path);output<<report.dump(2)<<'\n';output.close();if(!output) throw std::runtime_error("Cannot write soak report");
+    std::cout<<"Soak "<<(failure.empty()?"passed":"failed")<<": "<<options.report<<std::endl;
+    return failure.empty()?0:1;
+}
+
 }
 int main(int argc, char** argv) {
     try {
@@ -323,11 +435,11 @@ int main(int argc, char** argv) {
         const bool gpuTestOnly=options.gpuTest,allowIndirect=options.indirect;
         const bool benchmarking=!options.benchmark.empty();
         pw::Window window;
-        Graphics graphics(window,!benchmarking);
+        Graphics graphics(window,!benchmarking && !options.soakSeconds);
         const auto* caps=bgfx::getCaps();
         const uint64_t required=BGFX_CAPS_COMPUTE;
         std::cout << "Backend: " << bgfx::getRendererName(caps->rendererType) << '\n';
-        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 5) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
+        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 6) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
         std::cout << "Compute and instancing supported; indirect draws "
             << ((caps->supported&BGFX_CAPS_DRAW_INDIRECT)?"available":"unavailable") << '\n';
         std::cout << "Submission: compact visible instances; workgroup: 128\n";
@@ -337,8 +449,10 @@ int main(int argc, char** argv) {
         pw::runGpuLayoutTest(assets);
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
+        pw::runGpuAuditTest(assets);
         if(gpuTestOnly) return 0;
         Particles particles(assets,options.capacity);
+        if(options.soakSeconds) return runSoak(window,particles,assets,options);
         if(benchmarking) return runBenchmark(window,particles,assets,options);
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);

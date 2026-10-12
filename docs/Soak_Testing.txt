@@ -1,0 +1,57 @@
+GPU POOL AUDIT AND SOAK
+
+Run the packaged app for ten wall-clock minutes:
+
+./out/macos-release/ParticleWorld.app/Contents/MacOS/ParticleWorld \
+  --capacity 1000000 --soak 600 --report out/soak/million-600s.json
+
+--soak accepts 1-3600 seconds and requires a JSON report path. It cannot be
+combined with benchmark, frames, warmup or GPU-test modes. --no-indirect uses
+the masked draw fallback. Closing, resizing or minimizing interrupts the run
+and produces a failed report. Very short runs fail coverage if they cannot
+complete at least one 256-tick workload cycle.
+
+This mode draws a fixed camera in the native window with VSync disabled and
+advances one 1/60-second simulation tick per frame. Duration is wall-clock time;
+it is not a performance benchmark. Counts, elapsed time and actual tick count
+are recorded. The UI is absent during the soak. Progress prints every 30 seconds.
+
+Every tick, after pool classification, three ordered GPU audit passes:
+1. Clear a uint32 ownership counter for every slot and the checked-slot count.
+   Error flags clear only at the start of an audit epoch, not every frame.
+2. Traverse both lists, rejecting out-of-capacity indices and list/count or
+   alive-flag disagreement; atomically count each slot's owners.
+3. Require exactly one owner per slot, finite position/velocity/thermal lanes,
+   valid live radius/inverse mass/floor-box bounds/thermal ranges, stable slot
+   IDs, nonzero live generations and valid live material indices.
+
+Exponent-bit tests detect NaN/Inf even under floating-point fast-math. Errors
+are latched with atomic OR, so later clean frames cannot hide a failure between
+readbacks. Only 16-byte audit summaries and 16-byte pool counts are read back;
+no full-particle CPU copy is needed. The audit costs four extra bytes per slot
+plus counters/readback resources and runs only in audit/soak modes.
+
+The 256-tick workload covers initial/full-pool overflow, repeated whole-world
+removal, bounded refill (8,192 spawn requests per tick), reuse, another full-pool
+overflow, short-lived particles, impulses and an expiry-only interval. Each
+cycle submits one intentionally invalid over-quota CPU command and verifies
+its rejection. GPU rejection counters saturate rather than wrap.
+
+Periodic and phase-boundary snapshots are checked on receipt. Reports keep at
+most 8,192 snapshots, count any omitted records, and always include a final
+snapshot. Pass requires elapsed duration, at least one complete cycle, observed
+full/empty/overflow states, correct CPU rejection counts and no GPU audit flags.
+Audits prove post-tick invariants; they do not inspect transient intermediate
+writes, pair contacts, fluid/heat behavior, or reference-machine compatibility.
+Small-pool generation-increment tests complement the large-pool identity audit.
+
+GPU fault-injection tests cover duplicate ownership, out-of-range indices,
+NaN, infinity, mismatched stable IDs, zero generations, invalid materials, empty
+pools, largest finite floats, error persistence and explicit reset.
+
+LOCAL CHECKS (APPLE M3 MAX, 48 GB)
+- 129 slots: 3-second soak, 361 ticks, one complete cycle; no audit errors.
+- One million slots: 10-second soak, 1,192 ticks, four complete cycles;
+  1,192,000,000 slot checks with full/empty/overflow coverage and no errors.
+- The ten-minute packaged run is pending. Its result must be inspected before
+  marking that duration gate complete. Windows/D3D11 remains unverified.

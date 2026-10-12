@@ -30,12 +30,15 @@ int main() {
         std::vector<char*> raw;for(auto& arg:args) raw.push_back(arg.data());return pw::parseOptions(int(raw.size()),raw.data());
     };
     CHECK(parse({"app"}).capacity==16384);
+    CHECK(parse({"app","--soak","600","--report","soak.json"}).soakSeconds==600);
     const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
         {"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},
         {"app","--frames","4294967296"},{"app","--frames","0"},{"app","--capacity"},
-        {"app","--warmup","1"},{"app","--gpu-test","--benchmark","x"}}) {
+        {"app","--warmup","1"},{"app","--gpu-test","--benchmark","x"},
+        {"app","--soak","0","--report","x"},{"app","--soak","3601","--report","x"},
+        {"app","--soak","1"},{"app","--report","x"},{"app","--soak","1","--report","x","--frames","2"}}) {
         bool failed=false;try {parse(args);} catch(const std::exception&) {failed=true;}CHECK(failed);
     }
     pw::FixedStep clock;

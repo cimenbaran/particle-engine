@@ -1,8 +1,8 @@
 GPU PARTICLE POOL - CURRENT IMPLEMENTATION
 
 Capacity: 16,384 by default; --capacity accepts 1 through 1,048,576. A million
-particles have a local 1080p ballistic benchmark. Exhaustive ownership tests
-still cover up to 16,384; larger runs currently check final counts and rendering.
+particles have a local 1080p ballistic benchmark. Full-state CPU readback tests cover up to 16,384. GPU reductions now audit every
+slot at larger capacities without a full-state CPU copy; see Soak_Testing.txt.
 
 Each slot keeps the existing 64-byte particle record. Identity is material ID,
 flags (bit zero = alive), stable slot ID, generation. Reset begins a new scene
@@ -68,8 +68,8 @@ GPU tests read back state and membership explicitly. They cover capacities
 lifetime expiry; masked render records; and generation wrap rejection.
 Diagnostic tests also cover full-ring rejection, recycling, reset epochs,
 latest-sample selection, per-state values, and shutdown with a pending request.
-Metal passes locally. D3D11, exhaustive million-slot ownership and ten-minute
-soak gates remain open.
+Metal passes locally, including a short million-slot ownership/finite-state
+soak. D3D11 and the ten-minute duration gate remain open.
 
 VISIBILITY AND DRAW CONTRACT
 

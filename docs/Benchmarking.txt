@@ -34,9 +34,9 @@ readback and includes bounded timestamp-drain overhead. Its mean and throughput
 are separate from per-frame submission and GPU intervals.
 
 After timing, the app verifies the final active/free/visible counts and reads
-the render target once to reject a uniform/blank image. These are scale smoke
-checks, not exhaustive million-slot ownership or finite-state certification.
-Existing exhaustive readback tests still cover capacities through 16,384.
+the render target once to reject a uniform/blank image. These benchmark-end checks are scale smoke checks. Use the separate soak mode
+for whole-pool GPU ownership/finite-state audits; full-state CPU readback tests
+cover capacities through 16,384.
 
 JSON captures hardware/driver IDs, CPU model where available, RAM, compiler,
 Git revision/dirty status, executable SHA-256, shader fingerprints, material
@@ -57,5 +57,5 @@ active/visible particles, 120 warmup and 600 measured frames, indirect draws:
 
 This local sample is within 16.7 ms under the report's timing checks. It does
 not certify the design's M1 Pro/Windows reference machines, on-screen frame
-pacing, thermal stability or ten-minute soak. Repeated controlled runs and full
-large-pool ownership/finite-state validation remain required before release.
+pacing, thermal stability or ten-minute soak. Repeated controlled runs and long-duration every-tick ownership/finite-state
+validation remain required before release.

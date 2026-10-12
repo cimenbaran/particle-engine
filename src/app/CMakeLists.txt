@@ -1,4 +1,4 @@
-add_executable(ParticleWorld MACOSX_BUNDLE main.cpp Benchmark.cpp ../render/ImGuiRenderer.cpp ../render/Shaders.cpp ../render/GpuLayoutTest.cpp ../render/ParticleVisibility.cpp ../render/GpuVisibilityTest.cpp ../render/PoolDiagnostics.cpp ../render/ParticlePool.cpp ../render/GpuPoolTest.cpp)
+add_executable(ParticleWorld MACOSX_BUNDLE main.cpp Benchmark.cpp ../render/ImGuiRenderer.cpp ../render/Shaders.cpp ../render/GpuLayoutTest.cpp ../render/ParticleAudit.cpp ../render/GpuAuditTest.cpp ../render/ParticleVisibility.cpp ../render/GpuVisibilityTest.cpp ../render/PoolDiagnostics.cpp ../render/ParticlePool.cpp ../render/GpuPoolTest.cpp)
 target_link_libraries(ParticleWorld PRIVATE pw_core pw_assets pw_imgui bgfx bx glm::glm nlohmann_json::nlohmann_json)
 target_include_directories(ParticleWorld PRIVATE ${bgfx_cmake_SOURCE_DIR}/bgfx/include)
 set_target_properties(ParticleWorld PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER com.particleworld.sandbox MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION})

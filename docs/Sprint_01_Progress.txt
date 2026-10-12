@@ -45,6 +45,10 @@ Implemented and locally exercised
 - Configurable capacity through 1,048,576 and a fixed 1080p offscreen benchmark
   with warmup, frame-ID-matched GPU timing, completion-based throughput, JSON/CSV
   output, input/build provenance and final count/image checks.
+- GPU whole-pool ownership, finite-state and identity audits with latched
+  failures, fault-injection tests and a wall-clock soak mode. The stress loop
+  exercises full/empty pools, duplicate removal, reuse, expiry, impulses and
+  intentional CPU quota rejection. Only compact summaries return to the CPU.
 - CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
   The workflow is authored locally; it has not run on a remote CI service.
@@ -106,6 +110,12 @@ Verified evidence
 - Fallback benchmark passed count/image checks at 16,384 particles. A zero-
   warmup limit check passed at 1,048,576 active/visible particles. Interactive
   mode ran one million particles for 180 frames and shut down after 89 ticks.
+- GPU audit fault injection passed duplicate/out-of-range membership, NaN/Inf,
+  stale ID, zero generation and invalid material cases; clean/empty/finite-max
+  cases, latched failure persistence and reset also passed.
+- Short soaks passed at 129 slots (3 seconds, 361 ticks) and one million slots
+  (10 seconds, 1,192 ticks, 1.192 billion slot checks). Full/empty/overflow
+  coverage and CPU rejection counts passed, with no audit flags.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
@@ -155,8 +165,8 @@ S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impuls
        Heat/terrain tools and command recording remain.
 S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
        lifetime and active compaction implemented. Pool ownership is tested at
-       capacities through 16,384 slots. Larger runs validate counts/rendering;
-       exhaustive million-slot ownership and D3D11 gates remain.
+       CPU readback through 16,384 slots plus whole-pool GPU audits at one
+       million. A short stress run passed; long soak and D3D11 gates remain.
 S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
        schema fingerprints implemented. Scene files, command recording and
        cosmetic pools remain.
@@ -170,8 +180,8 @@ S1-12: Timings, delayed counters, benchmark JSON/CSV, build provenance and
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
 - Exhaustive zero/full pool tests passed through 16,384 slots on Metal. A local
-  million-particle benchmark passed its count/image checks; exhaustive large-pool
-  finite-state/ownership tests, reference-hardware tests and ten-minute soak remain.
+  million-particle benchmark and short every-tick ownership/finite-state soak
+  passed. Reference-hardware tests and the ten-minute duration gate remain.
 - The local ballistic sample is within 16.7 ms; reference-machine performance
   certification is not claimed. The current demo has no pair contacts.
 - Full-particle readback is limited to explicit startup/GPU tests. Steady-state
@@ -180,7 +190,7 @@ Open gates
 
 Next implementation order
 1. Complete shader cache/reload and the platform capability report.
-2. Extend exhaustive ownership/finite-state validation to large pools and run
-   the ten-minute soak; collect controlled repeat and reference-machine timings.
+2. Complete the ten-minute large-pool soak and inspect its report; collect
+   controlled repeat and reference-machine timings.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.

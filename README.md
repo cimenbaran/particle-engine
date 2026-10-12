@@ -76,6 +76,10 @@ For a fixed 1080p benchmark with JSON/CSV output, use
 `--benchmark out/benchmarks/local --capacity 1000000 --warmup 120 --frames 600`.
 See [benchmark methodology and local results](docs/Benchmarking.txt).
 
-Large-pool soak/ownership tests, shader reload, scene/command recording and
+Use `--capacity 1000000 --soak 600 --report out/soak/million.json` for an
+audit on every tick and repeated spawn/remove/expiry stress. See
+[soak testing](docs/Soak_Testing.txt) for coverage and results.
+
+The ten-minute gate, shader reload, scene/command recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
