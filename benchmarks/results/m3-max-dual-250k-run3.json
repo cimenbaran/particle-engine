@@ -1,0 +1,305 @@
+{
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "3ad31a17fc275d429fb99830488b222b2aa598e98cbde399f4f6ebc8694777d0",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "f026f87561a030a47c7fc8302334200f6206373b",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "capacity": 100000,
+  "completed_mean_frame_ms": 0.7282502083333333,
+  "completed_throughput_fps": 1373.1544303826438,
+  "completed_wall_ms": 436.950125,
+  "cosmetic_capacity": 150000,
+  "cosmetic_image_pixels_different_from_corner": 109268,
+  "cosmetic_seed": 4242,
+  "final_active_count": 100000,
+  "final_cosmetic_active_count": 150000,
+  "final_cosmetic_visible_count": 150000,
+  "final_image_pixels_different_from_corner": 109435,
+  "final_visible_count": 100000,
+  "frustum_culling": true,
+  "generated_at_unix_ms": 1791831933009,
+  "gpu_frame": {
+    "max_ms": 1.73325,
+    "mean_ms": 1.2619259061976553,
+    "median_ms": 1.24375,
+    "min_ms": 0.993,
+    "p95_ms": 1.481166,
+    "percentile_method": "nearest_rank",
+    "samples": 597
+  },
+  "gpu_sample_coverage": 0.995,
+  "gui": false,
+  "indirect": true,
+  "local_sample_within_16_7ms": true,
+  "machine": {
+    "cpu_model": "Apple M3 Max",
+    "gpu_device_id": 1009,
+    "gpu_vendor_id": 4203,
+    "logical_cpus": 16,
+    "platform": "macOS",
+    "ram_mb": 49152
+  },
+  "material_source": {
+    "materials": [
+      {
+        "burn_rate": 0,
+        "color": [
+          0.45,
+          0.49,
+          0.55,
+          1
+        ],
+        "conductivity": 2.5,
+        "density": 2600,
+        "drag": 0.02,
+        "friction": 0.7,
+        "heat_capacity": 790,
+        "id": 0,
+        "ignition_kelvin": 0,
+        "name": "Stone",
+        "phase": "solid",
+        "restitution": 0.18,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.85,
+          0.58,
+          0.22,
+          1
+        ],
+        "conductivity": 0.27,
+        "density": 1600,
+        "drag": 0.05,
+        "friction": 0.5,
+        "heat_capacity": 830,
+        "id": 1,
+        "ignition_kelvin": 0,
+        "name": "Sand",
+        "phase": "solid",
+        "restitution": 0.12,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.15,
+          0.45,
+          0.85,
+          0.6
+        ],
+        "conductivity": 0.6,
+        "density": 1000,
+        "drag": 0.1,
+        "friction": 0.02,
+        "heat_capacity": 4184,
+        "id": 2,
+        "ignition_kelvin": 0,
+        "name": "Water",
+        "phase": "liquid",
+        "restitution": 0.05,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0.1,
+        "color": [
+          0.32,
+          0.19,
+          0.08,
+          1
+        ],
+        "conductivity": 0.12,
+        "density": 650,
+        "drag": 0.1,
+        "friction": 0.6,
+        "heat_capacity": 1700,
+        "id": 3,
+        "ignition_kelvin": 573,
+        "name": "Wood",
+        "phase": "solid",
+        "restitution": 0.1,
+        "transitions": [
+          4
+        ]
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.35,
+          0.34,
+          0.33,
+          1
+        ],
+        "conductivity": 0.1,
+        "density": 500,
+        "drag": 0.8,
+        "friction": 0.8,
+        "heat_capacity": 1000,
+        "id": 4,
+        "ignition_kelvin": 0,
+        "name": "Ash",
+        "phase": "solid",
+        "restitution": 0.03,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.22,
+          0.22,
+          0.24,
+          0.4
+        ],
+        "conductivity": 0.026,
+        "density": 1.2,
+        "drag": 1.5,
+        "friction": 0,
+        "heat_capacity": 1000,
+        "id": 5,
+        "ignition_kelvin": 0,
+        "name": "Smoke",
+        "phase": "gas",
+        "restitution": 0,
+        "transitions": []
+      },
+      {
+        "burn_rate": 0,
+        "color": [
+          0.8,
+          0.85,
+          0.9,
+          0.3
+        ],
+        "conductivity": 0.025,
+        "density": 0.6,
+        "drag": 1,
+        "friction": 0,
+        "heat_capacity": 2000,
+        "id": 6,
+        "ignition_kelvin": 0,
+        "name": "Steam",
+        "phase": "gas",
+        "restitution": 0,
+        "transitions": []
+      }
+    ],
+    "schema_version": 1,
+    "units": {
+      "length": "m",
+      "mass": "kg",
+      "temperature": "K",
+      "time": "s"
+    }
+  },
+  "measured_frames": 600,
+  "notes": [
+    "One fixed simulation tick per frame; no real-time catch-up scheduler.",
+    "Wall samples include submission and frame backpressure; GPU samples use bgfx frame IDs.",
+    "Warmup is GPU-drained before measurement; completed wall duration ends after the final counter readback.",
+    "Final image validation is outside completed wall duration. Startup correctness tests cover up to 16384 slots.",
+    "Buffer estimate excludes materials, geometry, staging, driver allocations and temporary seed upload.",
+    "Cosmetic benchmark slots start filled with seed 4242 Wood, with lifetime disabled; no emission/recycling workload or water solver is included.",
+    "The per-pool final image checks is outside timed frames and completed wall duration.",
+    "This local measurement does not certify Windows, reference hardware or the design mixed water scene."
+  ],
+  "particle_buffer_bytes_estimate": 50000128,
+  "physical_image_pixels_different_from_corner": 109010,
+  "render_target": "offscreen_rgba8_d32f",
+  "resolution": {
+    "height": 1080,
+    "width": 1920
+  },
+  "resources": {
+    "handles": {
+      "dynamic_index_buffers": 8,
+      "dynamic_vertex_buffers": 10,
+      "framebuffers": 1,
+      "index_buffers": 13,
+      "programs": 21,
+      "shaders": 24,
+      "textures": 20,
+      "uniforms": 12,
+      "vertex_buffers": 18
+    },
+    "host_diagnostic_payload_bytes": 192,
+    "notes": [
+      "Payload is requested data size; excludes alignment, allocator pages, driver copies, shaders and uniforms.",
+      "Reset can retain old buffers until deferred destruction; seed upload is temporary and is not a peak-memory estimate.",
+      "Host seed vectors, bgfx upload copies, GUI/font resources and render targets are outside the requested persistent total.",
+      "Renderer estimates overlap payload categories; do not add them together. Negative/unavailable counters are null.",
+      "This snapshot does not certify either provisional memory budget."
+    ],
+    "provisional_budget_bytes": {
+      "particle_working_memory": 512000000,
+      "total_gpu_allocations": 1500000000
+    },
+    "renderer_estimates_bytes": {
+      "gpu_available": null,
+      "gpu_used": null,
+      "render_targets": 16588800,
+      "textures": 8343808,
+      "transient_indices_used": 0,
+      "transient_vertices_used": 0
+    },
+    "requested_payload_bytes": {
+      "active_free_lists": 2000000,
+      "audit_buffers": 0,
+      "billboard_geometry": 120,
+      "diagnostic_textures": 256,
+      "indirect_arguments": 64,
+      "material_table": 896,
+      "particle_buffers": 50000128,
+      "particle_state": 32000000,
+      "persistent_total": 50001400,
+      "pool_visibility_counters": 64,
+      "render_instances": 16000000
+    },
+    "schema_version": 1,
+    "temporary_seed_upload_payload_bytes": 16000000
+  },
+  "scene": "dual_pool_seed42_physical_seed4242_cosmetic_ballistic_box",
+  "schema_version": 1,
+  "seed": 42,
+  "shader_fingerprints": {
+    "cs_audit_clear.bin.json": "68fa55778a3a68bef0223d9941d3a1d35f34f13499a9886768472d31f7fbe5ef",
+    "cs_audit_membership.bin.json": "88137ac1e851c3101f6a270c1ba42bc136549fc620cef899ab89aedd1851af5b",
+    "cs_audit_state.bin.json": "291b6b8e8b952de94ca68ab1c76112bb87eadabf69404f65798030621814be7b",
+    "cs_export.bin.json": "49495022b52b00503a36f88bb12276f2a04721a29172af7525549d21f166068c",
+    "cs_particles.bin.json": "84568b2985315f8c7e41be68634793d7900233acb5e55032822b4fa9f3d40cbf",
+    "cs_pool_brush.bin.json": "bfe06662543a84139165c02426e588c5105adb452e356dce860078433c40ca93",
+    "cs_pool_classify.bin.json": "368e7ac262b46a2d30127dc714accd4630eae6c797ec50ef7ab5ed37bdcc3c0a",
+    "cs_pool_clear.bin.json": "ddc41f3a09a8fea8ed0adf109b6d4d5c10cf11dab16efc6676527424b6933762",
+    "cs_pool_export.bin.json": "49f1d036fb4e0869f61d94caae49fc63dbe06be6d7e6cbd417a38cd3de9b0355",
+    "cs_pool_spawn.bin.json": "0155398457cac3dc2282505c23573129bc77e77ce7978ac3f44845756471e010",
+    "cs_pool_stats.bin.json": "1d05483338c1d0302f7f8500244a77201e87723045d8eb0f64cff04c90d1aaf3",
+    "cs_reset.bin.json": "f00e95e26f4d1d2b9c38743847667e9f4a7e46131093156b4f45329bde2891e6",
+    "cs_visible.bin.json": "45c565ec5799513137252ad958dfb09af90377fc598ed7eec38acf59ceae5741",
+    "cs_visible_args.bin.json": "8c91d0c92c5dff0d4e91f5a46401ac8716eddf63649e7c337f3cd1e2379c856c",
+    "cs_visible_clear.bin.json": "385e5aad36946979453a2260caf5a3078e30a7c230127dcbd7c7b820596e5eb7",
+    "fs_gui.bin.json": "a3424b3cfc644402400aa6780ee0e04b450eb6ee9c293ffa6cbd475553436093",
+    "fs_particles.bin.json": "0d1e2ff78f5b3690d8930400832896d4b8a33f035250740521ae50c5c452df62",
+    "vs_gui.bin.json": "18590f86283770c39e1ea97f29113c836f1aee555c1231658e1d03ec848b395c",
+    "vs_particles.bin.json": "070bbc0faf4cc3e8871c801f584c7e224358ada89cb937818188d887796b5cba"
+  },
+  "submit_frame_wall": {
+    "max_ms": 6.561291,
+    "mean_ms": 0.7224689900000002,
+    "median_ms": 0.712167,
+    "min_ms": 0.017291,
+    "p95_ms": 1.036417,
+    "percentile_method": "nearest_rank",
+    "samples": 600
+  },
+  "tick_seconds": 0.016666666666666666,
+  "ticks_per_frame": 1,
+  "timed_diagnostics": false,
+  "total_particle_capacity": 250000,
+  "vsync": false,
+  "warmup_frames": 120,
+  "workgroup_size": 128
+}

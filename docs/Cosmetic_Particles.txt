@@ -54,7 +54,8 @@ Validation on Metal
   sparks and disabled emission.
 - 120-frame runs with cosmetics disabled and at 150,000-slot cosmetic capacity
   shut down cleanly. This checks allocation/lifecycle, not maximum live effects
-  throughput. D3D11 and mixed-scene reference-machine timing remain unverified.
+  throughput. Separate filled dual-pool ballistic timings are now recorded
+  in Benchmarking.txt. D3D11 and the mixed water reference scene remain open.
 
 Packaged evidence: tests/results/m3-max-cosmetic-isolation.txt contains the
 clean build manifest, executable SHA256 and GPU suite output for implementation

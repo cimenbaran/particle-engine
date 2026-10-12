@@ -93,3 +93,22 @@ checks are excluded from frame timing and completed wall duration.
 CPU tests cover the new option/default semantics. Short Metal runs at 129
 physical/127 cosmetic slots passed both draw paths, counts, resource totals and
 isolated images. These checks do not certify reference-machine performance.
+
+LOCAL DUAL-POOL RESULTS: APPLE M3 MAX, 48 GB
+
+Clean packaged implementation f026f87; workgroup 128, indirect draws, 1080p,
+120 warmup frames and 600 measured frames per run. Executed from /tmp with
+packaged assets. Corresponding JSON/CSV files are in benchmarks/results/.
+
+m3-max-dual-250k-run1: physical 100,000; cosmetic 150,000; submit p95 1.050 ms; GPU p95 1.480 ms; GPU samples 596/600; completed mean 0.735 ms.
+m3-max-dual-250k-run2: physical 100,000; cosmetic 150,000; submit p95 1.062 ms; GPU p95 1.482 ms; GPU samples 596/600; completed mean 0.733 ms.
+m3-max-dual-250k-run3: physical 100,000; cosmetic 150,000; submit p95 1.036 ms; GPU p95 1.481 ms; GPU samples 597/600; completed mean 0.728 ms.
+m3-max-dual-million: physical 850,000; cosmetic 150,000; submit p95 5.258 ms; GPU p95 8.567 ms; GPU samples 598/600; completed mean 3.126 ms.
+
+All runs retained exactly the requested physical/cosmetic counts and produced
+nonuniform combined and isolated per-pool images. The 250,000-slot reports
+request 50,000,128 bytes of particle buffers; the million-slot report requests
+200,000,128 bytes. Broader payload and renderer estimates are in each JSON.
+All four satisfied the existing local 16.7 ms sample criterion. These short
+runs do not establish sustained thermals, full water/granular interactions,
+reference-tier performance, D3D11 behavior or total GPU memory budget compliance.
