@@ -103,3 +103,8 @@ assets are required. Both passed local Metal GPU tests. See
 Enable **Free camera**, click the scene, and use WASD plus Q/E to move; Shift
 boosts speed. Hold right mouse to look, or use **Reset view** to return home.
 Camera movement works while paused. See [camera controls](docs/Camera_Controls.txt).
+
+Expand **Pointer brush** to spawn, remove or lift a selected material at a
+clicked position. Adjust the horizontal plane and box size; the wire preview
+shows the region. Commands apply on the next tick. See
+[pointer brushes](docs/Pointer_Brushes.txt).

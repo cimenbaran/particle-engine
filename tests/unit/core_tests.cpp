@@ -3,6 +3,7 @@
 #include "core/CommandQueue.hpp"
 #include "core/FixedStep.hpp"
 #include "core/FlyCamera.hpp"
+#include "core/PointerBrush.hpp"
 #include "core/Frustum.hpp"
 #include "core/RunOptions.hpp"
 #include "core/TimingSummary.hpp"
@@ -14,6 +15,19 @@
 #include <limits>
 #define CHECK(x) do { if (!(x)) { std::cerr << "FAIL line " << __LINE__ << ": " #x "\n"; return EXIT_FAILURE; } } while(false)
 int main() {
+    const auto centerRay=pw::pointerRay({0,10,10},{0,0,0},.5f,.5f,16.0f/9);
+    CHECK(centerRay);const auto centerBox=pw::planeBrush(*centerRay,0,1);CHECK(centerBox);
+    CHECK(std::abs(centerBox->minimum[0]+1)<1e-5f && std::abs(centerBox->maximum[2]-1)<1e-5f);
+    CHECK(centerBox->minimum[1]==0 && centerBox->maximum[1]==1);
+    const auto sideRay=pw::pointerRay({0,10,10},{0,0,0},.6f,.5f,16.0f/9);CHECK(sideRay && sideRay->direction[0]>0);
+    CHECK(!pw::pointerRay({0,10,10},{0,10,10},.5f,.5f,1));
+    CHECK(!pw::pointerRay({0,10,10},{0,0,0},-1,.5f,1));
+    CHECK(!pw::planeBrush({{0,10,10},{0,0,-1}},0,1));
+    CHECK(!pw::planeBrush({{0,10,10},{0,1,0}},0,1));
+    CHECK(!pw::planeBrush({{20,10,0},{0,-1,0}},0,1));
+    const auto edgeBox=pw::planeBrush({{7.9f,10,7.9f},{0,-1,0}},0,1);CHECK(edgeBox);
+    CHECK(edgeBox->maximum[0]==7.95f && edgeBox->maximum[2]==7.95f);
+
     pw::FlyCamera camera;camera.fromOrbit(0,10,3);
     const auto forward=camera.forward();CHECK(std::abs(forward[0])<1e-6f && forward[1]==0 && forward[2]==-1);
     camera.move(1,0,0,.1f,10);CHECK(std::abs(camera.position()[2]-9)<1e-6f);
@@ -36,6 +50,11 @@ int main() {
     CHECK(pw::dispatchGroups(UINT32_MAX)==uint64_t(UINT32_MAX)/pw::workgroupSize+1);
 
     const float identityMatrix[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+    const auto screenPoint=pw::projectBrushPoint({-.5f,.5f,0},identityMatrix,1280,720);
+    CHECK(screenPoint && (*screenPoint)[0]==320 && (*screenPoint)[1]==180);
+    const auto logicalRay=pw::pointerRay({0,10,10},{0,0,0},640.0f/1280,360.0f/720,16.0f/9);
+    const auto retinaRay=pw::pointerRay({0,10,10},{0,0,0},1280.0f/2560,720.0f/1440,16.0f/9);
+    CHECK(logicalRay && retinaRay && logicalRay->direction==retinaRay->direction);
     const auto symmetric=pw::extractFrustum(identityMatrix,true);
     const auto zeroDepth=pw::extractFrustum(identityMatrix,false);
     CHECK(symmetric[0][0]==1 && symmetric[0][3]==1 && symmetric[1][0]==-1);

@@ -4,6 +4,7 @@
 #include "core/RunOptions.hpp"
 #include "core/FixedStep.hpp"
 #include "core/FlyCamera.hpp"
+#include "core/PointerBrush.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/ParticleTypes.hpp"
 #include "assets/Materials.hpp"
@@ -201,16 +202,23 @@ struct Particles {
         current=0;
         pool->rebuild(0,state[current],true);
     }
-    void queueBrush(pw::CommandType type,float strength,uint32_t count=0,float lifetime=0) {
+    void queueBrush(pw::CommandType type,float strength,uint32_t count=0,float lifetime=0,
+                    const pw::BrushBox* bounds=nullptr,uint32_t material=UINT32_MAX) {
         // One spatial impulse for the chosen scene material; mixed scenes use Stone.
         pw::Command command;
         command.tick=commands.nextTick(); command.type=type;
         command.minimum={-4,0,-4}; command.maximum={4,12,4};
         command.parameters={0,strength,0,lifetime}; command.count=count;
         if(type==pw::CommandType::SpawnBrush) {command.minimum={-2,6,-2};command.maximum={2,10,2};}
-        command.material=sceneMaterial<0?0u:unsigned(sceneMaterial);
+        if(bounds) {command.minimum=bounds->minimum;command.maximum=bounds->maximum;}
+        command.material=material==UINT32_MAX?(sceneMaterial<0?0u:unsigned(sceneMaterial)):material;
         pw::CommandLimits limits; limits.materialCount=uint32_t(materials.entries.size());
         const auto reason=commands.enqueue(command,limits);
+        // Reload runs before queued commands are consumed. Reserve newly selected
+        // spawn materials immediately and conservatively until the next reset.
+        if(reason.empty() && type==pw::CommandType::SpawnBrush && count &&
+           std::find(liveMaterialIds.begin(),liveMaterialIds.end(),command.material)==liveMaterialIds.end())
+            liveMaterialIds.push_back(command.material);
         commandMessage=reason.empty()?"Brush queued for next tick":std::string(reason);
     }
     void tick(uint16_t view) {
@@ -483,7 +491,10 @@ int main(int argc, char** argv) {
         uint64_t ticks=0; uint32_t frames=0, completedFrame=0; double lag=0;
         int width=0,height=0;
         float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
-        int spawnCount=1024;
+        int spawnCount=1024,pointerTool=0;
+        uint32_t brushMaterial=0;
+        float brushHeight=.5f,brushHalfSize=1;
+        std::optional<ImVec2> brushPointer;
         pw::FlyCamera flyCamera;
         bool freeCamera=false,cameraCaptured=false;
         float cameraSpeed=8;
@@ -498,6 +509,7 @@ int main(int argc, char** argv) {
             particles.visibleDiagnostics->poll(completedFrame);
             SDL_Event event;
             float lookX=0,lookY=0;
+            std::optional<ImVec2> brushClick;
             std::array<bool,SDL_SCANCODE_COUNT> keyPressed{};
             bool cancelCamera=false;
             while(SDL_PollEvent(&event)) {
@@ -511,10 +523,16 @@ int main(int argc, char** argv) {
                    (event.type==SDL_EVENT_MOUSE_BUTTON_UP && event.button.button==SDL_BUTTON_RIGHT)) {
                     releaseCamera();cancelCamera=true;lookX=lookY=0;
                 }
+                if(event.type==SDL_EVENT_MOUSE_MOTION && event.motion.windowID==SDL_GetWindowID(window.get()))
+                    brushPointer=ImVec2(event.motion.x,event.motion.y);
+                if((event.type==SDL_EVENT_MOUSE_BUTTON_DOWN || event.type==SDL_EVENT_MOUSE_BUTTON_UP) &&
+                   event.button.windowID==SDL_GetWindowID(window.get())) brushPointer=ImVec2(event.button.x,event.button.y);
                 if(event.type==SDL_EVENT_MOUSE_MOTION && cameraCaptured) {lookX+=event.motion.xrel;lookY+=event.motion.yrel;}
                 if(event.type==SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                    event.key.scancode>=0 && event.key.scancode<SDL_SCANCODE_COUNT)
                     keyPressed[event.key.scancode]=true;
+                if(event.type==SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button==SDL_BUTTON_LEFT &&
+                   event.button.windowID==SDL_GetWindowID(window.get())) brushClick=ImVec2(event.button.x,event.button.y);
                 ImGui_ImplSDL3_ProcessEvent(&event);
                 if(std::getenv("PW_TRACE_INPUT") && (event.type==SDL_EVENT_MOUSE_BUTTON_DOWN || event.type==SDL_EVENT_MOUSE_BUTTON_UP))
                     std::cerr << "Mouse " << event.type << " at " << event.button.x << "," << event.button.y << " down=" << event.button.down << '\n';
@@ -578,6 +596,21 @@ int main(int argc, char** argv) {
             if(ImGui::Button("Spawn particles")) particles.queueBrush(pw::CommandType::SpawnBrush,0,uint32_t(spawnCount),spawnLifetime);
             ImGui::Text("Queued: %u | Rejected commands: %llu",unsigned(particles.commands.pending()),static_cast<unsigned long long>(particles.commands.rejected()));
             if(!particles.commandMessage.empty()) ImGui::TextWrapped("%s",particles.commandMessage.c_str());
+            if(brushMaterial>=particles.materials.entries.size() || particles.materials.entries[brushMaterial].gpu.identity[1]!=0)
+                brushMaterial=particles.liveMaterialIds.front();
+            if(ImGui::CollapsingHeader("Pointer brush")) {
+                ImGui::Combo("Pointer tool",&pointerTool,"Off\0Spawn\0Remove\0Lift\0");
+                if(ImGui::BeginCombo("Brush material",particles.materials.entries[brushMaterial].name.c_str())) {
+                    for(uint32_t id=0;id<particles.materials.entries.size();++id) {
+                        const auto& material=particles.materials.entries[id];
+                        if(material.gpu.identity[1]==0 && ImGui::Selectable(material.name.c_str(),brushMaterial==id)) brushMaterial=id;
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::SliderFloat("Brush half-size (m)",&brushHalfSize,.1f,3);
+                ImGui::SliderFloat("Brush plane Y (m)",&brushHeight,0,12);
+                ImGui::TextWrapped("Left click the scene once per brush. Uses spawn count/lifetime or lift speed above; step to apply while paused. The wire box shows the affected region on the chosen horizontal plane.");
+            }
             ImGui::Checkbox("Frustum culling",&cull);
             if(particles.visibility->supportsIndirect()) {ImGui::SameLine();ImGui::Checkbox("Indirect draw",&indirect);}
             if(ImGui::Checkbox("Free camera",&freeCamera)) {
@@ -601,6 +634,7 @@ int main(int argc, char** argv) {
             if(stats->gpuTimerFreq) ImGui::Text("GPU frame: %.2f ms",1000.0*double(stats->gpuTimeEnd-stats->gpuTimeBegin)/double(stats->gpuTimerFreq));
             ImGui::Text("Dropped wall time: %.3f s",lag);
             ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
+            const auto panelPosition=ImGui::GetWindowPos(),panelSize=ImGui::GetWindowSize();
             ImGui::End();
             const auto& input=ImGui::GetIO();
             const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
@@ -629,12 +663,6 @@ int main(int argc, char** argv) {
                     shaderMessage="Shaders reloaded; scene preserved.";
                 } catch(const std::exception& error) {shaderMessage=std::string("Reload rejected; working shaders retained: ")+error.what();}
             }
-            auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
-            for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
-            if(frames%8==0 || step || !particles.diagnostics->latest().valid)
-                particles.diagnostics->request(6,particles.pool->counts(),ticks);
-            if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
-                particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
             float view[16],projection[16];
             if(freeCamera) {
                 const auto& eye=flyCamera.position();const auto target=flyCamera.target();
@@ -642,6 +670,44 @@ int main(int argc, char** argv) {
             } else bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
             bx::mtxProj(projection,55,float(width)/float(height),0.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
             float viewProjection[16];bx::mtxMul(viewProjection,view,projection);
+            if(pointerTool && focused && !cameraCaptured && !cancelCamera) {
+                int logicalWidth,logicalHeight;SDL_GetWindowSize(window.get(),&logicalWidth,&logicalHeight);
+                const pw::BrushPoint eye=freeCamera?flyCamera.position():pw::BrushPoint{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance};
+                const pw::BrushPoint target=freeCamera?flyCamera.target():pw::BrushPoint{0,3,0};
+                const auto cursor=brushClick.value_or(brushPointer.value_or(input.MousePos));
+                const bool overPanel=cursor.x>=panelPosition.x && cursor.y>=panelPosition.y &&
+                    cursor.x<panelPosition.x+panelSize.x && cursor.y<panelPosition.y+panelSize.y;
+                if(!overPanel && !ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopup) && logicalWidth>0 && logicalHeight>0) {
+                    const auto ray=pw::pointerRay(eye,target,cursor.x/logicalWidth,cursor.y/logicalHeight,float(width)/height);
+                    const auto box=ray?pw::planeBrush(*ray,brushHeight,brushHalfSize):std::nullopt;
+                    if(box) {
+                        std::array<std::optional<std::array<float,2>>,8> corners;
+                        for(unsigned corner=0;corner<8;++corner) {
+                            pw::BrushPoint point;
+                            for(unsigned axis=0;axis<3;++axis) point[axis]=(corner&(1u<<axis))?box->maximum[axis]:box->minimum[axis];
+                            corners[corner]=pw::projectBrushPoint(point,viewProjection,float(logicalWidth),float(logicalHeight));
+                        }
+                        const ImU32 color=pointerTool==2?IM_COL32(255,100,100,255):IM_COL32(80,240,190,255);
+                        for(unsigned corner=0;corner<8;++corner) for(unsigned axis=0;axis<3;++axis) {
+                            const unsigned other=corner^(1u<<axis);
+                            if(corner<other && corners[corner] && corners[other])
+                                ImGui::GetBackgroundDrawList()->AddLine({(*corners[corner])[0],(*corners[corner])[1]},
+                                    {(*corners[other])[0],(*corners[other])[1]},color,2);
+                        }
+                        if(brushClick && !input.WantCaptureMouse && !ImGui::IsAnyItemActive()) {
+                            const auto type=pointerTool==1?pw::CommandType::SpawnBrush:pointerTool==2?pw::CommandType::RemoveBrush:pw::CommandType::ApplyImpulse;
+                            particles.queueBrush(type,type==pw::CommandType::ApplyImpulse?impulseStrength:0,
+                                type==pw::CommandType::SpawnBrush?uint32_t(spawnCount):0,spawnLifetime,&*box,brushMaterial);
+                        }
+                    } else if(brushClick && !input.WantCaptureMouse) particles.commandMessage="Brush missed the selected plane inside the world bounds";
+                }
+            }
+            auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
+            for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
+            if(frames%8==0 || step || !particles.diagnostics->latest().valid)
+                particles.diagnostics->request(6,particles.pool->counts(),ticks);
+            if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
+                particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
             particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
             bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
             bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);

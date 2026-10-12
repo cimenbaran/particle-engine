@@ -1,0 +1,40 @@
+POINTER BRUSHES
+
+Expand Pointer brush in the controls and choose Spawn, Remove or Lift. Off is
+the default. Select a solid Brush material independently of the scene preset;
+changing brush material does not reset the scene. One left click in the scene
+queues one bounded box command for the next simulation tick. While paused,
+Single tick applies queued commands. Holding the button does not repeat.
+
+Placement intersects the camera ray with the horizontal Brush plane Y, within
+the world's x/z [-8,8] bounds. Brush half-size controls the box around that hit.
+The wire box shows its clipped bounds. Spawn uses the existing spawn-count and
+lifetime controls; Lift uses the lift-speed control. Remove and Lift only affect
+particles of the selected material whose centers lie inside the box.
+
+The plane is an explicit editing aid; this does not pick particle surfaces or
+terrain depth. Plane height is 0-12 metres, half-size 0.1-3 metres. Box bounds
+are clipped to x/z [-7.95,7.95] and y [0,15]. Including y=0 lets removal and lift
+reach settled floor particles; integration resolves spawned particles against
+the existing analytic floor and walls. Rays behind the camera, beyond 150
+metres, parallel to the plane, or outside the world produce no command.
+
+Click placement uses SDL's event coordinates. Preview follows the latest mouse
+event, preventing stale global polling from moving a synthetic click's preview.
+Logical window coordinates are normalized before ray construction, with drawable
+aspect ratio, so high-DPI scaling does not double the position. UI clicks,
+open popups, loss of focus and active mouse-look capture do not paint.
+At most one pointer brush is queued per rendered frame. Existing command and
+spawn quotas still apply; reset clears pending commands. Materials used by
+accepted spawn commands are reserved against incompatible material reloads
+until reset, including while the spawn is still queued or the pool was full.
+No full-particle CPU readback or depth-buffer readback is introduced.
+
+Validation: CPU tests cover center/right rays, degenerate cameras, out-of-window
+coordinates, parallel/backward/out-of-world hits, clipped wall/floor bounds,
+projection and equivalent logical/Retina normalization. Native Metal checks
+queued 1,024 particles at paused tick 0, spawned them on tick 1 and removed them
+with the same pointer box on tick 2. A plane miss did not change queue length.
+Independent Stone and Sand brushes created two separated 1,024-particle clouds
+on one tick without changing the scene preset. The wire preview was inspected.
+Windows pointer behavior and broader camera/capture lifecycle checks remain open.
