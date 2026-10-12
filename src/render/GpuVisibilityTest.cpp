@@ -23,6 +23,7 @@ void require(bool condition,const char* message){if(!condition) throw std::runti
 }
 void runGpuVisibilityTest(const std::filesystem::path& assets) {
     Owned exporter(loadCompute(assets,"cs_export"));
+    Owned argsExporter(loadCompute(assets,"cs_indirect_export"));
     Owned sim(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).add(bgfx::Attrib::TexCoord1,4,bgfx::AttribType::Float).end();
     const float identity[]{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
@@ -62,10 +63,10 @@ void runGpuVisibilityTest(const std::filesystem::path& assets) {
             bgfx::dispatch(1,exporter.value,pw::dispatchGroups(capacity));
             std::array<uint32_t,8> arguments{};
             if(visibility.supportsIndirect()) {
-                const float argParams[]{0,1,0,2};bgfx::setUniform(sim.value,argParams);
-                bgfx::setBuffer(0,visibility.arguments(),bgfx::Access::Read);
+                // bgfx indirect buffers have a UAV but no D3D11 SRV.
+                bgfx::setBuffer(0,visibility.arguments(),bgfx::Access::ReadWrite);
                 bgfx::setImage(1,argsOutput.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-                bgfx::dispatch(1,exporter.value,1);
+                bgfx::dispatch(1,argsExporter.value,1);
             }
             require(diagnostic.request(1,visibility.counts(),scenario),"Visibility diagnostic ring full");
             bgfx::TextureRegion dst;dst.handle=staging.value;bgfx::TextureRegion src;src.handle=output.value;

@@ -14,7 +14,7 @@ set(PW_SHADER_CACHE_DIR "${default_shader_cache}" CACHE PATH "Shared content-add
 file(GLOB_RECURSE PW_SHADER_INCLUDES CONFIGURE_DEPENDS ${bgfx_cmake_SOURCE_DIR}/bgfx/src/*.sh)
 file(GLOB_RECURSE PW_PROJECT_SHADER_INCLUDES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/shaders/*.sh)
 set(PW_SHADER_OUTPUTS)
-foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export cs_pool_clear cs_pool_classify cs_pool_spawn cs_pool_brush cs_pool_export cs_pool_stats cs_visible_clear cs_visible cs_visible_args cs_audit_clear cs_audit_membership cs_audit_state cs_scan_blocks cs_scan_add cs_scan_export cs_radix_flags cs_radix_scatter cs_radix_export cs_key_clear cs_spatial_keys cs_range_clear cs_range_flags cs_range_scatter cs_range_owners cs_range_finalize cs_range_export)
+foreach(shader vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export cs_pool_clear cs_pool_classify cs_pool_spawn cs_pool_brush cs_pool_export cs_pool_stats cs_visible_clear cs_visible cs_visible_args cs_indirect_export cs_audit_clear cs_audit_membership cs_audit_state cs_scan_blocks cs_scan_add cs_scan_export cs_radix_flags cs_radix_scatter cs_radix_export cs_key_clear cs_spatial_keys cs_range_clear cs_range_flags cs_range_scatter cs_range_owners cs_range_finalize cs_range_export)
   if(shader MATCHES "^vs_")
     set(kind vertex)
   elseif(shader MATCHES "^fs_")

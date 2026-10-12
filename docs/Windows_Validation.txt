@@ -90,3 +90,19 @@ as informational metadata. Tests accept write-only support and continue to
 reject a format with read support but no write support. No WARP capability is
 forged or assumed. Runtime validation after this correction remains pending.
 The view-count requirement also includes GUI validation's view 21 (22 views).
+
+Indirect argument readback correction
+Run 38302071545 (source 60105c0) passed WARP capability classification on both
+Windows workgroup variants. GPU material/particle ABI, ballistic integration,
+pool ownership/reuse/lifetime and masked visibility checks passed. Both variants
+then failed the indirect argument readback assertion, before scan/sort and GUI
+tests. This is not a full WARP correctness pass.
+
+The test bound an indirect buffer as a read-only float4 SRV. In pinned bgfx,
+createIndirectBuffer sets only DRAW_INDIRECT, and D3D11 creates a uint4 UAV but
+no SRV for that buffer. The dedicated cs_indirect_export shader now reads the
+actual argument buffer through its existing uint4 UAV (ReadWrite binding,
+without any stores to the buffer). It exports all eight words for the same
+strict expected-argument comparison. Production argument generation is unchanged.
+Both local Metal workgroup variants pass the complete GPU suite after the fix;
+all nine CTests pass. Windows confirmation remains pending.
