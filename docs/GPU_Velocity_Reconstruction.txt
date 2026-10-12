@@ -1,0 +1,88 @@
+GPU VELOCITY RECONSTRUCTION - ISOLATED GRANULAR COMPONENT
+
+Scope
+GpuVelocityReconstruction derives dynamic-solid velocity from beginning-of-step
+and corrected positions: (corrected - previous) / dt. It can directly follow
+GpuJacobiContacts in the same sequential GPU view. This is one part of S2-07;
+contact restitution, friction, low-speed bounce suppression, terrain response
+and a complete live granular time step remain unfinished. Live simulation is
+still ballistic. This utility currently runs only in --gpu-test.
+
+Inputs and identity
+Previous must be the snapshot taken after start-of-step pool commands and before
+prediction. Corrected must be the matching contact-corrected snapshot, with the
+same slot layout, material table and capacity. Bind the four-word status buffer
+from the contact pass: any nonzero upstream error blocks all reconstruction.
+Source buffers/materials must remain alive and immutable until GPU completion.
+The caller must order this pass after contact work; the class uses Sequential
+view mode but does not reorder external views.
+
+Alive solids require identical identity words in both snapshots, matching slot
+ID and nonzero generation. Radius and inverse mass bits must match. This stops
+velocity from being inferred across slot reuse, material/flag changes or shape/
+mass changes. Both positions must be finite; inverse mass must be nonnegative,
+finite and either zero or normal, consistent with the contact profile.
+
+Dead slots and liquid/gas materials are preserved without reconstruction.
+Zero-inverse-mass solids are also preserved, including their incoming velocity;
+this stage does not define a kinematic-body policy. An invalid alive material ID
+or phase is an error. Thermal data may have advanced during prediction and is
+preserved from corrected state. Upstream contact validation/full-state audits
+remain required; this stage does not revalidate every thermal field or incoming
+velocity component, nor independently prove the domain/contact profile.
+
+Numerics
+The timestep must be finite, normal, positive and <=1 second. The normal fixed
+step 1/60 is covered. Ordinary coordinate differences use float arithmetic.
+For coordinates below 2^-63 in magnitude, exponent/mantissa-aware lifting by
+2^64 precedes subtraction and scales dt equally. This preserves subnormal
+separations when they should yield normal velocities at small timesteps. Values
+below representable arithmetic precision can still underflow normally. A
+non-finite reconstructed result is an error; velocity is not silently clamped.
+Speed limiting is separate integration work.
+
+GPU transaction
+A clear pass resets diagnostics and checks upstream errors. The reconstruction
+pass writes candidate state and per-slot diagnostics. A final apply pass reads
+the completed aggregate error word: success publishes candidates; any error
+copies the ENTIRE corrected input unchanged. No partial pool update is published.
+The future time-step owner must handle the failure and decide whether to restore
+its beginning-of-step state or reset; unchanged corrected output is not proof of
+a successful physics step.
+
+Only velocity xyz can change. Position, radius, inverse mass, thermal state,
+flags and persistent slot/generation identity retain corrected input bits. Both
+input snapshots remain untouched. Diagnostics are reset each call:
+  word 0: error bits
+  word 1: proposed dynamic-solid updates
+  word 2: excluded/static slots
+  word 3: invalid slots
+Errors: 1 upstream contact error; 2 identity/radius/mass mismatch; 4 invalid
+material/profile/positions; 8 non-finite reconstructed velocity.
+Proposed-update counts are diagnostic only if an error exists. An upstream error
+leaves all three counts zero because it blocks consumption before per-slot work.
+
+Resources and reuse
+Capacity is 0..1,048,576, with max(1,capacity) ParticleGpu records in each input.
+The class owns one candidate buffer, two alternating output buffers (192 bytes
+per slot combined) and 16 diagnostic bytes. The output avoids aliasing either
+source. Binding both private outputs as sources at once is rejected because no
+separate output remains. Typical use binds the external start snapshot and the
+contact solver's output. Own diagnostics cannot be fed back as upstream status.
+Material storage must cover the supplied count (1..65,536). Submit performs no
+allocations or CPU readback and uses at most six compute bindings. Zero capacity
+has no valid output records but returns initialized diagnostics.
+
+Validation
+43 fixtures per Metal workgroup variant cover slot/workgroup boundaries, zero
+capacity, 1/60 and 0.125 timesteps, stationary states, active-solid updates,
+liquid/gas/dead/static preservation, changed generations/materials/radii/masses,
+invalid material/phase/position/mass, upstream rejection, overflow, minimum-normal
+dt, subnormal separations and same-object recovery. A complete GPU contact pass
+feeds this pass without intermediate readback; its expected pair correction and
+resulting velocities are independently known.
+
+Checks compare velocities to CPU displacement/dt with tolerance
+max(1e-9, abs(expected)*2e-5), verify both input snapshots, ensure exact preserved
+fields and validate diagnostic accounting. See tests/results/m3-max-velocity.txt.
+D3D11 runtime validation for this new component remains pending.

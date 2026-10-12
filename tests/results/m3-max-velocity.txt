@@ -1,0 +1,33 @@
+GPU VELOCITY RECONSTRUCTION - LOCAL METAL EVIDENCE
+Date: 2026-10-13 Europe/Istanbul
+Host: Apple M3 Max, 48 GB; not reference M1 Pro hardware.
+
+Both PW_WORKGROUP_SIZE=128 and 256 passed the complete --gpu-test suite.
+43 reconstruction fixtures per variant passed:
+- Zero capacity and 1,127,128,129,255,256,257 slots.
+- Displacement/dt at 0.125 and 1/60 seconds; stationary dynamic states.
+- Compatible solid materials; liquid/gas/dead/static preservation.
+- Exact original-input preservation and corrected-state field preservation.
+- Changed generation/material/radius/inverse mass/slot identity rejection.
+- Invalid material/phase/position/mass and upstream contact failure.
+- Finite-input velocity overflow rejection and whole-pool rollback.
+- Minimum-normal timestep and tiny/subnormal positive/negative separations,
+  including adjacent representable positions near FLT_MIN.
+- Recovery using the same reconstruction object after a failed pass.
+- GPU Jacobi contacts feeding reconstruction in the same sequential view,
+  without intermediate readback, compared with a known two-particle result.
+- Diagnostic counts and whole-pass failure behavior checked.
+
+Velocity tolerance: max(1e-9, abs(expected)*2e-5) against double displacement/dt.
+Non-velocity fields and excluded/failed states are compared bit for bit.
+Both workgroup configurations also passed all nine CTests.
+
+Local ignored logs:
+out/velocity-128-final-gpu.log
+out/velocity-256-final-gpu.log
+out/velocity-128-ctest.log
+out/velocity-256-ctest.log
+
+Scope: isolated reconstruction utility, not a full live granular time step.
+Restitution/friction, terrain response and speed limits remain separate work.
+No performance claim. D3D11 runtime validation for this component is pending.

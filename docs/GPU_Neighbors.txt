@@ -85,3 +85,8 @@ The shared visitor currently runs only through the GPU test consumer. Live
 simulation remains ballistic. Jacobi corrections, velocity reconstruction,
 contact/friction stability, index error recovery and performance measurements
 are still required. D3D11 runtime confirmation remains pending.
+
+D3D11 software validation update (2026-10-13)
+Both workgroup variants passed the complete WARP suite in run 38307203532,
+source dccba77. See tests/results/ci-38307203532-warp.txt. Hardware performance
+and live integration gates remain open.

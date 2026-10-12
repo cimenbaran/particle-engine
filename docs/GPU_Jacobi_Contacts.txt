@@ -82,3 +82,7 @@ all iterations before readback and compare against repeated CPU iterations.
 See tests/results/m3-max-jacobi-contacts.txt. This establishes local position
 correction behavior, not stable piles, a complete granular time step, reference
 hardware performance or D3D11 runtime certification for this component.
+
+A separate reconstruction component is now available in
+GPU_Velocity_Reconstruction.txt and is tested directly after this pass on Metal.
+This still does not supply restitution/friction or a complete live time step.

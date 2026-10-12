@@ -1,0 +1,28 @@
+D3D11 WARP HASH AND NEIGHBOR VALIDATION
+Date: 2026-10-13 Europe/Istanbul
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38307203532
+Source: dccba77f0b2983856f67ea0f7f0bf8561f8c871c
+All four build jobs succeeded (Windows/macOS, workgroup 128/256).
+
+wg128: complete GPU suite passed, including exact-key hash through one
+million occupied cells, collision/failure/recovery gates, combined GPU sort/
+range/hash pipeline, and 78 neighbor fixtures / 10,105 exact queries.
+GPU log SHA256: d869c0dd179188dc060705d90aedc970fe569748d47016c34278046612cad023
+default replay: 1024 ticks / 81 commands; active 73/free 184/rejected 128;
+257 slots audited clean. Report SHA256: 6db4151dfe19a323b65622641e109fac708d2057a0ae03ac382c1016cc881474
+masked replay: 1024 ticks / 81 commands; active 73/free 184/rejected 128;
+257 slots audited clean. Report SHA256: ca59bfb79ab08b6ecc5463c5dd3a676119415e7b5918b33f239d9e7c32d980d4
+
+wg256: complete GPU suite passed, including exact-key hash through one
+million occupied cells, collision/failure/recovery gates, combined GPU sort/
+range/hash pipeline, and 78 neighbor fixtures / 10,105 exact queries.
+GPU log SHA256: 4ad01e6fbaec1821a2767be6553d8a666089fb13395165527196fd02f864194f
+default replay: 1024 ticks / 81 commands; active 73/free 184/rejected 128;
+257 slots audited clean. Report SHA256: 699fa7d0a3577f5127fd5166eaaac6c207a57036acc3168e56d99051c33ee00d
+masked replay: 1024 ticks / 81 commands; active 73/free 184/rejected 128;
+257 slots audited clean. Report SHA256: 96b1a2c2f0e0115b5b5726613f10e0e7f5aa23133c96c9483948713f4c24b7cc
+
+Downloaded evidence: out/warp-38307203532-wg128 and ...-wg256.
+Scope: software WARP correctness, not hardware performance/native interaction.
+This revision predates Jacobi contacts and velocity reconstruction; those are
+not covered by this result.

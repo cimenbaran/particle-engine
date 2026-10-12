@@ -117,3 +117,13 @@ See tests/results/ci-38305845264-warp.txt for exact source and report hashes.
 This resolves the indirect readback validation failure. It does not certify
 hardware performance, native interaction, long hardware soaks, or newer hash,
 neighbor and contact components absent from that source revision.
+
+Hash and neighbor WARP validation
+Run 38307203532 (dccba77) passed all four build jobs. Both Windows variants
+passed the full GPU suite including exact-key hash tests through one million
+ranges and all 78 neighbor fixtures / 10,105 exact membership queries. Both
+replay modes again passed 1,024 ticks and 81 commands with clean audits.
+Downloaded logs/reports and hashes are recorded in
+ tests/results/ci-38307203532-warp.txt.
+This extends software D3D11 evidence through neighbor traversal. Jacobi contacts
+and velocity reconstruction were added later and need separate confirmation.

@@ -82,3 +82,8 @@ the same object after failure. Total/max probes are checked exactly where
 collision geometry makes them independent of parallel insertion order.
 Metal evidence is recorded in tests/results/m3-max-cell-hash.txt. D3D11 runtime
 validation and live physics use remain pending.
+
+D3D11 software validation update (2026-10-13)
+Both workgroup variants passed the complete WARP suite in run 38307203532,
+source dccba77. See tests/results/ci-38307203532-warp.txt. Hardware performance
+and live integration gates remain open.
