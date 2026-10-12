@@ -52,7 +52,10 @@ Metal GPU suite, including cosmetic isolation. Their manifests truthfully mark
 the worktree dirty: the Ninja setup action extracted its executable into the
 checkout's untracked ninja-build directory. These artifacts are therefore not
 clean-checkout evidence. The workflow now installs Ninja under runner.temp and
-checks git status before configuration; validation of that change is pending.
+checks git status before configuration. Run 38297882620 passed both macOS
+builds; the downloaded 256-thread artifact has worktree_dirty=false, matching
+executable/shader hashes, and passed the full local Metal GPU suite. Evidence:
+tests/results/ci-38297882620-macos-wg256.txt. Windows remains in progress.
 
 HLSL portability follow-up
 The Windows jobs in run 38295953059 passed the corrected recording C++ source

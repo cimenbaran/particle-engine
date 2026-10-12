@@ -189,8 +189,10 @@ S1-06: ImGui, fixed-box spawn/remove/impulse controls and free camera implemente
        spawn/remove/lift boxes, plane ray placement, wire previews and independent
        solid-material selection are implemented. Native spawn/remove, mixed
        brush materials, queue timing and miss handling passed. Allocation/texture/
-       capacity diagnostics are implemented. Physical mouse-look/capture stress
-       remains.
+       capacity diagnostics are implemented. A Metal GPU image test verifies
+       custom textures, alpha blending, scissor, nonzero index/vertex offsets,
+       viewport origin and 2x framebuffer scaling. Physical mouse-look/capture
+       stress and Windows GUI execution remain.
 S1-07: Particle/material/render layouts and Metal sentinel tests implemented.
        D3D11 sentinel validation remains.
 S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impulse

@@ -4,6 +4,7 @@
 struct ImDrawData;
 namespace pw {
 class ShaderReload;
+void runImGuiRendererTest(const std::filesystem::path& assets);
 class ImGuiRenderer {
 public:
     explicit ImGuiRenderer(const std::filesystem::path& assets);

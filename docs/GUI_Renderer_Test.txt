@@ -1,0 +1,21 @@
+GUI RENDERER IMAGE REGRESSION
+
+--gpu-test now includes a 64x64 offscreen ImGui renderer check. It submits a
+hand-built draw list through the production renderer using two independent
+RGBA textures (opaque red and half-alpha green), a nonzero viewport origin,
+2x framebuffer scale, per-command scissor rectangles and padded vertex/index
+buffers with nonzero offsets. The padding intentionally cannot form the
+expected image if either offset is ignored.
+
+Readback checks all interior pixels of four quadrants: red at the upper left,
+half-intensity green at the lower right and black elsewhere. A two-channel-value
+tolerance covers UNORM rounding, and only pixels beside rasterization borders
+are skipped. A uniform or incorrectly positioned image cannot pass. Resources
+and a private ImGui context are scoped to this test. This readback is confined
+to --gpu-test and does not affect interactive frame submission.
+
+The full Metal GPU suite passed on Apple M3 Max, including this fixture, using
+the development changes based on 870fbf4. All six CTests passed. Windows WARP
+CI will run the same fixture as part of its existing --gpu-test step; that
+execution is pending. The test covers renderer pixels, not native SDL input,
+focus/capture, every monitor scaling configuration or OS window lifecycle.
