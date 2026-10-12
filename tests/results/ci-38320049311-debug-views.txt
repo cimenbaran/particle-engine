@@ -1,0 +1,17 @@
+WINDOWS WARP DEBUG VIEW COVERAGE
+Run https://github.com/cimenbaran/particle-engine/actions/runs/38320049311
+Source 203d0eef717ec73ceee33944ebc2076bf2fc4b4a
+Both workgroup sizes pass 42 debug mode changes and live settling integration.
+This predates velocity direction, positional static friction and neighborhood metrics.
+Both jobs fail the separate resting-pile stability gate. No whole-run pass is claimed.
+
+Job 115045709224, log sha256=aaa0f689a10291ad5902687cc35b0ea16996295d7bd7eb37916201532d6e3283
+build (windows-2022, windows-release, 128)	CPU invariants	2026-10-12T23:18:19.5045298Z 100% tests passed, 0 tests failed out of 12
+build (windows-2022, windows-release, 128)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:18:44.6827822Z GPU particle debug passed: 42 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history
+build (windows-2022, windows-release, 128)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:18:44.6831650Z GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+build (windows-2022, windows-release, 128)	D3D11 WARP granular stability fixtures	2026-10-12T23:19:16.7151945Z resting_pile_64: FAIL; max penetration 4.47391e-05; deep 0/86; speed 0.0177045; Settling window: >1% deep contacts or speed >0.1 m/s
+Job 115045709406, log sha256=951e397bccab8a036335fc1820d4019d4efc5003255e7761feadaea813725833
+build (windows-2022, windows-release, 256)	CPU invariants	2026-10-12T23:23:42.4693115Z 100% tests passed, 0 tests failed out of 12
+build (windows-2022, windows-release, 256)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:24:14.5203323Z GPU particle debug passed: 42 mode changes, full render instances, signed grid boundaries, stale generations, faults and immutable simulation/history
+build (windows-2022, windows-release, 256)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:24:14.5208684Z GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+build (windows-2022, windows-release, 256)	D3D11 WARP granular stability fixtures	2026-10-12T23:25:00.2135490Z resting_pile_64: FAIL; max penetration 4.47391e-05; deep 0/86; speed 0.0177045; Settling window: >1% deep contacts or speed >0.1 m/s

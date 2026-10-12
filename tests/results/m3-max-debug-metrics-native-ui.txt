@@ -1,0 +1,21 @@
+NATIVE METAL DEBUG AND NEIGHBORHOOD UI
+Source implementation: 75acd21 (compiled before its commit; clean working tree at inspection).
+M3 Max, workgroup 128, capacity 129; development app, separate from installed soak.
+
+Observed UI at paused tick 1166:
+- Active 129, free 0, visible 129, settling candidates 129.
+- Neighborhood tick 1166, maximum candidates/query 68, probes/query 623,
+  20 collected contact solves; explanation that candidates include self visible.
+- Velocity direction selected; RGB axis legend visible and particles recolored.
+- Material selection restored the orange sand appearance without changing tick,
+  particle counts, settling count or neighborhood metrics.
+- UI lines fit the panel at its default window size.
+
+Empty scene reset removed previous neighborhood data and reset tick to zero.
+Single tick produced active 0/free 129, tick 1, neighborhood tick 1, zero candidate
+and probe maxima, 20 collected solves, no contacts or settling candidates.
+The window closed normally; final solver and tracker errors were both zero.
+This is native UI verification, separate from full GPU buffer-comparison tests.
+It does not establish Windows UI rendering or benchmark performance.
+
+Console log sha256: 0d8bacd706e85071f839f217cedeadbfe286ca799c9bd3e13cda8e2a15f0a01c

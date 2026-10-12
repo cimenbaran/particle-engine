@@ -52,5 +52,11 @@ faults. Original particle and history bytes are checked unchanged after all mode
 
 These views do not complete S2-10: collision-normal visualization, occupancy and total
 pair instrumentation and per-pass timing remain open. Interactive_Granular.txt
-describes the separate maximum candidates/query and probes/query diagnostics. Windows results must be
-verified separately; local Metal coverage is recorded in tests/results.
+describes the separate maximum candidates/query and probes/query diagnostics. Windows run 38320049311 passes the original 42 mode changes at both workgroup
+sizes (material, speed, cells and settling). Its separate pile stability check
+fails. Velocity direction and new neighborhood diagnostics await their own
+Windows validation. Focused evidence is recorded in tests/results.
+
+Native Metal inspection at source 75acd21 confirms direction/material switching
+while paused retains tick and population, and the neighborhood counters clear
+after an empty-scene reset. See m3-max-debug-metrics-native-ui.txt.
