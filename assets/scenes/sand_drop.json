@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "Sand drop",
+  "seed": 2026,
+  "count": 4096,
+  "minimum": [
+    -2,
+    5,
+    -2
+  ],
+  "maximum": [
+    2,
+    9,
+    2
+  ],
+  "materials": [
+    "Sand"
+  ]
+}

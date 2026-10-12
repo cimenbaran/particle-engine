@@ -50,19 +50,19 @@ a shader compiler is needed only when building. Builds reuse a verified shared
 ## Controls and current limits
 
 Use the ImGui panel to pause, single-step, reset the seeded scene and orbit the
-camera. Select a solid material or mixed solids, and reload edited material JSON
+camera. Select a solid material or the preset's material list, and reload edited material JSON
 at a tick boundary. Invalid edits retain the last valid table. See
 [material definitions](docs/Materials.md) for the schema and editing workflow.
 
 Use **Lift center particles** to queue an upward velocity change for the next
-tick. It affects the selected solid material inside the center box; mixed scenes
-target Stone. Single-step applies it while paused; reset clears pending commands.
+tick. It affects the selected solid material inside the center box; preset mode
+targets the first listed material. Single-step applies it while paused; reset clears pending commands.
 
 The foundation defaults to a 16,384-slot GPU pool with a common particle radius. Use
 **Empty scene**, then **Spawn particles**, to add a batch on the next tick.
 Set a lifetime in simulation seconds (zero means infinite). **Remove center
 particles** frees slots inside the same box used by the lift control. Spawning
-and removal target the selected material, or Stone in a mixed scene. Full pools
+and removal target the selected material, or the first preset material. Full pools
 reject excess spawns. The panel shows delayed GPU active/free counts and rejected
 spawns, labeled with their snapshot tick. CPU command rejections are separate.
 Active particles bounce inside analytic bounds and do not yet collide with each other.
@@ -81,8 +81,7 @@ Use `--capacity 1000000 --soak 600 --report out/soak/million.json` for an
 audit on every tick and repeated spawn/remove/expiry stress. See
 [soak testing](docs/Soak_Testing.txt) for coverage and results.
 
-The local ten-minute Metal soak passed at one million slots. Scene/command
-recording and
+The local ten-minute Metal soak passed at one million slots. Command recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
 
@@ -108,3 +107,7 @@ Expand **Pointer brush** to spawn, remove or lift a selected material at a
 clicked position. Adjust the horizontal plane and box size; the wire preview
 shows the region. Commands apply on the next tick. See
 [pointer brushes](docs/Pointer_Brushes.txt).
+
+Use **Scene presets** for a ballistic cloud, empty workspace, or seeded sand
+drop. Custom files load with `--scene path.json`; invalid reloads preserve the
+current scene. See [scene presets](docs/Scene_Presets.txt) for the versioned schema.

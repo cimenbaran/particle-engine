@@ -75,3 +75,6 @@ endif()
 if(WIN32)
   target_link_libraries(ParticleWorld PRIVATE bcrypt)
 endif()
+
+file(GLOB PW_SCENES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/assets/scenes/*.json)
+set_property(TARGET ParticleWorld APPEND PROPERTY LINK_DEPENDS ${PW_SCENES})

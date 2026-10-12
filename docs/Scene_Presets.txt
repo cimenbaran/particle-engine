@@ -1,0 +1,60 @@
+SCENE PRESETS
+
+Expand Scene presets to load Ballistic cloud, Empty workspace or Sand drop.
+Loading a valid preset returns the simulation to tick zero, clears queued
+commands and starts a new diagnostic epoch. Pause state and camera are retained.
+Reset scene reuses the loaded preset; Empty scene clears its particles without
+replacing it. Scene material can override the preset's material list. Fixed-box
+brushes use that override or the preset's first material; pointer brushes retain
+their independent material selector.
+
+Load a custom file on startup:
+./out/macos-release/ParticleWorld.app/Contents/MacOS/ParticleWorld \
+  --scene assets/scenes/sand_drop.json
+
+Relative paths resolve from the current working directory. --scene supports
+interactive and --frames runs. Benchmark/soak keep their fixed workload and
+reject this option, as do GPU-test and capability-only modes. Once a file is
+loaded, Reload scene file reads it again. Invalid JSON, unsupported versions,
+unknown/non-solid materials or excessive counts display an error and preserve
+the current scene, tick and queued commands. GPU resource exhaustion is still
+an application failure, not a recoverable scene validation error.
+
+Version 1 describes an initial solid-particle cloud in metres:
+{
+  "schema_version": 1,
+  "name": "Sand drop",
+  "seed": 2026,
+  "count": 4096,
+  "minimum": [-2, 5, -2],
+  "maximum": [2, 9, 2],
+  "materials": ["Sand"]
+}
+
+All seven fields are required; unknown fields are rejected. Files are limited
+to 64 KiB. Seed is an unsigned 32-bit integer. Count is 0-1,048,576 or the string
+"capacity"; numeric counts exceeding the chosen pool capacity are rejected,
+not silently truncated. Bounds must be finite numeric triples with minimum <=
+maximum, x/z within [-7.95,7.95] and y within [0.05,64]. Materials are 1-64 unique,
+known solid names, assigned in listed round-robin order. Radius is currently
+0.045 m; density sets mass, temperature starts at 293.15 K, velocity and age are
+zero and initial live generations are one. Inactive slots retain their slot ID.
+
+MT19937 with an explicit 24-bit integer-to-float mapping seeds initial positions.
+Repeated initialization with the same preset, material table and build produces
+identical particle records in CPU tests. This is not a promise of identical
+floating-point trajectories or atomic allocation order across GPUs. Material
+reload also validates the stored preset's names so that future reset remains
+possible. Scene files do not yet store terrain, fluid state, camera, cosmetic
+pools, runtime particle snapshots or command recordings.
+
+Default startup retains the built-in ballistic workload. The matching packaged
+ballistic.json is selectable through the panel. Scene JSON changes trigger
+build-app asset copying; installed apps require installation of updated assets.
+
+Validation: five full-build CTests passed, including schema rejection, named
+material resolution, capacity limits, seeded byte-for-byte repeatability and
+inactive IDs. CPU-only tests passed CLI mode constraints. A custom Sand drop
+launched from /tmp; too-small capacity was rejected. Native Metal loaded seed
+2026 with 4,096 particles. A malformed reload kept tick 1 and its queued command;
+repair restored tick 0 and cleared the queue. Windows execution is unverified.

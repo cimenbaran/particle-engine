@@ -71,13 +71,16 @@ int main() {
     auto parse=[](std::vector<std::string> args) {
         std::vector<char*> raw;for(auto& arg:args) raw.push_back(arg.data());return pw::parseOptions(int(raw.size()),raw.data());
     };
+    CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
     CHECK(parse({"app","--capabilities","device.json"}).capabilities=="device.json");
     CHECK(parse({"app","--soak","600","--report","soak.json"}).soakSeconds==600);
     const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
-        {"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},
+        {"app","--scene",""},{"app","--scene","x","--benchmark","y"},
+        {"app","--scene","x","--soak","10","--report","x"},{"app","--scene","x","--capabilities","x"},
+        {"app","--scene","x","--gpu-test"},{"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},
         {"app","--frames","4294967296"},{"app","--frames","0"},{"app","--capacity"},
         {"app","--warmup","1"},{"app","--gpu-test","--benchmark","x"},
         {"app","--capabilities",""},{"app","--capabilities","x","--gpu-test"},

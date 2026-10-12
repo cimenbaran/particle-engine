@@ -8,6 +8,7 @@
 #include "core/CommandQueue.hpp"
 #include "core/ParticleTypes.hpp"
 #include "assets/Materials.hpp"
+#include "assets/Scenes.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include "render/Shaders.hpp"
 #include "render/Capabilities.hpp"
@@ -83,7 +84,10 @@ struct Particles {
     std::vector<std::uint32_t> liveMaterialIds;
     int sceneMaterial=-1; // -1 mixes the available solid profiles.
     bool reloadPending=false;
-    explicit Particles(const std::filesystem::path& assets,uint32_t capacity):particleCount(capacity) {
+    pw::ScenePreset scene;
+    std::filesystem::path scenePath;
+    std::string sceneMessage;
+    explicit Particles(const std::filesystem::path& assets,uint32_t capacity,const std::filesystem::path& preset={}):particleCount(capacity) {
         try {
             compute = pw::loadCompute(assets, "cs_particles");
             initialize = pw::loadCompute(assets, "cs_reset");
@@ -99,6 +103,8 @@ struct Particles {
                 throw std::runtime_error("Particle rendering resources unavailable");
             materialPath=assets/"materials"/"default.json";
             materials=pw::loadMaterials(materialPath);
+            if(!preset.empty()) {scene=pw::loadScene(preset);scenePath=preset;}
+            pw::validateSceneCapacity(scene,particleCount);pw::sceneMaterials(scene,materials);
             uploadMaterials(materials);
             pool=std::make_unique<pw::ParticlePool>(assets,particleCount);
             diagnostics=std::make_unique<pw::PoolDiagnostics>(assets);
@@ -128,6 +134,7 @@ struct Particles {
         try {
             auto candidate=pw::loadMaterials(materialPath);
             pw::validateMaterialReload(materials,candidate,liveMaterialIds);
+            pw::sceneMaterials(scene,candidate); // Keep the stored preset resettable.
             uploadMaterials(candidate);
             materials=std::move(candidate);
             materialMessage="Materials reloaded";
@@ -150,6 +157,10 @@ struct Particles {
     }
     ~Particles() { release(); }
     void reset(uint32_t initialCount=UINT32_MAX) {
+        auto ids=sceneMaterial<0?pw::sceneMaterials(scene,materials):std::vector<uint32_t>{uint32_t(sceneMaterial)};
+        auto initial=pw::instantiateScene(scene,materials,particleCount,ids,
+            initialCount==UINT32_MAX?std::nullopt:std::optional<uint32_t>(initialCount));
+
         diagnostics->beginEpoch();
         visibleDiagnostics->beginEpoch();
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
@@ -157,28 +168,7 @@ struct Particles {
         for (auto& h: state) { if(bgfx::isValid(h)) bgfx::destroy(h); h = BGFX_INVALID_HANDLE; }
         if(bgfx::isValid(instances)) bgfx::destroy(instances);
         instances = BGFX_INVALID_HANDLE;
-        liveMaterialIds.clear();
-        for(std::uint32_t id=0;id<materials.entries.size();++id)
-            if(materials.entries[id].gpu.identity[1]==0 && (sceneMaterial<0 || sceneMaterial==int(id))) liveMaterialIds.push_back(id);
-        if(liveMaterialIds.empty()) throw std::runtime_error("Scene requires a solid material profile");
-        std::vector<pw::ParticleGpu> initial(particleCount);
-        std::mt19937 rng(42);
-        // Explicit integer mapping keeps authored initial positions reproducible.
-        auto random = [&] { return float(rng() >> 8) / 16777216.0f; };
-        for(uint32_t i=0;i<particleCount;++i) initial[i].identity[2]=i;
-        for(uint32_t i=0; i<std::min(initialCount,particleCount); ++i) {
-            auto& p=initial[i];
-            p.positionRadius[0]=(random()-0.5f)*12;
-            p.positionRadius[1]=1+random()*10;
-            p.positionRadius[2]=(random()-0.5f)*12;
-            p.positionRadius[3]=0.045f;
-            const auto materialId=liveMaterialIds[i%liveMaterialIds.size()];
-            const auto& material=materials.entries[materialId].gpu;
-            const float radius=p.positionRadius[3];
-            p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*radius*radius*radius*material.mechanical[0]);
-            p.thermalState[0]=293.15f;
-            p.identity[0]=materialId; p.identity[1]=1; p.identity[2]=i; p.identity[3]=1;
-        }
+        liveMaterialIds=std::move(ids);
         bgfx::VertexLayout lanes;
         lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         for(auto& h: state)
@@ -202,16 +192,25 @@ struct Particles {
         current=0;
         pool->rebuild(0,state[current],true);
     }
+    bool loadPreset(const std::filesystem::path& path) {
+        std::optional<pw::ScenePreset> candidate;
+        try {
+            candidate=pw::loadScene(path);pw::validateSceneCapacity(*candidate,particleCount);
+            pw::sceneMaterials(*candidate,materials);
+        } catch(const std::exception& error) {sceneMessage=std::string("Scene rejected: ")+error.what();return false;}
+        scene=std::move(*candidate);scenePath=path;sceneMaterial=-1;reset();
+        sceneMessage="Scene loaded";return true;
+    }
     void queueBrush(pw::CommandType type,float strength,uint32_t count=0,float lifetime=0,
                     const pw::BrushBox* bounds=nullptr,uint32_t material=UINT32_MAX) {
-        // One spatial impulse for the chosen scene material; mixed scenes use Stone.
+        // Fixed-box controls use the scene override or the preset's first material.
         pw::Command command;
         command.tick=commands.nextTick(); command.type=type;
         command.minimum={-4,0,-4}; command.maximum={4,12,4};
         command.parameters={0,strength,0,lifetime}; command.count=count;
         if(type==pw::CommandType::SpawnBrush) {command.minimum={-2,6,-2};command.maximum={2,10,2};}
         if(bounds) {command.minimum=bounds->minimum;command.maximum=bounds->maximum;}
-        command.material=material==UINT32_MAX?(sceneMaterial<0?0u:unsigned(sceneMaterial)):material;
+        command.material=material==UINT32_MAX?(sceneMaterial<0?liveMaterialIds.front():unsigned(sceneMaterial)):material;
         pw::CommandLimits limits; limits.materialCount=uint32_t(materials.entries.size());
         const auto reason=commands.enqueue(command,limits);
         // Reload runs before queued commands are consumed. Reserve newly selected
@@ -476,7 +475,7 @@ int main(int argc, char** argv) {
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
         if(gpuTestOnly) {pw::runShaderReloadTest(assets);return 0;}
-        Particles particles(assets,options.capacity);
+        Particles particles(assets,options.capacity,options.scene);
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         if(benchmarking) return runBenchmark(window,particles,assets,options);
         GuiContext gui(window.get());
@@ -491,6 +490,8 @@ int main(int argc, char** argv) {
         uint64_t ticks=0; uint32_t frames=0, completedFrame=0; double lag=0;
         int width=0,height=0;
         float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
+        int presetSelection=0;
+        constexpr const char* presetFiles[]{"ballistic.json","empty.json","sand_drop.json"};
         int spawnCount=1024,pointerTool=0;
         uint32_t brushMaterial=0;
         float brushHeight=.5f,brushHalfSize=1;
@@ -553,7 +554,7 @@ int main(int argc, char** argv) {
             ImGui::SetNextWindowSize(ImVec2(460,680),ImGuiCond_FirstUseEver);
             ImGui::Begin("Particle World - foundation");
             ImGui::Text("Backend: %s",bgfx::getRendererName(caps->rendererType));
-            ImGui::Text("Capacity: %u | Seed: 42",particles.particleCount);
+            ImGui::Text("Capacity: %u | Seed: %u",particles.particleCount,particles.scene.seed);
             const auto& poolStats=particles.diagnostics->latest();
             if(poolStats.valid) {
                 ImGui::Text("Active: %u | Free: %u",poolStats.active,poolStats.free);
@@ -569,9 +570,19 @@ int main(int argc, char** argv) {
             if(ImGui::Button("Reset scene")) {particles.reset();clock.reset();ticks=0;lag=0;}
             ImGui::SameLine();
             if(ImGui::Button("Empty scene")) {particles.reset(0);clock.reset();ticks=0;lag=0;}
-            const char* sceneLabel=particles.sceneMaterial<0?"Mixed solids":particles.materials.entries[particles.sceneMaterial].name.c_str();
+            if(ImGui::CollapsingHeader("Scene presets")) {
+                ImGui::TextWrapped("Current: %s",particles.scene.name.c_str());
+                ImGui::Combo("Preset",&presetSelection,"Ballistic cloud\0Empty workspace\0Sand drop\0");
+                if(ImGui::Button("Load preset") && particles.loadPreset(assets/"scenes"/presetFiles[presetSelection])) {clock.reset();ticks=0;lag=0;}
+                if(!particles.scenePath.empty()) {
+                    ImGui::SameLine();
+                    if(ImGui::Button("Reload scene file") && particles.loadPreset(particles.scenePath)) {clock.reset();ticks=0;lag=0;}
+                }
+                if(!particles.sceneMessage.empty()) ImGui::TextWrapped("%s",particles.sceneMessage.c_str());
+            }
+            const char* sceneLabel=particles.sceneMaterial<0?"Preset materials":particles.materials.entries[particles.sceneMaterial].name.c_str();
             if(ImGui::BeginCombo("Scene material",sceneLabel)) {
-                if(ImGui::Selectable("Mixed solids",particles.sceneMaterial<0)) {particles.sceneMaterial=-1;particles.reset();clock.reset();ticks=0;}
+                if(ImGui::Selectable("Preset materials",particles.sceneMaterial<0)) {particles.sceneMaterial=-1;particles.reset();clock.reset();ticks=0;}
                 for(std::uint32_t id=0;id<particles.materials.entries.size();++id) {
                     const auto& material=particles.materials.entries[id];
                     if(material.gpu.identity[1]!=0) continue;
@@ -588,7 +599,7 @@ int main(int argc, char** argv) {
             ImGui::Text("Profiles: %u",unsigned(particles.materials.entries.size()));
             ImGui::SliderFloat("Lift speed (m/s)",&impulseStrength,0,20);
             if(ImGui::Button("Lift center particles")) particles.queueBrush(pw::CommandType::ApplyImpulse,impulseStrength);
-            if(ImGui::IsItemHovered()) ImGui::SetTooltip("Adds upward velocity in the center 8 x 12 x 8 m box. Mixed scenes target Stone.");
+            if(ImGui::IsItemHovered()) ImGui::SetTooltip("Adds upward velocity in the center 8 x 12 x 8 m box. Targets the selected scene material or the preset's first material.");
             if(ImGui::Button("Remove center particles")) particles.queueBrush(pw::CommandType::RemoveBrush,0);
             ImGui::SliderInt("Spawn count",&spawnCount,1,4096);
             ImGui::SliderFloat("Lifetime (s)",&spawnLifetime,0,30);

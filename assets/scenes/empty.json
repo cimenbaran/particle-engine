@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "Empty workspace",
+  "seed": 42,
+  "count": 0,
+  "minimum": [
+    -6,
+    1,
+    -6
+  ],
+  "maximum": [
+    6,
+    11,
+    6
+  ],
+  "materials": [
+    "Stone",
+    "Sand",
+    "Wood",
+    "Ash"
+  ]
+}
