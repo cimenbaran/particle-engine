@@ -43,8 +43,10 @@ A live granular lifecycle soak is available through --granular --soak and is
 scheduled for 600 seconds in Windows CI; see ../docs/Granular_Soak.txt. Smoke tests
 do not complete the ten-minute gate. A pre-static-friction Metal run at be2636
 passed 600 seconds, 38763 ticks and 151 lifecycle cycles; evidence is in
-../tests/results/m3-max-granular-soak-600.txt. The current friction profile and
-D3D11 still require their own ten-minute results.
+../tests/results/m3-max-granular-soak-600.txt. The static-friction profile at 6dad618 also passed 600 seconds on Metal128:
+38302 ticks, 149 cycles and 4940958 slot checks, without solver/tracker/audit errors.
+See ../tests/results/m3-max-static-friction-soak-600.txt. D3D11 and controlled
+performance comparisons remain open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

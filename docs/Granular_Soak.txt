@@ -40,3 +40,10 @@ reference-hardware frame-time budget. Geometric candidate support is local evide
 not terrain deposition. A fault, invalid audit or missing coverage returns failure.
 Closing, resizing or minimizing the test window cancels the soak. Exceptions during
 startup/submission may prevent JSON creation; retain the console log as well.
+
+Recorded static-friction result
+Clean installed source 6dad618 passed Metal128 for 600.080679125 seconds,
+38302 ticks, 149 lifecycle cycles and 4940958 audited slot checks. Full/empty/
+overflow/settling coverage passed, with zero solver/tracker and final audit
+errors. See tests/results/m3-max-static-friction-soak-600.txt. This does not
+certify later diagnostic changes, D3D11 or controlled frame-time performance.
