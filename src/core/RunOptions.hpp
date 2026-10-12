@@ -37,8 +37,8 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--gpu-test") options.gpuTest=true;
         else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
-    if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.benchmark.empty() || !options.capabilities.empty()))
-        throw std::runtime_error("--cosmetic-capacity is for interactive or bounded-frame runs only");
+    if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.capabilities.empty()))
+        throw std::runtime_error("--cosmetic-capacity is for interactive, bounded-frame or benchmark runs only");
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||
        !options.capabilities.empty() || !options.scene.empty() || options.frames || specifiedWarmup || specifiedCapacity))
         throw std::runtime_error("--replay uses recorded capacity/ticks and cannot combine with other execution modes");
@@ -51,7 +51,10 @@ inline RunOptions parseOptions(int argc,char** argv) {
     if(!options.report.empty() && !options.soakSeconds && options.replay.empty()) throw std::runtime_error("--report requires --soak or --replay");
     if(options.gpuTest && !options.benchmark.empty()) throw std::runtime_error("GPU tests and benchmark modes are mutually exclusive");
     if(specifiedWarmup && options.benchmark.empty()) throw std::runtime_error("--warmup requires --benchmark");
-    if(!options.benchmark.empty() && !options.frames) options.frames=600;
+    if(!options.benchmark.empty()) {
+        if(!options.frames) options.frames=600;
+        if(!specifiedCosmetics) options.cosmeticCapacity=0;
+    }
     return options;
 }
 }

@@ -18,10 +18,11 @@ reload does not change this independent table. Shader reload stages both pools
 in the same transaction. Both use the common camera/culling/draw-mode settings.
 
 --cosmetic-capacity 0..150000 selects the cosmetic capacity. Zero omits its
-allocation and dispatches. This option applies to interactive and --frames
-runs; it is rejected with benchmark, soak, replay, capabilities or GPU-test
-modes. Existing CLI benchmarks/soaks/replays continue to allocate only the
-physical engine, preserving their existing workload definitions.
+allocation and dispatches. This option applies to interactive, --frames and
+benchmark runs; it is rejected with soak, replay, capabilities and GPU-test
+modes. Benchmarks omit cosmetics by default; explicitly supplying a nonzero
+cosmetic capacity selects the dual-pool ballistic workload. Soak/replay still
+allocate only the physical engine. See Benchmarking.txt for workload details.
 
 Physical scene reset and Empty scene do not clear cosmetics. Clear sparks does
 not reset physical state. Their tick counters and stable-slot namespaces are
@@ -35,7 +36,7 @@ These effects collide with the analytic floor/box and expire independently.
 They do not interact with physical particles, consume/produce physical material,
 participate in heat or terrain transactions, or implement transparent smoke.
 Reaction/explosion emission, dust/smoke rendering, effects in recording files,
-and the design's mixed-scene performance baseline remain future work. The
+and the design's mixed-scene water performance baseline remain future work. The
 initial implementation deliberately retains the existing 64-byte state ABI;
 a smaller cosmetic layout is a later optimization requiring its own GPU tests.
 

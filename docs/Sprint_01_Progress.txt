@@ -206,7 +206,8 @@ S1-10: Seeded, versioned scene presets, named material lists, capacity checks,
        and atomic replacement writer pass CPU tests. Native capture/save/replay
        passed on Metal. An independent cosmetic spark pool now passes Metal
        isolation, overflow, expiry and native UI checks. Windows validation
-       and mixed physical/cosmetic reference benchmarks remain.
+       and reference benchmarks remain. A distinct dual-pool ballistic benchmark
+       now supports explicit cosmetic capacity and isolated draw checks.
 S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.

@@ -66,3 +66,30 @@ seed uploads and renderer estimates; see Resource_Usage.txt for scope. The
 legacy particle_buffer_bytes_estimate now includes an allocated indirect
 command even when --no-indirect selects fallback drawing. Resource snapshots
 are taken after image validation and are outside the measured frame window.
+
+DUAL-POOL BALLISTIC WORKLOAD
+
+Explicitly add --cosmetic-capacity to benchmark both engines. For example:
+  ParticleWorld --capacity 100000 --cosmetic-capacity 150000 \
+    --benchmark out/dual-ballistic --warmup 120 --frames 600
+
+Omitting --cosmetic-capacity (or setting it to zero) retains the original
+physical-only workload. The physical pool uses seed 42 and mixed solid
+materials; the second pool uses seed 4242 and Wood. Both start filled and use
+infinite lifetime to keep the requested population stable throughout timing.
+There is no emission/recycling, heat, granular contact solve or water solve in
+this profile. It is not the design's mixed scene containing water.
+
+Each frame advances both pools by one fixed tick, culls independently and
+submits both draws to the same 1080p framebuffer. The scene field identifies
+this as dual_pool_seed42_physical_seed4242_cosmetic_ballistic_box. The legacy
+capacity/active/visible fields still describe physical particles; new cosmetic
+and total-capacity fields identify the added workload. Resource estimates sum
+both engines. Delayed count snapshots validate both pools at the final tick.
+After timing, combined and isolated per-pool images must be nonuniform so one
+pool's pixels cannot conceal a missing draw from the other. The isolated image
+checks are excluded from frame timing and completed wall duration.
+
+CPU tests cover the new option/default semantics. Short Metal runs at 129
+physical/127 cosmetic slots passed both draw paths, counts, resource totals and
+isolated images. These checks do not certify reference-machine performance.

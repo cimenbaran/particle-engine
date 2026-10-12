@@ -345,7 +345,7 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
     std::cout<<"GPU physical/cosmetic isolation, independent overflow, expiry, reuse and reset passed\n";
 }
 
-int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
+int runBenchmark(pw::Window& window,Particles& particles,Particles* cosmetics,const std::filesystem::path& assets,const pw::RunOptions& options) {
     constexpr int width=1920,height=1080;
     int windowWidth,windowHeight;window.drawable(windowWidth,windowHeight);
     struct Target {
@@ -394,9 +394,10 @@ int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::
         int w,h;window.drawable(w,h);
         if(w!=windowWidth || h!=windowHeight || (SDL_GetWindowFlags(window.get())&SDL_WINDOW_MINIMIZED))
             throw std::runtime_error("Benchmark interrupted by resize/minimize");
-        particles.tick(1);
+        particles.tick(1);if(cosmetics) cosmetics->tick(1);
         particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
-        bgfx::touch(10);particles.render(10,indirect);
+        if(cosmetics) cosmetics->visibility->prepare(5,cosmetics->instances,cosmetics->pool->activeSlots(),cosmetics->pool->counts(),frustum);
+        bgfx::touch(10);particles.render(10,indirect);if(cosmetics) cosmetics->render(10,indirect);
         const auto submitted=bgfx::frame();
         const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
         if(frame>=options.warmup) benchmark.add(submitted,frame+1,ms);
@@ -408,8 +409,14 @@ int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::
     }
     particles.diagnostics->request(6,particles.pool->counts(),total);
     particles.visibleDiagnostics->request(6,particles.visibility->counts(),total);
-    while(particles.diagnostics->pending() || particles.visibleDiagnostics->pending()) {
-        const auto frame=bgfx::frame();particles.diagnostics->poll(frame);particles.visibleDiagnostics->poll(frame);SDL_PumpEvents();
+    if(cosmetics) {
+        cosmetics->diagnostics->request(6,cosmetics->pool->counts(),total);
+        cosmetics->visibleDiagnostics->request(6,cosmetics->visibility->counts(),total);
+    }
+    while(particles.diagnostics->pending() || particles.visibleDiagnostics->pending() ||
+          (cosmetics && (cosmetics->diagnostics->pending() || cosmetics->visibleDiagnostics->pending()))) {
+        const auto frame=bgfx::frame();particles.diagnostics->poll(frame);particles.visibleDiagnostics->poll(frame);
+        if(cosmetics) {cosmetics->diagnostics->poll(frame);cosmetics->visibleDiagnostics->poll(frame);}SDL_PumpEvents();
     }
     benchmark.setCompletedWall(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-measuredBegin).count());
     target.readback=bgfx::createTexture2D(width,height,false,1,bgfx::TextureFormat::RGBA8,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
@@ -420,11 +427,29 @@ int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::
     while(bgfx::frame()<imageReady) SDL_PumpEvents();
     const auto& counts=particles.diagnostics->latest();
     const auto& visible=particles.visibleDiagnostics->latest();
-    if(!counts.valid || !visible.valid || counts.active!=options.capacity || counts.free!=0 || visible.active>counts.active)
+    if(!counts.valid || !visible.valid || counts.active!=options.capacity || counts.free!=0 || counts.rejected ||
+       counts.tick!=total || visible.tick!=total || !visible.active || visible.active>counts.active)
         throw std::runtime_error("Benchmark final GPU counts failed validation");
     const auto differentPixels=uint32_t(std::count_if(pixels.begin(),pixels.end(),[&](auto pixel){return pixel!=pixels.front();}));
     if(!differentPixels) throw std::runtime_error("Benchmark rendered a uniform image instead of particles");
-    benchmark.write(assets,width,height,indirect,counts.active,visible.active,differentPixels,*caps);
+    uint32_t cosmeticAlive=0,cosmeticVisible=0,cosmeticPixels=0,physicalPixels=differentPixels;
+    if(cosmetics) {
+        const auto& c=cosmetics->diagnostics->latest();const auto& v=cosmetics->visibleDiagnostics->latest();
+        if(!c.valid || !v.valid || c.tick!=total || v.tick!=total || c.active!=options.cosmeticCapacity ||
+           c.free || c.rejected || !v.active || v.active>c.active)
+            throw std::runtime_error("Benchmark cosmetic GPU counts failed validation");
+        cosmeticAlive=c.active;cosmeticVisible=v.active;
+        // Verify each draw independently outside the measured window.
+        auto isolatedPixels=[&](Particles& engine) {
+            bgfx::touch(10);engine.render(10,indirect);bgfx::frame();
+            bgfx::blit(7,dst,src);const auto ready=bgfx::read(dst,pixels.data());
+            while(bgfx::frame()<ready) SDL_PumpEvents();
+            return uint32_t(std::count_if(pixels.begin(),pixels.end(),[&](auto pixel){return pixel!=pixels.front();}));
+        };
+        physicalPixels=isolatedPixels(particles);cosmeticPixels=isolatedPixels(*cosmetics);
+        if(!physicalPixels || !cosmeticPixels) throw std::runtime_error("Benchmark isolated pool draw produced a uniform image");
+    }
+    benchmark.write(assets,width,height,indirect,counts.active,visible.active,differentPixels,*caps,cosmeticAlive,cosmeticVisible,cosmeticPixels,physicalPixels);
     return 0;
 }
 
@@ -651,12 +676,13 @@ int main(int argc, char** argv) {
         Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:nullptr);
         if(replay) {particles.beginReplay(std::move(*replay),false);return runReplay(window,particles,assets,options);}
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
-        if(benchmarking) return runBenchmark(window,particles,assets,options);
         std::unique_ptr<Particles> cosmetics;
         if(options.cosmeticCapacity) {
-            pw::ScenePreset sparks; sparks.name="Cosmetic sparks";sparks.count=0;sparks.materials={"Wood"};
+            pw::ScenePreset sparks; sparks.name=benchmarking?"Benchmark cosmetic cloud":"Cosmetic sparks";sparks.count=benchmarking?options.cosmeticCapacity:0;sparks.materials={"Wood"};
+            if(benchmarking) sparks.seed=4242;
             cosmetics=std::make_unique<Particles>(assets,options.cosmeticCapacity,std::filesystem::path{},&sparks);
         }
+        if(benchmarking) return runBenchmark(window,particles,cosmetics.get(),assets,options);
         int cosmeticBurst=1024;float cosmeticLifetime=2,cosmeticLift=6;
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);

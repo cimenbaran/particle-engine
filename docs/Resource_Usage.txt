@@ -3,8 +3,9 @@ RESOURCE USAGE AND ALLOCATION DIAGNOSTICS
 The Allocations window shows requested GPU payload sizes, renderer estimates,
 transient frame usage and live bgfx handle counts. Benchmark, soak and replay
 JSON reports include the same data in a versioned resources object. Interactive
-usage sums physical and cosmetic engines; existing CLI modes use only physical
-particles. Empty or recording-suspended cosmetic buffers remain allocated.
+usage sums physical and cosmetic engines. Benchmarks sum both when
+--cosmetic-capacity is nonzero; default benchmarks and soak/replay use physical
+particles only. Empty or recording-suspended cosmetic buffers remain allocated.
 
 Requested payload is based on configured capacity, not the number of alive or
 visible particles. Emptying the scene keeps the buffers allocated. There are
@@ -18,7 +19,8 @@ billboard geometry, diagnostic export/readback textures and, in audit modes,
 ownership/result buffers and the audit readback ring. Each diagnostic ring
 requests four 1x1 RGBA32U textures (64 bytes of pixel payload) and holds 48 bytes
 of host readback results. Each engine has two rings: interactive runs with cosmetics have four in
-total, benchmark has two, and physical replay/soak have three with auditing. Driver texture allocation can be far larger than its
+total; benchmarks have two or four according to pool count. Physical
+replay/soak have three with auditing. Driver texture allocation can be far larger than its
 pixel payload, so the tiny requested texture sizes are not residency claims.
 
 One reset requests a temporary 64-byte-per-slot GPU seed upload. Its host seed

@@ -14,7 +14,8 @@ public:
     std::size_t gpuSamples() const;
     void setCompletedWall(double milliseconds) {completedWallMs_=milliseconds;}
     void write(const std::filesystem::path& assets,int width,int height,bool indirect,
-               std::uint32_t alive,std::uint32_t visible,std::uint32_t nonBackgroundPixels,const bgfx::Caps& caps) const;
+               std::uint32_t alive,std::uint32_t visible,std::uint32_t nonBackgroundPixels,const bgfx::Caps& caps,
+               std::uint32_t cosmeticAlive=0,std::uint32_t cosmeticVisible=0,std::uint32_t cosmeticPixels=0,std::uint32_t physicalPixels=0) const;
 private:
     struct Sample {std::uint32_t frame;std::uint64_t tick;double wallMs,gpuMs=-1;};
     RunOptions options_;
