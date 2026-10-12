@@ -116,6 +116,13 @@ Verified evidence
 - Short soaks passed at 129 slots (3 seconds, 361 ticks) and one million slots
   (10 seconds, 1,192 ticks, 1.192 billion slot checks). Full/empty/overflow
   coverage and CPU rejection counts passed, with no audit flags.
+- Capability JSON reports passed on Metal for supported and forced-fallback
+  modes. Four CTests and the full GPU suite passed after shader cache changes;
+  all 19 version-2 shader manifests match their compiled binary hashes.
+- Ten-minute packaged Metal soak passed: 600.022 seconds, 71,661 ticks,
+  279 complete cycles, 71.661 billion slot checks, 2,251 retained snapshots
+  and no audit errors. Full/empty/overflow and 280 expected CPU rejections
+  passed. Report provenance matches clean e038c0a and the packaged executable.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
@@ -152,8 +159,9 @@ S1-02: Metal lifecycle/resize/close exercised. Minimize/focus-loss stress and
        Windows lifecycle validation remain.
 S1-03: Structured supported/degraded/unavailable JSON and actionable startup
        checks implemented; synthetic capability and CLI tests pass. Device
-       report execution is pending the running soak. The 256-thread variant
-       and backend validation remain; current shaders use 128 threads.
+       reports passed on Metal for supported and forced-fallback modes. The
+       256-thread variant and Windows validation remain; current shaders use
+       128 threads.
 S1-04: Shader compilation, packaging, shared content-addressed cache and SHA-256
        provenance manifests implemented. Compiler tests cover reuse, changed
        inputs, corrupt entries and failed-build output retention. Runtime
@@ -170,7 +178,7 @@ S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impuls
 S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
        lifetime and active compaction implemented. Pool ownership is tested at
        CPU readback through 16,384 slots plus whole-pool GPU audits at one
-       million. A short stress run passed; long soak and D3D11 gates remain.
+       million. The ten-minute Metal soak passed; D3D11 validation remains.
 S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
        schema fingerprints implemented. Scene files, command recording and
        cosmetic pools remain.
@@ -185,7 +193,8 @@ Open gates
 - Windows/D3D11 build and real-device execution are unverified.
 - Exhaustive zero/full pool tests passed through 16,384 slots on Metal. A local
   million-particle benchmark and short every-tick ownership/finite-state soak
-  passed. Reference-hardware tests and the ten-minute duration gate remain.
+  passed, followed by a passing ten-minute million-slot soak. Reference-
+  hardware tests remain.
 - The local ballistic sample is within 16.7 ms; reference-machine performance
   certification is not claimed. The current demo has no pair contacts.
 - Full-particle readback is limited to explicit startup/GPU tests. Steady-state
@@ -193,8 +202,8 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Complete runtime shader reload and validate the platform capability report.
-2. Complete the ten-minute large-pool soak and inspect its report; collect
-   controlled repeat and reference-machine timings.
+1. Complete runtime shader reload and the 256-thread workgroup variant.
+2. Collect controlled repeat and reference-machine timings; the local
+   ten-minute large-pool soak has passed.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.

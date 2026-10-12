@@ -58,7 +58,9 @@ Validation and completion gates
     sentinel layout, resize, minimize, focus and shutdown checks pass.
 [ ] Core gate: Test zero, one, workgroup-boundary and maximum-capacity workloads,
     full pools, duplicate-free prevention, stable IDs and invalid commands.
-[ ] Run a ten-minute soak with finite state and bounded overflow behavior.
+[x] Run a ten-minute soak with finite state and bounded overflow behavior.
+    Passed locally on Metal at one million slots; see docs/Soak_Testing.txt.
+    Cross-platform foundation and reference-hardware gates remain open.
 [ ] Benchmark one million simple ballistic/cosmetic particles with terrain
     contact and no pair solve at 1080p; target p95 <=16.7 ms. Record achieved
     counts and timings on both reference machines rather than claiming success.

@@ -81,7 +81,8 @@ Use `--capacity 1000000 --soak 600 --report out/soak/million.json` for an
 audit on every tick and repeated spawn/remove/expiry stress. See
 [soak testing](docs/Soak_Testing.txt) for coverage and results.
 
-The ten-minute gate, shader reload, scene/command recording and
+The local ten-minute Metal soak passed at one million slots. Shader reload,
+scene/command recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
 

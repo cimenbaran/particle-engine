@@ -53,5 +53,9 @@ LOCAL CHECKS (APPLE M3 MAX, 48 GB)
 - 129 slots: 3-second soak, 361 ticks, one complete cycle; no audit errors.
 - One million slots: 10-second soak, 1,192 ticks, four complete cycles;
   1,192,000,000 slot checks with full/empty/overflow coverage and no errors.
-- The ten-minute packaged run is pending. Its result must be inspected before
-  marking that duration gate complete. Windows/D3D11 remains unverified.
+- One million slots: 600.022 seconds, 71,661 ticks, 279 complete cycles and
+  71,661,000,000 slot checks; all 2,251 snapshots and the final snapshot had
+  zero audit errors. Full/empty/overflow coverage and 280 intentional CPU
+  rejections passed. Clean packaged build e038c0a; report saved as
+  tests/results/m3-max-million-600s.json. The local Metal duration gate passes.
+  Windows/D3D11 and reference-machine validation remain unverified.
