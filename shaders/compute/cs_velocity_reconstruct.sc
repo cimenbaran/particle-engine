@@ -6,7 +6,7 @@ BUFFER_RO(b_materials,vec4,2);
 BUFFER_RO(b_upstream,uint,3);
 BUFFER_RW(b_candidate,vec4,4);
 BUFFER_RW(b_status,uint,5);
-uniform vec4 u_velocity; // capacity, dt, material count, reserved
+uniform vec4 u_velocity; // capacity, dt, material count, correction mode
 bool finiteValue(float v) {return (floatBitsToUint(v)&0x7f800000u)!=0x7f800000u;}
 bool finitePosition(vec3 v) {return finiteValue(v.x) && finiteValue(v.y) && finiteValue(v.z);}
 float liftedTinyCoordinate(float value) {
@@ -48,6 +48,11 @@ void main() {
   if(magnitude==0u) {atomicAdd(b_status[2],1u);return;}
   vec3 velocity=vec3(reconstructComponent(before.x,after.x,u_velocity.y),
     reconstructComponent(before.y,after.y,u_velocity.y),reconstructComponent(before.z,after.z,u_velocity.y));
+  if(u_velocity.w!=0.0) {
+    vec3 incoming=b_previous[base+1u].xyz;
+    if(!finitePosition(incoming)) {fail(8u);return;}
+    velocity+=incoming;
+  }
   if(!finitePosition(velocity)) {fail(8u);return;}
   b_candidate[base+1u]=vec4(velocity,mass);atomicAdd(b_status[1],1u);
 }

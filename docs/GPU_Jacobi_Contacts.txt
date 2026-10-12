@@ -87,3 +87,21 @@ A separate reconstruction component is now available in
 GPU_Velocity_Reconstruction.txt and is tested directly after this pass on Metal.
 GPU_Contact_Velocity.txt describes the separate restitution/friction pass.
 These components are not yet connected to a complete live time step.
+
+Optional inset-boundary constraints
+The constructor's final bounded flag (default false) enables projection against
+sphere-centre limits [-7.9375,7.9375] x [0.0625,15.9375] x [-7.9375,7.9375].
+Every participating dynamic input must already be inside these limits; an outside
+input raises the existing domain error bit 16 and rolls back the whole iteration.
+After relaxation and correction-length limiting, project the proposed position
+onto these limits. Since the input is contained, this projection cannot increase
+the correction length. The published correction remains subject to the original
+bound. Static/excluded records retain their bits; spatial-index validity is still
+required. All indices are rebuilt on every iteration as before.
+
+This lets swept prediction feed contact solving without pair corrections pushing
+bodies through the analytic enclosure. It does not sweep a correction against
+interior obstacles or supply wall velocity response. Those remain owner work.
+The bounded profile adds 15 GPU fixtures: each plane at one/eight iterations,
+a repeated corner case, invalid starting overlap rollback, and a static exception.
+Tests compare against CPU projection and check strict inset containment.

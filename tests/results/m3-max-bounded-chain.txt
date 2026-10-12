@@ -1,0 +1,26 @@
+BOUNDED CONTACT / SWEPT RECONSTRUCTION CHAIN
+Date: 2026-10-13, Apple M3 Max / Metal, macos-release.
+Source: commit containing this evidence; prior HEAD 555bf67.
+
+Both workgroup 128 and 256 passed the entire GPU suite, including 53 Jacobi
+fixtures (15 added) and 64 velocity-reconstruction fixtures (21 added).
+11/11 CTests passed at both sizes. Default 128 build restored.
+
+Added Jacobi cases check each inset plane for one/eight iterations, a corner,
+invalid initial overlap rollback and static preservation. CPU projection agreement,
+strict containment, immutable input and the correction displacement bound pass.
+
+Correction-relative velocity cases include workgroup boundaries, retained incoming
+velocity, nonzero position correction, contacts, nonfinite/overflow/upstream gates.
+Direct GPU swept prediction -> reconstruction, without intermediate readback,
+retains a +5 m/s rebound at y=0.5625 instead of the -2.5 m/s chord velocity.
+Existing default displacement-mode fixtures continue to pass.
+
+No live granular/stability or D3D11 certification claim. Force integration,
+full-step error ownership, final wall velocity response and UI remain open.
+
+Log SHA-256:
+0ce1b718a834476ceb6f0db711cd1f6e6a42ccfca548944453e7d2ca89e939e4  out/bounded-final128-gpu.log
+3cadd154fff360630df4be4f2771d305bc80645acf6d70260d0bae6184bbf466  out/bounded-final128-ctest.log
+07dfdfc13a6c62cbd108a216dc3dca33e77cdc0e5b6b30bd75beb637a91789bf  out/bounded-256-gpu.log
+30e4be965ce2a879b1252c82be031c0fe6dd76042af053d9ead23510f3e51833  out/bounded-256-ctest.log

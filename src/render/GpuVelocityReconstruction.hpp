@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <cstdint>
 namespace pw {
+enum class VelocityReconstructionMode {Displacement,Correction};
 // Reconstructs dynamic-solid velocities from beginning-of-step positions and
 // corrected positions. This is not restitution/friction or a full time step.
 class GpuVelocityReconstruction {
@@ -12,9 +13,12 @@ public:
     ~GpuVelocityReconstruction();
     GpuVelocityReconstruction(const GpuVelocityReconstruction&)=delete;
     GpuVelocityReconstruction& operator=(const GpuVelocityReconstruction&)=delete;
+    // Correction mode: previous is the predicted snapshot after swept response;
+    // result = previous.velocity + (corrected.position-previous.position)/dt.
     void submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle previous,
         bgfx::DynamicVertexBufferHandle corrected,bgfx::DynamicVertexBufferHandle materials,
-        std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle contactStatus,float dt);
+        std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle contactStatus,float dt,
+        VelocityReconstructionMode mode=VelocityReconstructionMode::Displacement);
     bgfx::DynamicVertexBufferHandle output() const {return output_;}
     // errors, proposed updates, excluded/static slots, invalid slots.
     // Any error preserves the entire corrected input, including its velocities.

@@ -8,6 +8,7 @@ BUFFER_RO(b_meta,uint,4);
 BUFFER_RW(b_corrections,vec4,5);
 uniform vec4 u_neighbors;
 uniform vec4 u_contacts; // capacity, common radius, relaxation, correction limit
+uniform vec4 u_contact_bounds; // optional inset boundary projection
 #include "contact_math.sh"
 bool validContactSlot(uint slot) {
   return b_state[slot*4u].w==u_contacts.y && validMass(b_state[slot*4u+1u].w);
@@ -49,7 +50,15 @@ void main() {
   if((floatBitsToUint(correction.x)&0x7f800000u)==0x7f800000u ||
      (floatBitsToUint(correction.y)&0x7f800000u)==0x7f800000u ||
      (floatBitsToUint(correction.z)&0x7f800000u)==0x7f800000u) counts.w=5u;
-  vec3 proposed=b_state[slot*4u].xyz+correction;
+  vec3 position=b_state[slot*4u].xyz,proposed=position+correction;
+  if(u_contact_bounds.x!=0.0 && counts.w==0u && b_state[slot*4u+1u].w!=0.0) {
+    vec3 lo=vec3(-8.0,0.0,-8.0)+vec3_splat(u_contacts.y);
+    vec3 hi=vec3(8.0,16.0,8.0)-vec3_splat(u_contacts.y);
+    // A contained input makes this projection non-expansive: the correction
+    // still satisfies the configured per-iteration displacement bound.
+    if(any(lessThan(position,lo)) || any(greaterThan(position,hi))) counts.w=6u;
+    else {proposed=clamp(proposed,lo,hi);correction=proposed-position;}
+  }
   if(counts.w==0u && (proposed.x< -8.0 || proposed.x>=8.0 || proposed.y<0.0 || proposed.y>=16.0 || proposed.z< -8.0 || proposed.z>=8.0)) counts.w=6u;
   b_corrections[slot*2u]=vec4(correction,0.0);b_corrections[slot*2u+1u]=uintBitsToFloat(counts);
 }

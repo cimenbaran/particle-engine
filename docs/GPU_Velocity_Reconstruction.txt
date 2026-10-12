@@ -86,3 +86,24 @@ Checks compare velocities to CPU displacement/dt with tolerance
 max(1e-9, abs(expected)*2e-5), verify both input snapshots, ensure exact preserved
 fields and validate diagnostic accounting. See tests/results/m3-max-velocity.txt.
 D3D11 runtime validation for this new component remains pending.
+
+Correction-relative reconstruction after swept prediction
+submit accepts a final VelocityReconstructionMode argument. Displacement remains
+the default. Correction mode treats the first snapshot as prediction after swept
+collision response and computes:
+ v_out = v_prediction + (x_corrected - x_prediction) / dt.
+This preserves the outgoing impact velocity from a piecewise swept trajectory.
+Computing (x_corrected - x_tick_start) / dt instead would replace it with the
+average chord velocity, potentially pointing back into the wall after a rebound.
+The corrected input's stored velocity is not the base; the immutable prediction
+is authoritative. Existing identity/mass checks, exclusions, failure publication
+and resource requirements remain the same. Nonfinite predicted velocity or sum
+raises arithmetic error 8. Invalid enum values are rejected before dispatch.
+
+21 additional fixtures cover correction mode at workgroup boundaries, zero and
+nonzero corrections, position-contact chaining, invalid incoming velocity,
+overflow and upstream failure. A GPU sweep -> reconstruction chain runs without
+intermediate readback: y=1.0625, vy=-10, dt=0.2, restitution=0.5 gives y=0.5625
+and vy=+5. Correction mode retains +5, rather than the -2.5 chord velocity.
+See tests/results/m3-max-bounded-chain.txt. This does not yet connect the solver
+to live stepping or establish stability of resting piles.

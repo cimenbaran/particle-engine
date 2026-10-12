@@ -1,5 +1,6 @@
 #include "GpuVelocityReconstruction.hpp"
 #include "GpuJacobiContacts.hpp"
+#include "GpuSweptBounds.hpp"
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
 #include "core/ParticleTypes.hpp"
@@ -26,13 +27,13 @@ template<class T> struct VelocityHandle {
 void require(bool ok,const char* message){if(!ok) throw std::runtime_error(message);}
 }
 void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
-    std::array<MaterialGpu,5> materials{};for(unsigned i=0;i<5;++i) {materials[i].identity[0]=i;materials[i].identity[1]=i==3?0:i==4?99:i;}
+    std::array<MaterialGpu,5> materials{};for(unsigned i=0;i<5;++i) {materials[i].identity[0]=i;materials[i].identity[1]=i==3?0:i==4?99:i;materials[i].mechanical[2]=0.5f;}
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
     VelocityHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
     VelocityHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     VelocityHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));unsigned cases=0;
     auto check=[&](std::vector<ParticleGpu> before,std::vector<ParticleGpu> corrected,float dt,std::uint32_t upstream=0,std::uint32_t error=0,
-                  GpuVelocityReconstruction* reused=nullptr,bool throughContacts=false) {
+                  GpuVelocityReconstruction* reused=nullptr,bool throughContacts=false,bool correctionMode=false,bool throughSweep=false) {
         const auto count=std::uint32_t(before.size()),storage=std::max(1u,count);require(corrected.size()==before.size(),"Velocity fixture sizes differ");
         auto owned=reused?nullptr:std::make_unique<GpuVelocityReconstruction>(assets,count);auto& velocity=reused?*reused:*owned;
         auto original=before,uploaded=corrected;if(!count) {original.resize(1);uploaded.resize(1);}
@@ -47,7 +48,20 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
             // Equal masses, 0.0625 separation: each gets 0.025 m after relaxation.
             corrected[0].positionRadius[0]-=0.025f;corrected[1].positionRadius[0]+=0.025f;
         }
-        velocity.submit(0,previous.value,current,materialBuffer.value,std::uint32_t(materials.size()),status,dt);
+        auto baseReference=before;auto reconstructionBase=previous.value;
+        std::unique_ptr<GpuSweptBounds> sweep;
+        if(throughSweep) {
+            require(count==1 && correctionMode && !throughContacts,"Invalid swept reconstruction fixture");
+            sweep=std::make_unique<GpuSweptBounds>(assets,count);
+            sweep->submit(0,previous.value,materialBuffer.value,std::uint32_t(materials.size()),status,dt,1000);
+            current=sweep->output();status=sweep->status();reconstructionBase=current;
+            // Unit drop at 10 m/s, e=0.5, dt=0.2: floor hit at t=0.1,
+            // then 0.5 m upward. Keep +5 m/s, not the -2.5 m/s chord velocity.
+            corrected=before;corrected[0].positionRadius[1]=0.5625f;corrected[0].velocityInvMass[1]=5;
+            baseReference=corrected;
+        }
+        velocity.submit(0,reconstructionBase,current,materialBuffer.value,std::uint32_t(materials.size()),status,dt,
+            correctionMode?VelocityReconstructionMode::Correction:VelocityReconstructionMode::Displacement);
         VelocityHandle image(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
         VelocityHandle staging(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         VelocityHandle oldImage(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -76,7 +90,7 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
         unsigned updated=0,excluded=0;
         for(std::uint32_t i=0;i<count;++i) {
             require(std::memcmp(&oldActual[i],&before[i],sizeof(ParticleGpu))==0,"Velocity reconstruction mutated previous state");
-            if(!throughContacts) require(std::memcmp(&newActual[i],&corrected[i],sizeof(ParticleGpu))==0,"Velocity reconstruction mutated corrected input");
+            if(!throughContacts && !throughSweep) require(std::memcmp(&newActual[i],&corrected[i],sizeof(ParticleGpu))==0,"Velocity reconstruction mutated corrected input");
             else for(unsigned axis=0;axis<3;++axis) require(std::abs(newActual[i].positionRadius[axis]-corrected[i].positionRadius[axis])<1e-6,"Contact/velocity chain position mismatch");
             const auto& source=newActual[i];const bool dynamic=(source.identity[1]&1) && (source.identity[0]==0 || source.identity[0]==3) && source.velocityInvMass[3]!=0;
             if(dynamic) ++updated;else ++excluded;
@@ -84,7 +98,8 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
             require(std::memcmp(actual[i].positionRadius,source.positionRadius,16)==0,"Velocity reconstruction moved positions/radius");
             require(std::memcmp(&actual[i].velocityInvMass[3],&source.velocityInvMass[3],sizeof(ParticleGpu)-7*sizeof(float))==0,"Velocity reconstruction changed mass, thermal state or identity");
             for(unsigned axis=0;axis<3;++axis) {
-                const double expected=(double(corrected[i].positionRadius[axis])-before[i].positionRadius[axis])/dt;
+                const double expected=(double(corrected[i].positionRadius[axis])-baseReference[i].positionRadius[axis])/dt+
+                    (correctionMode?baseReference[i].velocityInvMass[axis]:0.0);
                 require(std::isfinite(actual[i].velocityInvMass[axis]) && std::abs(actual[i].velocityInvMass[axis]-expected)<=std::max(1e-9,std::abs(expected)*2e-5),"Reconstructed velocity differs from displacement/timestep");
             }
         }
@@ -109,10 +124,12 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
             if(i%7==4) a[i].velocityInvMass[3]=b[i].velocityInvMass[3]=0;
         }
         check(a,b,0.125f);check(a,b,1.f/60);check(a,a,0.125f);
+        check(a,b,0.125f,0,0,nullptr,false,true);check(a,a,0.125f,0,0,nullptr,false,true);
     }
     auto a=fixture(2),b=a;b[1].positionRadius[0]=a[1].positionRadius[0]=0.0625f;
     for(auto& p:b) {p.positionRadius[0]+=0.015625f;p.thermalState[3]=0.125f;}
     check(a,b,0.125f,0,0,nullptr,true);
+    check(a,b,0.125f,0,0,nullptr,true,true);
     auto good=fixture(3),bad=good;bad[0].identity[3]++;check(good,bad,0.125f,0,2);
     bad=good;bad[0].identity[0]=3;check(good,bad,0.125f,0,2);
     bad=good;bad[0].positionRadius[3]=0.05f;check(good,bad,0.125f,0,2);
@@ -130,6 +147,13 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
     moved[0].positionRadius[0]=std::numeric_limits<float>::denorm_min();check(one,moved,std::numeric_limits<float>::min());
     moved[0].positionRadius[0]=-std::numeric_limits<float>::denorm_min();check(one,moved,std::numeric_limits<float>::min());
     one[0].positionRadius[0]=std::numeric_limits<float>::min();moved[0].positionRadius[0]=std::nextafter(one[0].positionRadius[0],1.f);check(one,moved,std::numeric_limits<float>::min());
+    one=fixture(1);one[0].positionRadius[1]=1.0625f;one[0].velocityInvMass[0]=one[0].velocityInvMass[2]=0;one[0].velocityInvMass[1]=-10;
+    check(one,one,0.2f,0,0,nullptr,false,true,true);
+    one=fixture(1);moved=one;one[0].velocityInvMass[0]=std::numeric_limits<float>::quiet_NaN();
+    check(one,moved,0.125f,0,8,nullptr,false,true);
+    one=fixture(1);moved=one;one[0].velocityInvMass[0]=std::numeric_limits<float>::max();moved[0].positionRadius[0]=7;
+    check(one,moved,std::numeric_limits<float>::min(),0,8,nullptr,false,true);
+    check(good,good,0.125f,4,1,nullptr,false,true);
     GpuVelocityReconstruction recovery(assets,3);bad=good;bad[0].identity[3]++;
     check(good,bad,0.125f,0,2,&recovery);check(good,good,0.125f,0,0,&recovery);
     std::cout<<"GPU velocity reconstruction passed: "<<cases<<" fixtures, immutable inputs, contact chaining, exclusion, generation guards and whole-pass rollback\n";

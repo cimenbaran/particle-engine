@@ -29,6 +29,10 @@ Swept boundary and fixed substep reference preparation is described in
 ../docs/GPU_Swept_Bounds.txt. Visible speed-cap diagnostics, interior terrain and
 live boundary integration remain open.
 
+Optional inset constraints in the Jacobi pass and correction-relative velocity
+reconstruction now support chaining swept prediction into contacts. See the
+updated Jacobi/reconstruction docs; complete live step ownership remains open.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

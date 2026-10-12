@@ -28,9 +28,10 @@ void GpuVelocityReconstruction::release() {
     if(bgfx::isValid(params_)) bgfx::destroy(params_);
 }
 void GpuVelocityReconstruction::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle previous,bgfx::DynamicVertexBufferHandle corrected,
-    bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle contactStatus,float dt) {
+    bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle contactStatus,float dt,VelocityReconstructionMode mode) {
     if(!bgfx::isValid(previous) || !bgfx::isValid(corrected) || !bgfx::isValid(materials) || !bgfx::isValid(contactStatus) ||
-       !materialCount || materialCount>65536 || !std::isfinite(dt) || dt<std::numeric_limits<float>::min() || dt>1 || contactStatus.idx==status_.idx)
+       !materialCount || materialCount>65536 || !std::isfinite(dt) || dt<std::numeric_limits<float>::min() || dt>1 || contactStatus.idx==status_.idx ||
+       (mode!=VelocityReconstructionMode::Displacement && mode!=VelocityReconstructionMode::Correction))
         throw std::invalid_argument("Invalid velocity reconstruction inputs or timestep");
     for(auto h:{previous,corrected,materials}) if(h.idx==candidate_.idx) throw std::invalid_argument("Velocity input aliases scratch");
     if(materials.idx==previous.idx || materials.idx==corrected.idx || materials.idx==outputs_[0].idx || materials.idx==outputs_[1].idx)
@@ -40,7 +41,7 @@ void GpuVelocityReconstruction::submit(std::uint16_t view,bgfx::DynamicVertexBuf
     output_=output;bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     bgfx::setBuffer(0,contactStatus,bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(!capacity_) return;
-    const float p[]{float(capacity_),dt,float(materialCount),0};bgfx::setUniform(params_,p);
+    const float p[]{float(capacity_),dt,float(materialCount),mode==VelocityReconstructionMode::Correction?1.0f:0.0f};bgfx::setUniform(params_,p);
     bgfx::setBuffer(0,previous,bgfx::Access::Read);bgfx::setBuffer(1,corrected,bgfx::Access::Read);
     bgfx::setBuffer(2,materials,bgfx::Access::Read);bgfx::setBuffer(3,contactStatus,bgfx::Access::Read);
     bgfx::setBuffer(4,candidate_,bgfx::Access::Write);bgfx::setBuffer(5,status_,bgfx::Access::ReadWrite);

@@ -24,7 +24,7 @@ template<class T> struct ContactHandle {
 };
 void require(bool ok,const char* message){if(!ok) throw std::runtime_error(message);}
 struct ReferenceStep {std::vector<ParticleGpu> state;std::uint32_t error=0,maxContacts=0;};
-ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,float limit) {
+ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,float limit,bool bounded=false) {
     ReferenceStep result{input};const auto count=std::uint32_t(input.size());
     const SpatialGrid grid({0,0,0},0.125f,{-64,0,-64},{128,128,128});
     std::vector<bool> included(count);
@@ -40,6 +40,9 @@ ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,f
         const auto& p=input[i];const auto mass=p.velocityInvMass[3];
         if(p.positionRadius[3]!=GpuJacobiContacts::radius || !std::isfinite(mass) || mass<0 || (mass!=0 && mass<std::numeric_limits<float>::min())) result.error|=4;
     }
+    if(result.error) return result;
+    if(bounded) for(std::uint32_t i=0;i<count;++i) if(included[i] && input[i].velocityInvMass[3]!=0)
+        for(unsigned axis=0;axis<3;++axis) if(input[i].positionRadius[axis]<(axis==1?0.0625f:-7.9375f) || input[i].positionRadius[axis]>(axis==1?15.9375f:7.9375f)) result.error|=16;
     if(result.error) return result;
     for(std::uint32_t i=0;i<count;++i) if(included[i]) {
         const auto& a=input[i];std::array<double,3> correction{};std::uint32_t contacts=0;
@@ -58,6 +61,8 @@ ReferenceStep reference(const std::vector<ParticleGpu>& input,float relaxation,f
         double squared=0;for(auto& x:correction) {x*=relaxation;squared+=x*x;}
         if(squared>double(limit)*limit) for(auto& x:correction) x*=limit/std::sqrt(squared);
         for(unsigned axis=0;axis<3;++axis) result.state[i].positionRadius[axis]=float(double(a.positionRadius[axis])+correction[axis]);
+        if(bounded && a.velocityInvMass[3]!=0) for(unsigned axis=0;axis<3;++axis)
+            result.state[i].positionRadius[axis]=std::clamp(result.state[i].positionRadius[axis],axis==1?0.0625f:-7.9375f,axis==1?15.9375f:7.9375f);
         const auto& p=result.state[i];if(!grid.keyAt({p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]})) result.error|=16;
     }
     if(result.error) result.state=input;
@@ -71,9 +76,9 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     ContactHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     ContactHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     unsigned cases=0;
-    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr) {
+    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr,bool bounded=false) {
         const auto count=std::uint32_t(input.size());
-        auto owned=reused?nullptr:std::make_unique<GpuJacobiContacts>(assets,count,relaxation,limit);
+        auto owned=reused?nullptr:std::make_unique<GpuJacobiContacts>(assets,count,relaxation,limit,bounded);
         auto& solver=reused?*reused:*owned;
         ContactHandle state(bgfx::createDynamicVertexBuffer(bgfx::copy(input.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
         ContactHandle image(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -84,7 +89,7 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
         ContactHandle statStaging(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         auto expected=input;ReferenceStep last;auto current=state.value;
         for(unsigned iteration=0;iteration<iterations;++iteration) {
-            last=reference(expected,relaxation,limit);expected=last.state;
+            last=reference(expected,relaxation,limit,bounded);expected=last.state;
             solver.submit(0,current,materialBuffer.value,std::uint32_t(materials.size()));current=solver.output();
         }
         const float p[]{0,float(count),0,4};bgfx::setUniform(uniform.value,p);
@@ -110,6 +115,8 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
             double displacement=0;
             for(unsigned axis=0;axis<3;++axis) {
                 require(std::isfinite(actual[i].positionRadius[axis]) && std::abs(actual[i].positionRadius[axis]-expected[i].positionRadius[axis])<2e-5f,"Jacobi CPU-reference position mismatch");
+                if(bounded) require(actual[i].positionRadius[axis]>=(axis==1?0.0625f:-7.9375f) &&
+                    actual[i].positionRadius[axis]<=(axis==1?15.9375f:7.9375f),"Bounded Jacobi escaped inset planes");
                 const double d=double(actual[i].positionRadius[axis])-input[i].positionRadius[axis];displacement+=d*d;
             }
             require(std::sqrt(displacement)<=double(iterations)*limit+2e-6,"Jacobi correction bound exceeded");
@@ -148,6 +155,18 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     pair[0].velocityInvMass[3]=std::numeric_limits<float>::min();pair[1].velocityInvMass[3]=std::numeric_limits<float>::min();check(pair);
     pair[1].velocityInvMass[3]=std::numeric_limits<float>::max();check(pair);
     std::swap(pair[0].velocityInvMass[3],pair[1].velocityInvMass[3]);check(pair);
+    // Opposed pair corrections into every inset plane, including repeated
+    // rebuilds and a corner. Projection must retain the displacement bound.
+    for(unsigned axis=0;axis<3;++axis) for(bool high:{false,true}) {
+        pair=fixture(2);pair[0].positionRadius[0]=pair[1].positionRadius[0]=0;
+        const float wall=axis==1?(high?15.9375f:0.0625f):(high?7.9375f:-7.9375f);
+        pair[0].positionRadius[axis]=wall;pair[1].positionRadius[axis]=wall+(high?-0.0625f:0.0625f);
+        check(pair,1,0.8f,0.03125f,nullptr,true);check(pair,8,0.8f,0.03125f,nullptr,true);
+    }
+    pair=fixture(2);pair[0].positionRadius[0]=pair[0].positionRadius[2]=-7.9375f;
+    pair[1].positionRadius[0]=pair[1].positionRadius[2]=-7.90625f;check(pair,8,0.8f,0.03125f,nullptr,true);
+    bad=fixture(3);bad[0].positionRadius[1]=0.03125f;check(bad,1,0.8f,0.03125f,nullptr,true);
+    bad[0].velocityInvMass[3]=0;check(bad,1,0.8f,0.03125f,nullptr,true);
     GpuJacobiContacts recovering(assets,3);
     bad=fixture(3);bad[0].positionRadius[3]=0.05f;
     check(bad,1,0.8f,0.03125f,&recovering);check(fixture(3),1,0.8f,0.03125f,&recovering);

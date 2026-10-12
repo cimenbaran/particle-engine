@@ -5,8 +5,8 @@
 #include <cmath>
 #include <stdexcept>
 namespace pw {
-GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,float relaxation,float maxCorrection)
-    :capacity_(capacity),relaxation_(relaxation),maxCorrection_(maxCorrection),keys_(assets,capacity),sort_(assets,capacity),ranges_(assets,capacity),hash_(assets,capacity) {
+GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,float relaxation,float maxCorrection,bool bounded)
+    :capacity_(capacity),relaxation_(relaxation),maxCorrection_(maxCorrection),bounded_(bounded),keys_(assets,capacity),sort_(assets,capacity),ranges_(assets,capacity),hash_(assets,capacity) {
     if(!std::isfinite(relaxation) || relaxation<=0 || relaxation>1 || !std::isfinite(maxCorrection) || maxCorrection<=0 || maxCorrection>radius)
         throw std::invalid_argument("Invalid Jacobi relaxation/correction bound");
     try {
@@ -18,8 +18,9 @@ GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::ui
         reduce_=loadCompute(assets,"cs_contact_reduce");apply_=loadCompute(assets,"cs_contact_apply");
         neighborParams_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         contactParams_=bgfx::createUniform("u_contacts",bgfx::UniformType::Vec4);
+        boundsParams_=bgfx::createUniform("u_contact_bounds",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(states_[0]) || !bgfx::isValid(states_[1]) || !bgfx::isValid(corrections_) ||
-           !bgfx::isValid(status_) || !bgfx::isValid(neighborParams_) || !bgfx::isValid(contactParams_))
+           !bgfx::isValid(status_) || !bgfx::isValid(neighborParams_) || !bgfx::isValid(contactParams_) || !bgfx::isValid(boundsParams_))
             throw std::runtime_error("Jacobi resources unavailable");
     }catch(...) {release();throw;}
 }
@@ -29,7 +30,7 @@ void GpuJacobiContacts::release() {
     if(bgfx::isValid(corrections_)) bgfx::destroy(corrections_);
     if(bgfx::isValid(status_)) bgfx::destroy(status_);
     for(auto h:{clear_,solve_,reduce_,apply_}) if(bgfx::isValid(h)) bgfx::destroy(h);
-    for(auto h:{neighborParams_,contactParams_}) if(bgfx::isValid(h)) bgfx::destroy(h);
+    for(auto h:{neighborParams_,contactParams_,boundsParams_}) if(bgfx::isValid(h)) bgfx::destroy(h);
 }
 void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount) {
     if(!bgfx::isValid(input) || !bgfx::isValid(materials) || input.idx==materials.idx || input.idx==corrections_.idx ||
@@ -42,6 +43,7 @@ void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandl
     if(!capacity_) return;
     const float neighbors[]{float(capacity_),float(hash_.tableSlots()),float(hash_.probeLimit()),radius*2};
     const float contacts[]{float(capacity_),radius,relaxation_,maxCorrection_};
+    const float bounds[]{bounded_?1.0f:0.0f,0,0,0};bgfx::setUniform(boundsParams_,bounds);
     bgfx::setUniform(neighborParams_,neighbors);bgfx::setUniform(contactParams_,contacts);
     bgfx::setBuffer(0,input,bgfx::Access::Read);bgfx::setBuffer(1,sort_.output(),bgfx::Access::Read);
     bgfx::setBuffer(2,ranges_.ranges(),bgfx::Access::Read);bgfx::setBuffer(3,hash_.table(),bgfx::Access::Read);
