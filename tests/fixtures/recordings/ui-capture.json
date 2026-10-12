@@ -1,0 +1,79 @@
+{
+  "capacity": 16384,
+  "commands": [
+    {
+      "count": 1024,
+      "material": "Stone",
+      "maximum": [
+        2.0,
+        10.0,
+        2.0
+      ],
+      "minimum": [
+        -2.0,
+        6.0,
+        -2.0
+      ],
+      "parameters": [
+        0.0,
+        0.0,
+        0.0,
+        5.723999977111816
+      ],
+      "sequence": 0,
+      "tick": 1,
+      "type": "spawn"
+    },
+    {
+      "count": 0,
+      "material": "Stone",
+      "maximum": [
+        4.0,
+        12.0,
+        4.0
+      ],
+      "minimum": [
+        -4.0,
+        0.0,
+        -4.0
+      ],
+      "parameters": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "sequence": 1,
+      "tick": 2,
+      "type": "remove"
+    }
+  ],
+  "materials_hash": "6e2d0ad62cc37279",
+  "scene": {
+    "count": 0,
+    "materials": [
+      "Stone",
+      "Sand",
+      "Wood",
+      "Ash"
+    ],
+    "maximum": [
+      6.0,
+      11.0,
+      6.0
+    ],
+    "minimum": [
+      -6.0,
+      1.0,
+      -6.0
+    ],
+    "name": "Empty workspace",
+    "schema_version": 1,
+    "seed": 42
+  },
+  "schema_version": 1,
+  "simulation_profile": "ballistic_pool_v1",
+  "tick_hz": 60,
+  "ticks": 3,
+  "workgroup_size": 128
+}

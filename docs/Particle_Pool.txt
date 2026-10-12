@@ -36,7 +36,8 @@ free count, zero reservations, cumulative rejected spawns. Every slot must
 appear exactly once across active/free lists and agree with its alive flag.
 The lists' atomic append order is unspecified; it is not a cross-device replay
 ordering guarantee. Seeded scene reset remains reproducible. Dynamic command
-recording and deterministic replay are not yet implemented.
+recording and input replay are implemented (see Command_Recordings.txt);
+identical cross-GPU particle trajectories are not guaranteed.
 
 Rebuilding before each spawn batch favors simple ownership and safe reuse.
 It is O(capacity) per spawn command and is not the final million-particle

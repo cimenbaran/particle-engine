@@ -73,11 +73,17 @@ int main() {
     };
     CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
+    CHECK(parse({"app","--replay","capture.json","--report","result.json","--no-indirect"}).replay=="capture.json");
     CHECK(parse({"app","--capabilities","device.json"}).capabilities=="device.json");
     CHECK(parse({"app","--soak","600","--report","soak.json"}).soakSeconds==600);
     const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
+        {"app","--replay",""},{"app","--replay","x","--capacity","129"},
+        {"app","--replay","x","--frames","1"},{"app","--replay","x","--warmup","0"},
+        {"app","--replay","x","--scene","y"},{"app","--replay","x","--gpu-test"},
+        {"app","--replay","x","--benchmark","y"},{"app","--replay","x","--capabilities","y"},
+        {"app","--replay","x","--soak","1","--report","y"},
         {"app","--scene",""},{"app","--scene","x","--benchmark","y"},
         {"app","--scene","x","--soak","10","--report","x"},{"app","--scene","x","--capabilities","x"},
         {"app","--scene","x","--gpu-test"},{"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},

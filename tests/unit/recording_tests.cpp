@@ -1,4 +1,4 @@
-#include "assets/Recordings.hpp"
+#include "assets/RecordingSession.hpp"
 #include "core/CommandQueue.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -16,6 +16,37 @@ int main(int argc,char** argv) {
     command.minimum={-1,2,-1};command.maximum={1,3,1};recording.commands.push_back(command);
     command.type=pw::CommandType::ApplyImpulse;command.count=0;command.sequence=2;command.parameters[1]=2;recording.commands.push_back(command);
     command.tick=120;command.sequence=0;command.type=pw::CommandType::RemoveBrush;command.parameters={};recording.commands.push_back(command);
+    pw::RecordingSession session;
+    session.replay(recording,materials,129);
+    pw::CommandQueue replayQueue;
+    for(std::uint64_t tick=0;tick<recording.ticks;++tick) {
+        for(const auto& due:session.due(tick)) CHECK(replayQueue.enqueueRecorded(due,{}).empty());
+        session.observed(replayQueue.consume(),tick+1);
+    }
+    CHECK(session.finished() && !session.active() && session.completedTicks()==121);
+    bool mismatch=false;
+    try {session.replay(recording,materials,128);}catch(const std::exception&){mismatch=true;}
+    CHECK(mismatch && session.finished() && session.completedTicks()==121);
+    session.capture(recording.scene,materials,129,128);
+    session.observed(std::span<const pw::Command>(recording.commands).first(2),1);
+    session.observed({},2);session.stop();
+    CHECK(session.recording().ticks==2 && session.recording().commands.size()==2);
+    session.replay(session.recording(),materials,129);
+    mismatch=false;
+    try {session.observed({},1);}catch(const std::exception&){mismatch=true;}
+    CHECK(mismatch && session.completedTicks()==0);
+    mismatch=false;
+    try {session.due(1);}catch(const std::exception&){mismatch=true;}CHECK(mismatch);
+    session.due(0);mismatch=false;
+    try {session.due(0);}catch(const std::exception&){mismatch=true;}CHECK(mismatch);
+    mismatch=false;
+    try {session.observed({},1);}catch(const std::exception&){mismatch=true;}
+    CHECK(mismatch && session.completedTicks()==0);session.stop();
+    session.capture(recording.scene,materials,129,128);
+    for(std::uint64_t tick=0;tick<pw::maxRecordingTicks;++tick) session.observed({},tick+1);
+    CHECK(!session.active() && session.recording().ticks==pw::maxRecordingTicks);
+    auto zero=recording;zero.ticks=0;zero.commands.clear();session.replay(zero,materials,129);
+    CHECK(session.finished() && !session.active() && session.completedTicks()==0);
     const auto encoded=pw::encodeRecording(recording,materials);
     const auto parsed=pw::parseRecording(encoded,materials);
     CHECK(pw::encodeRecording(parsed,materials)==encoded && parsed.workgroupSize==256);
@@ -68,6 +99,11 @@ int main(int argc,char** argv) {
     for(std::size_t i=0;i<pw::maxRecordingCommands;++i) {
         command.tick=i/32;command.sequence=i;maximum.commands.push_back(command);
     }
+    session.capture(recording.scene,materials,129,128);
+    for(std::uint64_t tick=0;tick<512;++tick)
+        session.observed(std::span<const pw::Command>(maximum.commands).subspan(tick*32,32),tick+1);
+    CHECK(!session.active() && session.recording().commands.size()==pw::maxRecordingCommands);
+    pw::validateRecording(session.recording(),materials);
     const auto maximumText=pw::encodeRecording(maximum,materials);
     CHECK(pw::parseRecording(maximumText,materials).commands.size()==pw::maxRecordingCommands);
     maximum.commands.push_back(command);bool totalRejected=false;

@@ -8,10 +8,10 @@ namespace pw {
 struct RunOptions {
     std::uint32_t capacity=16384,frames=0,warmup=120,soakSeconds=0;
     bool gpuTest=false,indirect=true;
-    std::string benchmark,report,capabilities,scene;
+    std::string benchmark,report,capabilities,scene,replay;
 };
 inline RunOptions parseOptions(int argc,char** argv) {
-    RunOptions options;bool specifiedWarmup=false;
+    RunOptions options;bool specifiedWarmup=false,specifiedCapacity=false;
     auto value=[&](int& index) -> std::string_view {
         if(++index>=argc) throw std::runtime_error("Missing option value");return argv[index];
     };
@@ -23,25 +23,29 @@ inline RunOptions parseOptions(int argc,char** argv) {
     };
     for(int i=1;i<argc;++i) {
         const std::string_view arg=argv[i];
-        if(arg=="--capacity") options.capacity=number(value(i),1,1048576);
+        if(arg=="--capacity") {options.capacity=number(value(i),1,1048576);specifiedCapacity=true;}
         else if(arg=="--frames") options.frames=number(value(i),1,1000000);
         else if(arg=="--warmup") {options.warmup=number(value(i),0,100000);specifiedWarmup=true;}
         else if(arg=="--benchmark") {options.benchmark=value(i);if(options.benchmark.empty()) throw std::runtime_error("Empty benchmark prefix");}
         else if(arg=="--soak") options.soakSeconds=number(value(i),1,3600);
-        else if(arg=="--report") {options.report=value(i);if(options.report.empty()) throw std::runtime_error("Empty soak report path");}
+        else if(arg=="--report") {options.report=value(i);if(options.report.empty()) throw std::runtime_error("Empty report path");}
         else if(arg=="--capabilities") {options.capabilities=value(i);if(options.capabilities.empty()) throw std::runtime_error("Empty capability report path");}
         else if(arg=="--scene") {options.scene=value(i);if(options.scene.empty()) throw std::runtime_error("Empty scene path");}
+        else if(arg=="--replay") {options.replay=value(i);if(options.replay.empty()) throw std::runtime_error("Empty replay path");}
         else if(arg=="--no-indirect") options.indirect=false;
         else if(arg=="--gpu-test") options.gpuTest=true;
-        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json]");
+        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
+    if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||
+       !options.capabilities.empty() || !options.scene.empty() || options.frames || specifiedWarmup || specifiedCapacity))
+        throw std::runtime_error("--replay uses recorded capacity/ticks and cannot combine with other execution modes");
     if(!options.scene.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() || !options.capabilities.empty()))
         throw std::runtime_error("--scene is for interactive or bounded-frame runs only");
     if(!options.capabilities.empty() && (options.soakSeconds || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup || !options.report.empty()))
         throw std::runtime_error("--capabilities cannot combine with execution modes or timing/report options");
     if(options.soakSeconds && (options.report.empty() || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup))
         throw std::runtime_error("--soak requires --report and cannot combine with GPU-test, benchmark, frames or warmup modes");
-    if(!options.report.empty() && !options.soakSeconds) throw std::runtime_error("--report requires --soak");
+    if(!options.report.empty() && !options.soakSeconds && options.replay.empty()) throw std::runtime_error("--report requires --soak or --replay");
     if(options.gpuTest && !options.benchmark.empty()) throw std::runtime_error("GPU tests and benchmark modes are mutually exclusive");
     if(specifiedWarmup && options.benchmark.empty()) throw std::runtime_error("--warmup requires --benchmark");
     if(!options.benchmark.empty() && !options.frames) options.frames=600;

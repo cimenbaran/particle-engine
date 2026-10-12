@@ -193,8 +193,8 @@ S1-07: Particle/material/render layouts and Metal sentinel tests implemented.
 S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impulse
        upload/live control implemented and tested, now including spawn/remove.
        Recording schema validation and sequence-preserving replay queue support
-       are implemented and tested. Capture/playback integration and heat/terrain
-       tools remain.
+       and bounded capture/playback UI/CLI are implemented and tested on Metal.
+       Heat/terrain tools and Windows validation remain.
 S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
        lifetime and active compaction implemented. Pool ownership is tested at
        CPU readback through 16,384 slots plus whole-pool GPU audits at one
@@ -203,8 +203,8 @@ S1-10: Seeded, versioned scene presets, named material lists, capacity checks,
        safe validation/reload, versioned material JSON, packed asset builder
        and schema fingerprints implemented. CPU repeatability and native Metal
        load/failure/recovery checks passed. A bounded command recording codec
-       and atomic replacement writer pass CPU tests; application capture/replay
-       and cosmetic pools remain.
+       and atomic replacement writer pass CPU tests. Native capture/save/replay
+       passed on Metal; cosmetic pools and Windows validation remain.
 S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.
@@ -225,8 +225,8 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Connect recording capture/replay UI and CLI, then verify GPU replay;
-   continue camera capture validation.
+1. Extend replay coverage to longer workloads and D3D11; continue camera
+   capture validation.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
 3. Add cosmetic pools and broader resource accounting; run the

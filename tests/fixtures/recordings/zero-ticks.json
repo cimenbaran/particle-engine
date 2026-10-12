@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "simulation_profile": "ballistic_pool_v1",
+  "tick_hz": 60,
+  "capacity": 129,
+  "workgroup_size": 256,
+  "materials_hash": "6e2d0ad62cc37279",
+  "scene": {
+    "schema_version": 1,
+    "name": "Empty workspace",
+    "seed": 42,
+    "count": 0,
+    "minimum": [
+      -6,
+      1,
+      -6
+    ],
+    "maximum": [
+      6,
+      11,
+      6
+    ],
+    "materials": [
+      "Stone",
+      "Sand",
+      "Wood",
+      "Ash"
+    ]
+  },
+  "ticks": 0,
+  "commands": []
+}

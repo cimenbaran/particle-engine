@@ -9,6 +9,7 @@
 #include "core/ParticleTypes.hpp"
 #include "assets/Materials.hpp"
 #include "assets/Scenes.hpp"
+#include "assets/RecordingSession.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include "render/Shaders.hpp"
 #include "render/Capabilities.hpp"
@@ -32,6 +33,7 @@
 #include <string>
 #include <algorithm>
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 
 namespace {
@@ -85,9 +87,10 @@ struct Particles {
     int sceneMaterial=-1; // -1 mixes the available solid profiles.
     bool reloadPending=false;
     pw::ScenePreset scene;
+    pw::RecordingSession session;
     std::filesystem::path scenePath;
     std::string sceneMessage;
-    explicit Particles(const std::filesystem::path& assets,uint32_t capacity,const std::filesystem::path& preset={}):particleCount(capacity) {
+    explicit Particles(const std::filesystem::path& assets,uint32_t capacity,const std::filesystem::path& preset={},const pw::ScenePreset* initialScene=nullptr):particleCount(capacity) {
         try {
             compute = pw::loadCompute(assets, "cs_particles");
             initialize = pw::loadCompute(assets, "cs_reset");
@@ -103,6 +106,7 @@ struct Particles {
                 throw std::runtime_error("Particle rendering resources unavailable");
             materialPath=assets/"materials"/"default.json";
             materials=pw::loadMaterials(materialPath);
+            if(initialScene) scene=*initialScene;
             if(!preset.empty()) {scene=pw::loadScene(preset);scenePath=preset;}
             pw::validateSceneCapacity(scene,particleCount);pw::sceneMaterials(scene,materials);
             uploadMaterials(materials);
@@ -201,8 +205,23 @@ struct Particles {
         scene=std::move(*candidate);scenePath=path;sceneMaterial=-1;reset();
         sceneMessage="Scene loaded";return true;
     }
+    void captureFromReset() {
+        auto starting=scene;
+        if(sceneMaterial>=0) starting.materials={materials.entries[sceneMaterial].name};
+        session.capture(starting,materials,particleCount,pw::workgroupSize);
+        reloadPending=false;reset();
+    }
+    void beginReplay(pw::CommandRecording recording,bool resetScene=true) {
+        session.replay(std::move(recording),materials,particleCount);
+        scene=session.recording().scene;sceneMaterial=-1;scenePath.clear();reloadPending=false;
+        if(resetScene) reset();
+    }
     void queueBrush(pw::CommandType type,float strength,uint32_t count=0,float lifetime=0,
                     const pw::BrushBox* bounds=nullptr,uint32_t material=UINT32_MAX) {
+        if(session.replaying()) {commandMessage="Brush input is disabled during replay";return;}
+        if(session.capturing() && session.recording().commands.size()+commands.pending()>=pw::maxRecordingCommands) {
+            commandMessage="Recording command quota reached";return;
+        }
         // Fixed-box controls use the scene override or the preset's first material.
         pw::Command command;
         command.tick=commands.nextTick(); command.type=type;
@@ -221,12 +240,19 @@ struct Particles {
         commandMessage=reason.empty()?"Brush queued for next tick":std::string(reason);
     }
     void tick(uint16_t view) {
-        reloadAtTickBoundary();
+        if(!session.active()) reloadAtTickBoundary();
+        if(session.replaying()) for(const auto& command:session.due(commands.nextTick())) {
+            pw::CommandLimits limits;limits.materialCount=uint32_t(materials.entries.size());
+            if(auto reason=commands.enqueueRecorded(command,limits);!reason.empty()) throw std::runtime_error("Replay queue rejected a validated command: "+std::string(reason));
+            if(command.type==pw::CommandType::SpawnBrush && std::find(liveMaterialIds.begin(),liveMaterialIds.end(),command.material)==liveMaterialIds.end())
+                liveMaterialIds.push_back(command.material);
+        }
         bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
         const auto batch=commands.consume();
         for(const auto& command:batch) {
             pw::CommandLimits limits;limits.materialCount=uint32_t(materials.entries.size());
             if(!pw::validate(command,limits,command.tick).empty()) {
+                if(session.active()) throw std::runtime_error("Recording command rejected before GPU submission");
                 commandMessage="Queued command rejected after material reload";continue;
             }
             pool->apply(view,state[current],materialBuffer,uint32_t(materials.entries.size()),command);
@@ -241,6 +267,7 @@ struct Particles {
         bgfx::dispatch(view,compute,pw::dispatchGroups(particleCount));
         current=1-current;
         pool->rebuild(view,state[current]);
+        session.observed(batch,commands.nextTick());
     }
     void render(uint16_t view,bool indirect) {
         bgfx::setVertexBuffer(0,vertices); bgfx::setIndexBuffer(indices);
@@ -331,6 +358,80 @@ int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::
     if(!differentPixels) throw std::runtime_error("Benchmark rendered a uniform image instead of particles");
     benchmark.write(assets,width,height,indirect,counts.active,visible.active,differentPixels,*caps);
     return 0;
+}
+
+int runReplay(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
+    const auto& recording=particles.session.recording();
+    if(!options.report.empty()) {
+        const auto input=std::filesystem::weakly_canonical(options.replay);
+        const auto output=std::filesystem::weakly_canonical(options.report);
+        if(input==output || (std::filesystem::exists(output) && std::filesystem::equivalent(input,output)))
+            throw std::runtime_error("Replay report must not overwrite the recording");
+    }
+    pw::ParticleAudit audit(assets,particles.particleCount);
+    const auto* caps=bgfx::getCaps();
+    const bool indirect=options.indirect && particles.visibility->supportsIndirect();
+    int width,height;window.drawable(width,height);
+    float view[16],projection[16],vp[16];
+    bx::mtxLookAt(view,{std::sin(.65f)*24,12,std::cos(.65f)*24},{0,3,0},{0,1,0},bx::Handedness::Right);
+    bx::mtxProj(projection,55,float(width)/height,.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
+    bx::mtxMul(vp,view,projection);const auto frustum=pw::extractFrustum(vp,caps->homogeneousDepth);
+    bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
+    bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
+    bgfx::setViewTransform(10,view,projection);
+    bgfx::frame();
+    std::string failure;
+    auto nextProgress=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+    auto inspect=[&] {
+        audit.prepare(4,particles.state[particles.current],particles.pool->activeSlots(),particles.pool->freeSlots(),
+                      particles.pool->counts(),uint32_t(particles.materials.entries.size()));
+    };
+    while(particles.session.replaying() && failure.empty()) {
+        SDL_Event event;
+        while(SDL_PollEvent(&event)) if(event.type==SDL_EVENT_QUIT || event.type==SDL_EVENT_WINDOW_CLOSE_REQUESTED) failure="Replay cancelled";
+        int w,h;window.drawable(w,h);
+        if(w!=width || h!=height || (SDL_GetWindowFlags(window.get())&SDL_WINDOW_MINIMIZED)) failure="Replay interrupted by resize/minimize";
+        if(!failure.empty()) break;
+        particles.tick(1);inspect();
+        particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
+        bgfx::touch(10);particles.render(10,indirect);bgfx::frame();
+        if(std::chrono::steady_clock::now()>=nextProgress) {
+            std::cout<<"Replay tick "<<particles.session.completedTicks()<<"/"<<recording.ticks<<std::endl;
+            nextProgress=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+        }
+    }
+    // Include the initial state for zero-tick recordings and cancelled runs.
+    inspect();
+    const auto ticks=particles.session.completedTicks();
+    audit.request(6,ticks);particles.diagnostics->request(6,particles.pool->counts(),ticks);
+    while(audit.pending() || particles.diagnostics->pending()) {
+        const auto frame=bgfx::frame();audit.poll(frame);particles.diagnostics->poll(frame);SDL_PumpEvents();
+    }
+    const auto& a=audit.latest();const auto& pool=particles.diagnostics->latest();
+    if(!a.valid || !pool.valid || a.tick!=ticks || pool.tick!=ticks || a.active!=particles.particleCount ||
+       a.free || a.reserved || a.rejected || uint64_t(pool.active)+pool.free!=particles.particleCount)
+        failure="GPU ownership, numeric state, identity or pool count audit failed";
+    if(failure.empty() && (!particles.session.finished() || ticks!=recording.ticks)) failure="Replay did not finish";
+    std::ifstream buildFile(assets/"build.json");nlohmann::json build;buildFile>>build;
+    const auto applied=std::count_if(recording.commands.begin(),recording.commands.end(),[&](const auto& command){return command.tick<ticks;});
+    nlohmann::json report={{"schema_version",1},{"passed",failure.empty()},{"failure",failure},
+        {"recording",std::filesystem::absolute(options.replay).string()},
+        {"input",nlohmann::json::parse(pw::encodeRecording(recording,particles.materials))},{"capacity",particles.particleCount},
+        {"requested_ticks",recording.ticks},{"completed_ticks",ticks},{"applied_commands",applied},
+        {"recorded_workgroup_size",recording.workgroupSize},{"workgroup_size",pw::workgroupSize},
+        {"materials_hash",recording.materialsHash},{"audit_every_tick",true},{"build",build},
+        {"backend",bgfx::getRendererName(caps->rendererType)},{"indirect",indirect},
+        {"final_snapshot",{{"checked_slots",a.active},{"ownership_error",bool(a.free)},{"state_error",bool(a.reserved)},
+            {"identity_error",bool(a.rejected)},{"active",pool.active},{"free",pool.free},{"rejected_spawns",pool.rejected}}},
+        {"note","Replays configuration and input; does not assert identical particle trajectories across GPUs."}};
+    if(!options.report.empty()) {
+        const std::filesystem::path path=options.report;
+        if(!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());
+        std::ofstream output(path);output<<report.dump(2)<<'\n';output.close();
+        if(!output) throw std::runtime_error("Cannot write replay report");
+    }
+    std::cout<<"Replay "<<(failure.empty()?"passed":"failed")<<": "<<ticks<<" ticks, "<<applied<<" commands, "<<pool.active<<" active particles"<<std::endl;
+    return failure.empty()?0:1;
 }
 
 int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
@@ -451,7 +552,7 @@ int main(int argc, char** argv) {
         const bool gpuTestOnly=options.gpuTest,allowIndirect=options.indirect;
         const bool benchmarking=!options.benchmark.empty();
         pw::Window window;
-        Graphics graphics(window,!benchmarking && !options.soakSeconds);
+        Graphics graphics(window,!benchmarking && !options.soakSeconds && options.replay.empty());
         const auto* caps=bgfx::getCaps();
         auto capabilities=pw::capabilityReport(*caps,allowIndirect);
         capabilities["backend"]=bgfx::getRendererName(caps->rendererType);
@@ -475,12 +576,21 @@ int main(int argc, char** argv) {
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
         if(gpuTestOnly) {pw::runShaderReloadTest(assets);return 0;}
-        Particles particles(assets,options.capacity,options.scene);
+        std::optional<pw::CommandRecording> replay;
+        if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));
+        Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:nullptr);
+        if(replay) {particles.beginReplay(std::move(*replay),false);return runReplay(window,particles,assets,options);}
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         if(benchmarking) return runBenchmark(window,particles,assets,options);
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
 
+        char recordingPath[512]{};
+        if(char* preferences=SDL_GetPrefPath("ParticleWorld","ParticleWorld")) {
+            const auto path=(std::filesystem::path(preferences)/"recording.json").string();
+            std::snprintf(recordingPath,sizeof(recordingPath),"%s",path.c_str());SDL_free(preferences);
+        }
+        std::string recordingMessage;
         std::string shaderMessage;
         bool reloadShaders=false;
         pw::FixedStep clock;
@@ -567,6 +677,7 @@ int main(int argc, char** argv) {
             ImGui::Text("Tick: %llu",static_cast<unsigned long long>(ticks));
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
             bool step=ImGui::Button("Single tick"); if(step) paused=true;
+            ImGui::BeginDisabled(particles.session.active());
             if(ImGui::Button("Reset scene")) {particles.reset();clock.reset();ticks=0;lag=0;}
             ImGui::SameLine();
             if(ImGui::Button("Empty scene")) {particles.reset(0);clock.reset();ticks=0;lag=0;}
@@ -596,6 +707,7 @@ int main(int argc, char** argv) {
             if(ImGui::IsItemHovered()) ImGui::SetTooltip("Reloads %s",particles.materialPath.string().c_str());
             if(particles.reloadPending) ImGui::TextWrapped("Reload queued for next tick (step when paused).");
             if(!particles.materialMessage.empty()) ImGui::TextWrapped("%s",particles.materialMessage.c_str());
+            ImGui::EndDisabled();
             ImGui::Text("Profiles: %u",unsigned(particles.materials.entries.size()));
             ImGui::SliderFloat("Lift speed (m/s)",&impulseStrength,0,20);
             if(ImGui::Button("Lift center particles")) particles.queueBrush(pw::CommandType::ApplyImpulse,impulseStrength);
@@ -646,6 +758,45 @@ int main(int argc, char** argv) {
             ImGui::Text("Dropped wall time: %.3f s",lag);
             ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
             const auto panelPosition=ImGui::GetWindowPos(),panelSize=ImGui::GetWindowSize();
+            ImGui::End();
+            ImGui::SetNextWindowPos(ImVec2(492,16),ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(420,210),ImGuiCond_FirstUseEver);
+            ImGui::Begin("Recording");
+            ImGui::InputText("File",recordingPath,sizeof(recordingPath));
+            ImGui::BeginDisabled(particles.session.active());
+            if(ImGui::Button("Record preset from reset")) {
+                particles.captureFromReset();reloadShaders=false;clock.reset();ticks=0;lag=0;recordingMessage.clear();
+            }
+            ImGui::EndDisabled();
+            if(particles.session.active() && ImGui::Button("Stop session")) {particles.session.stop();paused=true;}
+            ImGui::BeginDisabled(particles.session.active() || !particles.session.hasRecording());
+            if(ImGui::Button("Save recording")) {
+                try {pw::saveRecording(recordingPath,particles.session.recording(),particles.materials);recordingMessage="Recording saved";}
+                catch(const std::exception& error) {recordingMessage=error.what();}
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Replay in memory")) {
+                bool valid=false;
+                try {pw::validateRecording(particles.session.recording(),particles.materials);valid=true;}
+                catch(const std::exception& error) {recordingMessage=error.what();}
+                if(valid) {
+                    particles.beginReplay(particles.session.recording());clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();
+                }
+            }
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(particles.session.active());
+            if(ImGui::Button("Load replay file")) {
+                std::optional<pw::CommandRecording> candidate;
+                try {
+                    candidate=pw::loadRecording(recordingPath,particles.materials);
+                    if(candidate->capacity!=particles.particleCount) throw std::runtime_error("Capacity differs; use --replay to allocate the recorded capacity");
+                } catch(const std::exception& error) {recordingMessage=error.what();candidate.reset();}
+                if(candidate) {particles.beginReplay(std::move(*candidate));clock.reset();ticks=0;lag=0;paused=true;recordingMessage.clear();}
+            }
+            ImGui::EndDisabled();
+            if(particles.session.hasRecording()) ImGui::Text("%llu ticks | %u applied commands",static_cast<unsigned long long>(particles.session.recording().ticks),unsigned(particles.session.recording().commands.size()));
+            ImGui::TextWrapped("%s",particles.session.message().c_str());
+            if(!recordingMessage.empty()) ImGui::TextWrapped("%s",recordingMessage.c_str());
             ImGui::End();
             const auto& input=ImGui::GetIO();
             const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
@@ -714,7 +865,11 @@ int main(int argc, char** argv) {
                 }
             }
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
-            for(unsigned i=0;i<batch.count;++i) {particles.tick(uint16_t(i+1));++ticks;}
+            for(unsigned i=0;i<batch.count;++i) {
+                const bool sessionWasActive=particles.session.active();
+                particles.tick(uint16_t(i+1));++ticks;
+                if(sessionWasActive && !particles.session.active()) {paused=true;clock.reset();break;}
+            }
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)
                 particles.diagnostics->request(6,particles.pool->counts(),ticks);
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)

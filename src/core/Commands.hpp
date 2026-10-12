@@ -11,6 +11,7 @@ struct Command {
     std::array<float, 3> minimum{}, maximum{};
     std::array<float, 4> parameters{};
     std::uint32_t material{}, count{};
+    bool operator==(const Command&) const = default;
 };
 struct CommandLimits { std::uint32_t materialCount{7}, spawnPerCommand{4096}, spawnPerTick{8192}; float worldBound{1024}; };
 inline std::string_view validate(const Command& c, const CommandLimits& limits,

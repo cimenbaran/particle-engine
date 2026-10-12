@@ -1,9 +1,33 @@
 COMMAND RECORDING FORMAT AND QUEUE SUPPORT
 
-Status: the validated file codec, replacement writer and sequence-preserving
-queue entry point are implemented. Application capture controls, replay driving,
-CLI execution and real-device replay verification are still pending. This file
-does not describe a recording feature already available in the packaged UI.
+Status: capture/replay UI, bounded session state and CLI playback are implemented.
+Native Metal capture, save and in-memory replay passed a three-tick empty-scene
+round trip: spawn 1,024 particles, then remove them. Windows remains unverified.
+
+In the Recording window, choose a file path and Record preset from reset.
+This restarts the selected preset at tick zero and preserves the pause setting.
+For an empty starting scene, load the Empty workspace preset first; the Empty
+scene button only clears the live pool and does not change the selected preset.
+Pause/single-step and brush controls work during capture. Stop session pauses
+and retains applied commands; queued but unconsumed commands are excluded.
+Save recording replaces the chosen file. Replay in memory or Load replay file
+starts paused at tick zero. Resume or single-step to play it; completion pauses.
+Scene/material/shader changes are locked while a session is active, and new
+brush commands are blocked during replay. Reaching the tick or command quota
+ends capture and pauses automatically. In-app playback requires matching pool
+capacity; use the CLI to allocate the capacity stored in another recording.
+
+CLI example (paths are relative to the working directory):
+  ParticleWorld --replay capture.json --report replay-result.json
+The report is optional; --no-indirect can exercise the masked rendering path.
+Other execution modes, explicit capacity, frames and warmup are rejected.
+The runner advances one fixed tick per frame, audits every slot on every tick,
+and reads the final compact audit and pool counters. Zero-tick files audit the
+initial state. Reports include the validated input, requested/completed ticks,
+applied command count, final GPU counters, backend and build provenance.
+A failing audit or interrupted replay returns nonzero. Resize/minimize/close
+interrupts execution. A report path resolving to the recording is rejected.
+Reports verify input execution and GPU invariants, not trajectory equivalence.
 
 Version 1 is a lightweight input/configuration recording for ballistic_pool_v1.
 It embeds a version-1 starting scene plus capacity, material-table content hash,
@@ -47,4 +71,8 @@ checks cover round-trip fields, future-command ordering, original sequence IDs,
 sequence exhaustion, invalid profiles/materials/numeric fields, per-tick and
 whole-file quotas, the maximum accepted command count, file replacement,
 preservation after validation failure, concurrent saves and temporary cleanup.
-GPU replay and capture/replay round trips await application integration.
+Session tests also cover capture duration/command limits, original replay IDs,
+empty ticks, zero ticks, capacity rejection preserving the previous recording,
+duplicate or missing batch requests and divergent command counts. Native Metal
+CLI checks cover spawn/impulse/remove and zero ticks; the saved UI capture is
+also exercised through the command-line runner.
