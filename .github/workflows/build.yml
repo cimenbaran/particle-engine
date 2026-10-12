@@ -26,6 +26,13 @@ jobs:
         with:
           arch: x64
       - uses: seanmiddleditch/gha-setup-ninja@v5
+        with:
+          destination: ${{ runner.temp }}/particleworld-ninja
+      - name: Verify clean checkout after tool setup
+        shell: bash
+        run: |
+          git status --short
+          test -z "$(git status --porcelain)"
       - name: Configure pinned dependencies
         run: cmake --preset ${{ matrix.preset }} -DPW_WORKGROUP_SIZE=${{ matrix.workgroup }}
       - name: Compile application and backend shaders

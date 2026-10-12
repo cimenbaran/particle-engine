@@ -43,3 +43,12 @@ held-button camera capture/release, pause/step, physical/cosmetic isolation,
 record/save/replay and invalid-file recovery. Check both indirect and masked
 rendering and both workgroup variants. Retain output and the binary hash for
 each tested package. Software results must never be relabeled hardware results.
+
+CI provenance
+Run 38295953059 produced both macOS packages successfully. Their executable and
+19 shader hashes matched their manifests, and both packages passed the local
+Metal GPU suite, including cosmetic isolation. Their manifests truthfully mark
+the worktree dirty: the Ninja setup action extracted its executable into the
+checkout's untracked ninja-build directory. These artifacts are therefore not
+clean-checkout evidence. The workflow now installs Ninja under runner.temp and
+checks git status before configuration; validation of that change is pending.
