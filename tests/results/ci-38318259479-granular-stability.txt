@@ -1,0 +1,20 @@
+WINDOWS GRANULAR STABILITY FAILURE
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38318259479
+Source: cac5ae80fed79c819148f4bad974a620a5b22053
+Both Windows WARP jobs failed; both hosted macOS compile/CTest jobs passed.
+This is software-renderer evidence, not physical GPU certification.
+
+WG 128, job 115039976224
+Report SHA256: 560499173fbabbae273287c4a49a280307b3387ed383583c9cf12931f0d31e54
+resting_pile_64: passed=False; tail_max_speed=0.11413439755950908; tail_overlap_passed=True
+Peak-window sample: tick=480, speed=0.11413439755950908, deep contacts=0/81, mechanical energy=45.12451237677926
+Final sample speed=0.017704463274884556; a quiet final sample does not erase the window failure.
+Other six scenarios passed.
+
+WG 256, job 115039976054
+Report SHA256: 472ecbb5c4f01b33fd62df130d77fd40505fe4d368157cc6b5b31d3a96c7b43b
+resting_pile_64: passed=False; tail_max_speed=0.11413439755950908; tail_overlap_passed=True
+Peak-window sample: tick=480, speed=0.11413439755950908, deep contacts=0/81, mechanical energy=45.12451237677926
+Final sample speed=0.017704463274884556; a quiet final sample does not erase the window failure.
+Other six scenarios passed.
+

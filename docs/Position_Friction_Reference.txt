@@ -1,0 +1,36 @@
+POSITION FRICTION REFERENCE AND OPEN WINDOWS STABILITY FAILURE
+
+The current GPU solver remains unchanged. Windows run 38318259479 at source
+cac5ae80fed79c819148f4bad974a620a5b22053 fails the resting_pile_64 settling gate
+at both workgroup sizes. The final two-second window has maximum speed
+0.11413439755950908 m/s at tick 480, above 0.1 m/s. Overlap coverage passes.
+The other six scenes pass. Do not mark cross-backend granular stability complete.
+
+A relevant limitation of the existing pipeline is that position correction runs
+before velocity friction. Macklin et al., Unified Particle Physics for Real-Time
+Applications (2014), section 6.1, describes how this permits positional drift and
+presents friction constraints at the position level:
+https://mmacklin.com/uppfrta_preprint.pdf
+The double-precision test reference follows that model: remove relative tangential
+displacement within static traction; otherwise bound removal by kinetic traction.
+Inverse-mass weights split the opposing corrections. Support depth and a unit
+normal come from the contact solve; start-of-substep positions provide the motion
+baseline. This is a reference implementation, not a claim that the GPU failure's
+cause has been conclusively isolated.
+
+Tests: exact static/kinetic traction boundaries, zero support/friction, static and
+unequal-mass pairs, invalid inputs, 1024 seeded pair invariants, and an independent
+inclined-plane rest regression. For angle 0.2 rad, mu=0.5 and dt=1/240, velocity-only
+friction leaves 0.338359 m drift over 10000 steps despite cancelling each resulting
+velocity. The positional constraint holds displacement below 1e-12 m. Randomized
+checks verify unchanged mass-weighted centre, no normal displacement, bounded
+traction and no reversal of tangential movement. CTest: position_friction_reference.
+
+GPU integration must retain the old substep positions throughout Jacobi iteration,
+validate snapshot identity, preserve immutable iteration inputs, constrain combined
+correction length, and rebuild neighborhoods after position changes. The current
+material schema has one friction coefficient; static/kinetic behavior must be
+explicitly defined without accidentally applying sliding friction twice. Existing
+boundary sweeping, correction-relative reconstruction, restitution, speed limits,
+whole-tick rollback and allocation ownership must continue to pass. Keep the
+0.1 m/s settling gate unchanged while testing any proposed fix on both backends.

@@ -17,7 +17,10 @@ The separate --granular-check runner now covers falling columns, resting and
 wall piles, coincident spawns, closed dissipative motion, grazing contact and
 high-speed wall shots. Both Metal workgroup variants pass the fixed small-scene
 settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
-limits. Windows execution is added to CI; results must be verified separately.
+limits. Windows WARP fails the resting-pile speed gate at both workgroup sizes; see
+../docs/Position_Friction_Reference.txt and the associated CI result. The gate
+remains unchanged. Position-level friction has an independent CPU reference;
+GPU integration and resolution of the failure remain open.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain, detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
