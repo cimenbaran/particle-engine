@@ -14,6 +14,7 @@ namespace pw {
 void Benchmark::add(std::uint32_t frame,std::uint64_t tick,double wallMs) {
     byFrame_[frame]=samples_.size();samples_.push_back({frame,tick,wallMs});
 }
+void Benchmark::observeMemory(const bgfx::Stats& stats) {memoryPeaks_.observe(reportedMemory(stats));}
 void Benchmark::collect(const bgfx::Stats& stats) {
     auto found=byFrame_.find(stats.gpuFrameNum);
     if(found!=byFrame_.end() && stats.gpuTimerFreq>0 && stats.gpuTimeEnd>=stats.gpuTimeBegin && stats.gpuTimeEnd>0)
@@ -61,6 +62,7 @@ void Benchmark::write(const std::filesystem::path& assets,int width,int height,b
         {"machine",{{"platform",SDL_GetPlatform()},{"cpu_model",cpuModel},{"logical_cpus",SDL_GetNumLogicalCPUCores()},{"ram_mb",SDL_GetSystemRAM()},{"gpu_vendor_id",caps.vendorId},{"gpu_device_id",caps.deviceId}}},
         {"particle_buffer_bytes_estimate",resources.particleBuffers()},
         {"resources",resourceReport(resources,*bgfx::getStats())},
+        {"reported_memory_peaks",resourcePeakReport(memoryPeaks_,"snapshots_after_measured_submissions")},
         {"shader_fingerprints",manifests},{"submit_frame_wall",summary(wall)},{"gpu_frame",summary(gpu)},
         {"gpu_sample_coverage",double(gpu.size())/samples_.size()},
         {"completed_wall_ms",completedWallMs_},

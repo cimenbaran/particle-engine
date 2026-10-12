@@ -46,7 +46,20 @@ nlohmann::json resourceReport(const ResourceUsage& u,const bgfx::Stats& s) {
             "Renderer estimates overlap payload categories; do not add them together. Negative/unavailable counters are null.",
             "This snapshot does not certify either provisional memory budget."})}};
 }
-void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s) {
+ReportedMemory reportedMemory(const bgfx::Stats& s) {
+    return {s.gpuMemoryUsed,s.textureMemoryUsed,s.rtMemoryUsed,s.transientVbUsed,s.transientIbUsed};
+}
+nlohmann::json resourcePeakReport(const ReportedMemoryPeaks& peaks,const char* scope) {
+    using Json=nlohmann::json;
+    auto available=[](std::int64_t value)->Json {return value<0?Json(nullptr):Json(value);};
+    const auto& p=peaks.values();
+    return {{"schema_version",1},{"scope",scope},{"observations",peaks.observations()},
+        {"bytes",{{"gpu_used",available(p.gpu)},{"textures",available(p.textures)},
+            {"render_targets",available(p.renderTargets)},{"transient_vertices_used",available(p.transientVertices)},
+            {"transient_indices_used",available(p.transientIndices)}}},
+        {"note","Maxima of delayed renderer estimates at sampled frames; misses unsampled peaks and does not certify total allocation budgets."}};
+}
+void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s,ReportedMemoryPeaks& peaks) {
     ImGui::SetNextWindowPos(ImVec2(492,248),ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(420,420),ImGuiCond_FirstUseEver);
     ImGui::Begin("Allocations");
@@ -72,6 +85,15 @@ void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s) {
     estimate("Driver GPU usage",s.gpuMemoryUsed);estimate("Driver available",s.gpuMemoryMax);
     estimate("Renderer textures",s.textureMemoryUsed);estimate("Renderer render targets",s.rtMemoryUsed);
     estimate("Frame transient vertices",s.transientVbUsed);estimate("Frame transient indices",s.transientIbUsed);
+    ImGui::Separator();
+    if(ImGui::Button("Reset observed peaks")) {peaks.reset();peaks.observe(reportedMemory(s));}
+    ImGui::Text("Peak window: %llu observations",static_cast<unsigned long long>(peaks.observations()));
+    const auto& peak=peaks.values();
+    estimate("Peak reported GPU usage",peak.gpu);estimate("Peak renderer textures",peak.textures);
+    estimate("Peak render targets",peak.renderTargets);estimate("Peak transient vertices",peak.transientVertices);
+    estimate("Peak transient indices",peak.transientIndices);
+    ImGui::TextWrapped("Peaks cover sampled estimates since start/reset. Delayed snapshots can miss short-lived allocations.");
+    ImGui::Separator();
     ImGui::Text("Dynamic VB/IB: %u / %u | Textures: %u",s.numDynamicVertexBuffers,s.numDynamicIndexBuffers,s.numTextures);
     ImGui::Text("Programs: %u | Shaders: %u | Uniforms: %u",s.numPrograms,s.numShaders,s.numUniforms);
     ImGui::TextWrapped("Provisional budgets: 512 MB particle working memory; 1,500 MB total GPU allocations. This snapshot does not certify either budget.");

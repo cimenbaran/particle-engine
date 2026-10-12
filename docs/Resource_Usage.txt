@@ -44,7 +44,7 @@ include the offscreen target and image-readback resources outside timed frames.
 The design's provisional budgets are represented as decimal bytes: 512,000,000
 for particle working memory and 1,500,000,000 for total GPU allocations. No
 budget pass/fail is inferred from a partial requested-payload total. Whole-GPU
-budget certification and peak tracking remain open.
+budget certification and complete allocation peak measurement remain open.
 
 Validation on Metal: all six CTests passed; native UI displayed the allocation
 breakdown and retained the same requested total/steady dynamic-buffer counts
@@ -57,3 +57,33 @@ Packaged maximum-capacity evidence is retained in
 tests/results/m3-max-resource-capacity-limit.json. It embeds its zero-tick
 recording input and identifies clean implementation commit 1592979. The app
 was launched from /tmp with packaged assets; binary SHA256 matched build.json.
+
+SAMPLED MEMORY PEAKS
+
+The Allocations window retains the maximum reported GPU, texture, render-target
+and transient vertex/index counters since launch or Reset observed peaks. Reset
+starts a new window with the current snapshot. Observations continue while the
+simulation is paused. Unknown values never overwrite a known peak; a counter
+that is always unsupported remains unavailable, including Metal total GPU usage.
+
+Benchmark, soak and replay JSON contain a separate reported_memory_peaks object
+with schema_version, scope, observations and bytes. Each field is a maximum of
+its own samples; fields can overlap and their maxima need not occur together.
+Do not sum them. No GPU readback or synchronization is added for this reporting.
+
+Benchmarks sample once after each measured submission, outside the measured CPU
+interval. Warmup, drain and image-validation submissions add no observations.
+Renderer snapshots are delayed, so a sample can still describe an earlier frame;
+the window does not establish exact allocation lifetimes. Replay includes its
+initial snapshot, tick submissions and final diagnostic readback drain. Soak
+samples submission and final readback snapshots. These sampled maxima can miss
+short-lived allocations and do not certify either provisional memory budget.
+
+Validation: unit tests cover missing values, supported zero, decreasing values,
+reset and INT64_MAX. A 10-frame dual-pool Metal benchmark recorded 10 samples;
+a zero-tick replay recorded 4; a three-second soak passed 363 audited ticks with
+366 samples. Native UI reset reduced the observation count while paused tick
+531 and the physical population stayed unchanged. All five peak rows and the
+sampling caveat were visible after scrolling. These checks used a development
+build based on 3d814fa with the memory reporting changes; they are not clean
+release provenance or Windows runtime evidence.

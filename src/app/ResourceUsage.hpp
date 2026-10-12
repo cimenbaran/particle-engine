@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include "core/ReportedMemory.hpp"
 #include <nlohmann/json.hpp>
 #include <cstdint>
 namespace pw {
@@ -13,5 +14,7 @@ struct ResourceUsage {
 };
 ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit=false);
 nlohmann::json resourceReport(const ResourceUsage& usage,const bgfx::Stats& stats);
-void drawResourceUsage(const ResourceUsage& usage,const bgfx::Stats& stats);
+ReportedMemory reportedMemory(const bgfx::Stats& stats);
+nlohmann::json resourcePeakReport(const ReportedMemoryPeaks& peaks,const char* scope);
+void drawResourceUsage(const ResourceUsage& usage,const bgfx::Stats& stats,ReportedMemoryPeaks& peaks);
 }

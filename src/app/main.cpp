@@ -419,7 +419,7 @@ int runBenchmark(pw::Window& window,Particles& particles,Particles* cosmetics,co
         bgfx::touch(10);particles.render(10,indirect);if(cosmetics) cosmetics->render(10,indirect);
         const auto submitted=bgfx::frame();
         const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
-        if(frame>=options.warmup) benchmark.add(submitted,frame+1,ms);
+        if(frame>=options.warmup) {benchmark.add(submitted,frame+1,ms);benchmark.observeMemory(*bgfx::getStats());}
         benchmark.collect(*bgfx::getStats());
     }
     // Bounded drain for delayed GPU timestamps; excluded from measured samples.
@@ -492,6 +492,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
     bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
     bgfx::setViewTransform(10,view,projection);
     bgfx::frame();
+    pw::ReportedMemoryPeaks memoryPeaks;memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));
     std::string failure;
     auto nextProgress=std::chrono::steady_clock::now()+std::chrono::seconds(30);
     auto inspect=[&] {
@@ -507,6 +508,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
         particles.tick(1);inspect();
         particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
         bgfx::touch(10);particles.render(10,indirect);bgfx::frame();
+        memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));
         if(std::chrono::steady_clock::now()>=nextProgress) {
             std::cout<<"Replay tick "<<particles.session.completedTicks()<<"/"<<recording.ticks<<std::endl;
             nextProgress=std::chrono::steady_clock::now()+std::chrono::seconds(30);
@@ -517,7 +519,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
     const auto ticks=particles.session.completedTicks();
     audit.request(6,ticks);particles.diagnostics->request(6,particles.pool->counts(),ticks);
     while(audit.pending() || particles.diagnostics->pending()) {
-        const auto frame=bgfx::frame();audit.poll(frame);particles.diagnostics->poll(frame);SDL_PumpEvents();
+        const auto frame=bgfx::frame();memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));audit.poll(frame);particles.diagnostics->poll(frame);SDL_PumpEvents();
     }
     const auto& a=audit.latest();const auto& pool=particles.diagnostics->latest();
     if(!a.valid || !pool.valid || a.tick!=ticks || pool.tick!=ticks || a.active!=particles.particleCount ||
@@ -531,6 +533,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
         {"input",nlohmann::json::parse(pw::encodeRecording(recording,particles.materials))},{"capacity",particles.particleCount},
         {"requested_ticks",recording.ticks},{"completed_ticks",ticks},{"applied_commands",applied},
         {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},
+        {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"replay_initial_submission_and_final_readback_snapshots")},
         {"recorded_workgroup_size",recording.workgroupSize},{"workgroup_size",pw::workgroupSize},
         {"materials_hash",recording.materialsHash},{"audit_every_tick",true},{"build",build},
         {"backend",bgfx::getRendererName(caps->rendererType)},{"indirect",indirect},
@@ -570,6 +573,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     }
     const auto begin=std::chrono::steady_clock::now();
     auto elapsed=[&]{return std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();};
+    pw::ReportedMemoryPeaks memoryPeaks;
     uint64_t ticks=0,rejectedCommands=0,spawnRequests=0,discardedSamples=0;
     uint64_t lastSample=UINT64_MAX;
     double nextSample=0,nextProgress=0;
@@ -577,6 +581,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     std::string failure;
     Json samples=Json::array();
     auto collect=[&](uint32_t frame) {
+        memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));
         audit.poll(frame);particles.diagnostics->poll(frame);
         const auto& a=audit.latest();const auto& pool=particles.diagnostics->latest();
         if(!a.valid || !pool.valid || a.tick!=pool.tick || a.sequence==lastSample) return;
@@ -644,6 +649,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
     Json report={{"schema_version",1},{"workload","bounded_256_tick_pool_cycle_v1"},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},
+        {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
         {"slot_checks",ticks*options.capacity},{"completed_cycles",ticks/256},{"spawn_requests",spawnRequests},
         {"intentional_cpu_rejections",rejectedCommands},{"saw_full",sawFull},{"saw_empty",sawEmpty},{"saw_overflow",sawOverflow},
@@ -716,6 +722,7 @@ int main(int argc, char** argv) {
         std::string recordingMessage;
         std::string shaderMessage;
         bool reloadShaders=false;
+        pw::ReportedMemoryPeaks memoryPeaks;
         pw::FixedStep clock;
         bool running=true,paused=false,cull=true;
         bool indirect=allowIndirect && particles.visibility->supportsIndirect();
@@ -941,7 +948,8 @@ int main(int argc, char** argv) {
             ImGui::End();
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
-            pw::drawResourceUsage(resources,*stats);
+            memoryPeaks.observe(pw::reportedMemory(*stats));
+            pw::drawResourceUsage(resources,*stats,memoryPeaks);
             const auto& input=ImGui::GetIO();
             const bool focused=(SDL_GetWindowFlags(window.get())&SDL_WINDOW_INPUT_FOCUS)!=0;
             if(freeCamera && focused && !cancelCamera) {

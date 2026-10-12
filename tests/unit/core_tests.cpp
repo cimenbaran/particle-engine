@@ -1,4 +1,5 @@
 #include "core/Commands.hpp"
+#include "core/ReportedMemory.hpp"
 #include "core/ComputeDispatch.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/FixedStep.hpp"
@@ -15,6 +16,19 @@
 #include <limits>
 #define CHECK(x) do { if (!(x)) { std::cerr << "FAIL line " << __LINE__ << ": " #x "\n"; return EXIT_FAILURE; } } while(false)
 int main() {
+    pw::ReportedMemoryPeaks peaks;
+    CHECK(peaks.observations()==0 && peaks.values().gpu<0);
+    peaks.observe({-1,400,800,0,12});
+    peaks.observe({-1,200,1200,100,4});
+    peaks.observe({-INT64_MAX,-1,-1,-1,-1});
+    CHECK(peaks.observations()==3 && peaks.values().gpu<0);
+    CHECK(peaks.values().textures==400 && peaks.values().renderTargets==1200);
+    CHECK(peaks.values().transientVertices==100 && peaks.values().transientIndices==12);
+    peaks.reset();CHECK(peaks.observations()==0 && peaks.values().textures<0);
+    peaks.observe({0,0,0,0,0});CHECK(peaks.values().gpu==0 && peaks.values().textures==0);
+    peaks.observe({INT64_MAX,-1,-1,-1,-1});peaks.observe({1,-1,-1,-1,-1});
+    CHECK(peaks.values().gpu==INT64_MAX);
+
     const auto centerRay=pw::pointerRay({0,10,10},{0,0,0},.5f,.5f,16.0f/9);
     CHECK(centerRay);const auto centerBox=pw::planeBrush(*centerRay,0,1);CHECK(centerBox);
     CHECK(std::abs(centerBox->minimum[0]+1)<1e-5f && std::abs(centerBox->maximum[2]-1)<1e-5f);
