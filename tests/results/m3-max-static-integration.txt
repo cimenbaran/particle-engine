@@ -1,0 +1,17 @@
+STATIC BODY LIVE INTEGRATION REGRESSION
+Date: 2026-10-13, Apple M3 Max / Metal.
+Source: commit containing this evidence, prior HEAD 7668d25.
+
+Full --gpu-test passed at workgroup sizes 128 and 256. Counts 1, 127, 128,
+129, 255, 256, 257 mix positive-zero/negative-zero inverse mass with dynamic
+bodies. Static poses and velocities are checked bit-for-bit, including nonzero
+stored velocity and positions outside floor/walls. Age and render records are
+checked by the same readbacks. Dynamic reference checks continue to pass.
+The suite also passes contact/index/pool/lifetime/reload/GUI regressions.
+10/10 CTests passed at 128. Restored default 128 build successfully.
+Windows validation pending; this is not a granular stability result.
+
+Log SHA-256:
+95b9aa392d269695ab2e9e43c3b8b27eadf017e3319ac2b6f0b5250db25bc700  out/static-128-gpu.log
+95ebddf1545e03c265263180b18e55369a97f2bec60c59c93a198525e83a10a8  out/static-256-gpu.log
+e3c9220d765409a7d568e963cef8ad27c4fa57599843aa7b9fc486967b83c9c5  out/static-128-ctest.log

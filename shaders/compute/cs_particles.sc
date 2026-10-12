@@ -21,12 +21,15 @@ void main() {
   vec4 material=b_materials[identity.x*4u];
   vec4 p = b_previous[base];
   vec4 v = b_previous[base+1u];
-  v.y -= 9.81 * u_sim.x;
-  v.xyz *= max(0.0, 1.0 - material.w*u_sim.x);
-  p.xyz += v.xyz * u_sim.x;
-  if (p.y < p.w) { p.y = p.w; v.y = abs(v.y)*material.z; v.xz *= 1.0-material.y; }
-  if (abs(p.x) > 8.0-p.w) { p.x = sign(p.x)*(8.0-p.w); v.x *= -material.z; }
-  if (abs(p.z) > 8.0-p.w) { p.z = sign(p.z)*(8.0-p.w); v.z *= -material.z; }
+  // Zero inverse mass is immovable; lifetime and render publication still run.
+  if(v.w!=0.0) {
+    v.y -= 9.81 * u_sim.x;
+    v.xyz *= max(0.0, 1.0 - material.w*u_sim.x);
+    p.xyz += v.xyz * u_sim.x;
+    if (p.y < p.w) { p.y = p.w; v.y = abs(v.y)*material.z; v.xz *= 1.0-material.y; }
+    if (abs(p.x) > 8.0-p.w) { p.x = sign(p.x)*(8.0-p.w); v.x *= -material.z; }
+    if (abs(p.z) > 8.0-p.w) { p.z = sign(p.z)*(8.0-p.w); v.z *= -material.z; }
+  }
   b_next[base] = p;
   b_next[base+1u] = v;
   vec4 thermal = b_previous[base+2u]; thermal.w += u_sim.x;

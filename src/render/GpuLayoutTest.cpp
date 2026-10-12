@@ -62,7 +62,7 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
         std::vector<ParticleGpu> expected(count), actual(count);
         for(uint32_t i=0;i<count;++i) {
             expected[i]={{float(i)+0.25f,-3.5f,7.125f,0.0625f},
-                         {-1.25f,float(i)*0.5f,2.75f,0.125f},
+                         {-1.25f,float(i)*0.5f,2.75f,i%3u==0u?0.0f:(i%3u==1u?-0.0f:0.125f)},
                          {293.25f,0.5f,0.0f,float(i)*0.25f},
                          {i%uint32_t(materialRecords.size()),0x12345679u,1000u+i,19u}};
         }
@@ -110,11 +110,19 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
             const auto& material=materialRecords[expected[i].identity[0]];
             auto& p=expected[i].positionRadius;
             auto& v=expected[i].velocityInvMass;
-            v[1]-=9.81f*dt;
-            for(unsigned axis=0;axis<3;++axis) {v[axis]*=std::max(0.0f,1.0f-material.mechanical[3]*dt);p[axis]+=v[axis]*dt;}
-            if(p[1]<p[3]) {p[1]=p[3];v[1]=std::abs(v[1])*material.mechanical[2];v[0]*=1.0f-material.mechanical[1];v[2]*=1.0f-material.mechanical[1];}
-            for(unsigned axis : {0u,2u}) if(std::abs(p[axis])>8.0f-p[3]) {
-                p[axis]=std::copysign(8.0f-p[3],p[axis]); v[axis]*=-material.mechanical[2];
+            if(v[3]==0.0f) {
+                // Independent invariant: even outside the walls/floor, a static
+                // body's complete pose and velocity must retain their bits.
+                if(std::memcmp(p,actual[i].positionRadius,sizeof(expected[i].positionRadius))!=0 ||
+                   std::memcmp(v,actual[i].velocityInvMass,sizeof(expected[i].velocityInvMass))!=0)
+                    throw std::runtime_error("GPU integration moved a zero-inverse-mass body");
+            } else {
+                v[1]-=9.81f*dt;
+                for(unsigned axis=0;axis<3;++axis) {v[axis]*=std::max(0.0f,1.0f-material.mechanical[3]*dt);p[axis]+=v[axis]*dt;}
+                if(p[1]<p[3]) {p[1]=p[3];v[1]=std::abs(v[1])*material.mechanical[2];v[0]*=1.0f-material.mechanical[1];v[2]*=1.0f-material.mechanical[1];}
+                for(unsigned axis : {0u,2u}) if(std::abs(p[axis])>8.0f-p[3]) {
+                    p[axis]=std::copysign(8.0f-p[3],p[axis]); v[axis]*=-material.mechanical[2];
+                }
             }
             expected[i].thermalState[3]+=dt;
             for(unsigned lane=0;lane<3;++lane) {
@@ -127,7 +135,7 @@ void runGpuLayoutTest(const std::filesystem::path& assets) {
             if(std::memcmp(expected[i].identity,actual[i].identity,sizeof(expected[i].identity))!=0)
                 throw std::runtime_error("GPU integration corrupted particle identity");
         }
-        std::cout << "GPU gravity/contact CPU-reference check passed: " << count << " particles\n";
+        std::cout << "GPU gravity/contact and static-body invariant check passed: " << count << " particles\n";
         Handle renderOutput(bgfx::createTexture2D(2,uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
         Handle renderStaging(bgfx::createTexture2D(2,uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         std::vector<RenderInstance> rendered(count);

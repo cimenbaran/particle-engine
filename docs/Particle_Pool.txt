@@ -95,3 +95,13 @@ exact-plane tangent, disabled-culling, full-capacity, and both depth-range
 cases. They verify unique compacted membership, exact metadata, zero stale
 tails and every indirect argument word. Metal native rendering was visually
 compared with the fallback at a close camera. D3D11 remains unverified.
+
+Static integration semantics
+The live ballistic integrator treats either signed zero inverse mass as static.
+It preserves position/radius and velocity/inverse-mass bits, including nonzero
+stored velocity and poses outside the dynamic collision bounds. Gravity, drag,
+position integration and floor/wall response apply only to dynamic bodies.
+Age updates and rendering still run; the existing lifetime/dead/material gates
+precede the static check. This does not add a static-body editor or terrain.
+GPU layout fixtures verify exact static preservation across workgroup boundaries
+alongside dynamic reference results, age updates and instance publication.

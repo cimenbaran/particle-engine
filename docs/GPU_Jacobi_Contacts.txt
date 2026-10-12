@@ -85,4 +85,5 @@ hardware performance or D3D11 runtime certification for this component.
 
 A separate reconstruction component is now available in
 GPU_Velocity_Reconstruction.txt and is tested directly after this pass on Metal.
-This still does not supply restitution/friction or a complete live time step.
+GPU_Contact_Velocity.txt describes the separate restitution/friction pass.
+These components are not yet connected to a complete live time step.
