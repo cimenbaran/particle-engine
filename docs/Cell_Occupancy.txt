@@ -1,0 +1,39 @@
+GPU CELL OCCUPANCY DIAGNOSTICS
+
+GpuCellOccupancy reads validated GpuCellRanges output without modifying ranges,
+particle state or physics decisions. The result is four uint32 words: error,
+occupied cells, indexed solid records, maximum records in one occupied cell.
+Mean occupancy is indexed records divided by occupied cells, or zero when empty.
+This is spatial cell population, not contact degree or neighbor candidate count.
+The current physical index includes live solids (including immovable solids),
+excludes dead/liquid/gas records and does not contain cosmetic particles.
+
+A clear pass gates the reduction on range metadata and the whole-tick solver
+status. Error bits: 1 invalid index/counts, 2 failed upstream solver tick,
+4 malformed individual range. The parallel reduction checks range key and
+interval bounds before atomically maximizing occupancy. It does not read its
+concurrently written error word. Consumers must ignore all counts on error;
+invalid individual ranges may leave partial maxima. This is a diagnostic reader
+of an already-validated index, not a replacement for ownership/order validation.
+
+The live coordinator submits this reduction once at the end of a successful
+or failed nonzero-capacity tick, from the final Jacobi iteration's input index.
+That index precedes the final position correction and velocity response. The
+UI labels it "Last position-solve input" and shows the delayed sample tick.
+It does not claim to describe the exact final rendered positions. Earlier
+iterations may have different occupancy; this is a snapshot, not a tick maximum.
+Zero capacity and scene reset clear the result. No occupancy limit truncates cells.
+
+The class owns one 16-byte result buffer and two compute programs. Its maximum
+compute binding count is four. submit allocates nothing and performs no CPU
+readbacks. The live UI samples through a 64-byte GPU/48-byte host diagnostic ring,
+with epoch invalidation on reset and a displayed tick to identify delayed data.
+Soak mode allocates this ring but keeps its existing synchronized samples unchanged.
+
+Tests augment all range fixtures: zero, workgroup boundaries, dense single-cell
+inputs, mixed exclusions, sparse keys through 1,048,576 records, failed indices,
+recovery and repeated reuse. Six direct malformed/upstream fixtures also verify
+fault reporting and reset. Coordinator fixtures check indexed-solid counts,
+empty snapshots and suppression of counts on failed ticks. An app-path test
+checks that a snapshot at tick 2 counts 64 live solids in a 129-slot pool.
+Windows runtime results and full S2-10 instrumentation remain separate gates.

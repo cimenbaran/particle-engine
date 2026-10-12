@@ -1,0 +1,15 @@
+METAL CELL OCCUPANCY VALIDATION
+Development worktree based on 8533251 with accompanying occupancy implementation.
+M3 Max, 48 GiB; full GPU suites pass at WG128 and WG256. Restored default WG128.
+Range/occupancy fixtures cover zero through 1048576 slots, dense cells, exclusions,
+failed indices, repeated reuse and six malformed/upstream cases with reset.
+Coordinator fixtures verify indexed-solid totals and failed-tick suppression.
+App-path snapshot counts 64 live solids in a 129-slot pool at tick 2.
+Native UI sample tick 434: 122 occupied cells, 129 solids, maximum 2, mean 1.06.
+Reset invalidates old data; empty single tick shows cells/solids/max/mean all zero.
+Layout fits the default panel; closed normally with solver/tracker errors zero.
+Windows runtime validation and complete instrumentation remain open.
+
+out/cell-occupancy-final128.log sha256=f383bdae2d05a5b13c6e12a5f448ba579ce800c69aa8153fa256bbee9c6e6d1f
+out/cell-occupancy256.log sha256=0a2b8bb1e608b3e397c5e19876230dde272f8607f0776a1aac05d076db8710c1
+out/cell-occupancy-ui.log sha256=0d8bacd706e85071f839f217cedeadbfe286ca799c9bd3e13cda8e2a15f0a01c

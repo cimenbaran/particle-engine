@@ -26,6 +26,9 @@ public:
     // error bits, max overlaps per particle, max candidates, max hash probes.
     // Any error copies input unchanged across the whole iteration.
     bgfx::DynamicIndexBufferHandle status() const {return status_;}
+    // Snapshot index for the most recent iteration; rebuilt on the next submit.
+    bgfx::DynamicIndexBufferHandle cellRanges() const{return ranges_.ranges();}
+    bgfx::DynamicIndexBufferHandle cellMetadata() const{return ranges_.metadata();}
 private:
     std::uint32_t capacity_;
     float relaxation_,maxCorrection_;

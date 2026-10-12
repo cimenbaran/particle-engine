@@ -17,7 +17,7 @@ std::uint32_t validate(std::uint32_t capacity,const GranularStepProfile& p,std::
 }
 GpuGranularStep::GpuGranularStep(const std::filesystem::path& assets,std::uint32_t capacity,GranularStepProfile profile,std::uint32_t iterations,float gravity,bool latchFailures)
     :capacity_(validate(capacity,profile,iterations,gravity)),iterations_(iterations),profile_(profile),plan_(planGranularStep(profile)),gravity_(gravity),latchFailures_(latchFailures),
-     sweep_(assets,capacity_),contacts_(assets,capacity_,0.8f,0.03125f,true),velocity_(assets,capacity_),response_(assets,capacity_,iterations*0.03125f) {
+     occupancy_(assets,capacity_),sweep_(assets,capacity_),contacts_(assets,capacity_,0.8f,0.03125f,true),velocity_(assets,capacity_),response_(assets,capacity_,iterations*0.03125f) {
     try {
         bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         for(auto& h:outputs_)h=bgfx::createDynamicVertexBuffer(std::max(1u,capacity_)*4,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
@@ -52,6 +52,7 @@ void GpuGranularStep::collect(std::uint16_t view,bgfx::DynamicIndexBufferHandle 
 }
 void GpuGranularStep::resetFailures(std::uint16_t view) {
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
+    occupancy_.reset(view,zero_);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,latched_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,neighborhood_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
 }
@@ -63,7 +64,7 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
     output_=input.idx==outputs_[0].idx?outputs_[1]:outputs_[0];bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     bgfx::setBuffer(0,latchFailures_?latched_:zero_,bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,neighborhood_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
-    if(!capacity_)return;
+    if(!capacity_){occupancy_.reset(view,zero_);return;}
     const float p[]{float(capacity_),plan_.substepSeconds,float(count),0},q[]{gravity_,profile_.speedLimit,0,0};
     auto current=input;
     for(std::uint32_t substep=0;substep<plan_.substeps;++substep) {
@@ -85,6 +86,7 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
     }
     bgfx::setUniform(params_,p);bgfx::setBuffer(0,input,bgfx::Access::Read);bgfx::setBuffer(1,current,bgfx::Access::Read);
     bgfx::setBuffer(2,status_,bgfx::Access::Read);bgfx::setBuffer(3,output_,bgfx::Access::Write);bgfx::dispatch(view,apply_,dispatchGroups(capacity_));
+    occupancy_.submit(view,contacts_.cellRanges(),contacts_.cellMetadata(),status_);
     if(latchFailures_){bgfx::setBuffer(0,status_,bgfx::Access::Read);bgfx::setBuffer(1,latched_,bgfx::Access::ReadWrite);bgfx::dispatch(view,latch_,1);}
 }
 }

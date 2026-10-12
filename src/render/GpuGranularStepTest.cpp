@@ -61,6 +61,16 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
         require(neighborhood[3]==(count?solver.plan().substeps*5:0),"Neighborhood solve count accumulated across ticks or missed passes");
         if(!error){require(neighborhood[0]==0,"Unexpected neighborhood error");require(neighborhood[1]<=count,"Candidates exceed physical slot count");}
         if(!count)require(neighborhood==std::array<std::uint32_t,4>{},"Empty tick retained neighborhood metrics");
+        bgfx::setBuffer(0,solver.occupancyStatus(),bgfx::Access::Read);bgfx::setImage(1,statImage.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,statsExporter.value,1);
+        src.handle=statImage.value;dst.handle=statStaging.value;bgfx::blit(2,dst,src);
+        std::array<std::uint32_t,4> occupancy{};ready=bgfx::read(dst,occupancy.data());while(bgfx::frame()<ready)SDL_PumpEvents();
+        if(error)require((occupancy[0]&2)!=0 && occupancy[1]==0 && occupancy[2]==0 && occupancy[3]==0,"Failed tick exposed usable occupancy");
+        else {
+            require(occupancy[0]==0 && occupancy[1]<=occupancy[2] && occupancy[2]<=count && occupancy[3]<=occupancy[2],"Invalid granular occupancy");
+            std::uint32_t solids=0;for(unsigned i=0;i<count;++i)if((actual[i].identity[1]&1) && actual[i].identity[0]==0)++solids;
+            require(occupancy[2]==solids,"Occupancy indexed-solid count mismatch");
+            if(!solids)require(occupancy==std::array<std::uint32_t,4>{},"Empty scene retained cell occupancy");
+        }
         if((stats[0]!=0)!=error)throw std::runtime_error("Granular error mismatch fixture "+std::to_string(cases)+" mask "+std::to_string(stats[0]));
         for(std::uint32_t i=0;i<count;++i){
             const auto& source=input[i];require(std::memcmp(&old[i],&source,sizeof(source))==0,"Granular step mutated original tick input");

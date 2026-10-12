@@ -1,5 +1,6 @@
 #pragma once
 #include "GpuSweptBounds.hpp"
+#include "GpuCellOccupancy.hpp"
 #include "GpuJacobiContacts.hpp"
 #include "GpuVelocityReconstruction.hpp"
 #include "GpuContactVelocity.hpp"
@@ -21,6 +22,7 @@ public:
     // Current tick: contact-phase error mask, max candidates/query (includes self),
     // max hash probes/query, collected contact solves. Never a total pair count.
     bgfx::DynamicIndexBufferHandle neighborhoodStatus() const{return neighborhood_;}
+    bgfx::DynamicIndexBufferHandle occupancyStatus() const{return occupancy_.status();}
     void resetFailures(std::uint16_t view);
     GranularStepPlan plan() const{return plan_;}
 private:
@@ -31,6 +33,7 @@ private:
     GranularStepPlan plan_;
     float gravity_;
     bool latchFailures_;
+    GpuCellOccupancy occupancy_;
     GpuSweptBounds sweep_;
     GpuJacobiContacts contacts_;
     GpuVelocityReconstruction velocity_;
