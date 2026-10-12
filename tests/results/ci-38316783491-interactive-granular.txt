@@ -1,0 +1,19 @@
+D3D11 WARP INTERACTIVE GRANULAR PATH VALIDATION
+Source: aa5984ec19bcca6492b1604a9288e808996dfd0e
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38316783491
+All four matrix jobs completed successfully.
+Software-rendered app path coverage, not native Windows UI/hardware certification.
+Predates standalone stability fixtures and settling tracker.
+
+Workgroup 128; job 115035200539
+Log SHA256: 74430f466b2a2cf9baa884ec379182953c55a237bb210979c3c75af8370ab925
+2026-10-12T22:43:41.8799121Z 100% tests passed, 0 tests failed out of 11
+2026-10-12T22:44:05.2354114Z GPU granular step passed: 25 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+2026-10-12T22:44:05.6419909Z GPU interactive granular path passed: radius, spawn, impulse caps, state ownership, removal and mode reset
+
+Workgroup 256; job 115035200454
+Log SHA256: 9702c337a2184b43fffed16c32d0f2bec69ec5e8ed6d190aa10d83ec230e68c2
+2026-10-12T22:48:43.0370373Z 100% tests passed, 0 tests failed out of 11
+2026-10-12T22:49:12.1813511Z GPU granular step passed: 25 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+2026-10-12T22:49:12.5967072Z GPU interactive granular path passed: radius, spawn, impulse caps, state ownership, removal and mode reset
+

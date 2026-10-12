@@ -23,7 +23,8 @@ Settling-candidate hysteresis, interior terrain, detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in
-../docs/Settling_Candidates.txt; live GPU tracking remains open.
+../docs/Settling_Candidates.txt. An isolated GPU tracker now matches those
+references; see ../docs/GPU_Settling.txt. Live integration remains open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

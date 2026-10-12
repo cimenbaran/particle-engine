@@ -1,0 +1,55 @@
+GPU SETTLING CANDIDATES (ISOLATED COMPONENT)
+
+GpuSettling consumes immutable physical particle state, materials and a four-word
+upstream status buffer. Call submit once per completed fixed tick. It rebuilds
+keys, sort, occupied ranges and exact-key hash from that snapshot, evaluates
+support, reduces errors, then advances per-slot history. No synchronous readback
+or allocations occur during submission. At most six compute bindings are used.
+All passes use sequential ordering in the supplied view. Inputs must stay valid
+and immutable through execution. Different source objects require reset even if
+their slot generations happen to match. Construction resets on first submission;
+explicit reset also clears counts and works for zero-capacity trackers.
+
+History is one bit-preserving uint4 per physical slot: generation, quiet ticks,
+missing-support ticks, candidate. See Settling_Candidates.txt for the state machine
+and geometry. Defaults are 30 acquisition ticks, three missing-contact grace ticks,
+0.05 m/s entry speed and 0.1 m/s release speed. Custom GPU speeds are restricted
+to 0.001 <= entry < release <=12 m/s; tick counters support all positive uint32
+values. The GPU validates this profile before allocating component resources.
+Capacity is 0..1048576. History has no effect on particle state or allocation.
+
+Support uses only live solids in the fresh index. Dynamic queries use floor and
+upward particle contacts; static solids can support others but never acquire a
+candidate. Every indexed solid must have radius 0.0625, zero or positive normal
+inverse mass, and finite velocity. The index validates position, identity and
+material phase. Non-solid/dead particles are excluded without reading their
+irrelevant dynamic profile. Upstream physics owns remaining state validation.
+Traversal support is 0.127 m and has no neighbor-count cap. Unsupported and failed
+queries are distinct: any index, profile or traversal failure invalidates the
+entire history for that tick. Partial contacts cannot publish candidates.
+
+Status words: error bits, candidate count, acquiring count, and candidate count
+currently inside missing-support grace. Error bits are 1 upstream, 2 index,
+4 particle profile and 8 traversal. A later valid tick can start acquisition again;
+this tracker does not own the solver's persistent fault latch. Reading counts must
+follow the advance dispatch. It reads status[0] while atomically updating only the
+three independent count words. Reduction has already completed before advance.
+
+Requested GPU payload (excluding shaders, uniforms, alignment and deferred frees):
+80*N + 80 + 2*S + 8*H bytes, N=max(1,capacity), H=bit_ceil(2*capacity+2),
+S=sum over scan levels of 4*(max(1,count)+max(1,ceil(count/workgroup))).
+The tracker owns 32*N bytes for history/support, a 16-byte status, and one full
+spatial index with two recursive scans. It can be optimized to share an index only
+when snapshot identity and lifetime are guaranteed; the current rebuild is explicit.
+
+--gpu-test includes 38 fixtures comparing exact per-slot histories to the CPU
+state machine and double all-pairs support oracle, plus bytewise unchanged particle
+inputs. Cases cover 0/1/127/128/129/255/256/257/1024 slots, dwell boundaries,
+speed/contact dead bands, contact-loss grace, impulse/recycling/exclusion/reset,
+upstream/index/profile failures and recovery, static-supported stacks, side/deep/
+coincident contacts, non-solid support, extreme finite speed, one-tick profiles,
+UINT32_MAX counter boundaries and dense 1023-neighbor traversal.
+
+Interactive diagnostics, live active-list verification and scene lifecycle wiring
+remain open. This component alone does not complete S2-09 or authorize deposition.
+Windows runtime validation must be checked separately in the CI results.

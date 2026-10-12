@@ -1,0 +1,22 @@
+METAL GPU SETTLING VALIDATION
+Date: 2026-10-13; Apple M3 Max, 48 GB
+Base: 27a83465d6a7bc775cca4a9ae93d9b550e37d61d plus tracker in this commit.
+Full --gpu-test passed at 128 and 256 threads; 12/12 CTests passed at both.
+Default workgroup restored to 128. No live settling integration claimed.
+
+out/gpu-settling-final128.log
+SHA256: 706043354224f6da833b577c03ce613e57bcffaa139f093431bd81d89daf1e5f
+GPU settling passed: 38 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+
+out/gpu-settling256.log
+SHA256: bc70bc5f2e1f7621716417b6f5b211d56dca7152754c0810b9554f8646144b85
+GPU settling passed: 38 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+
+out/gpu-settling-ctest128.log
+SHA256: b8b0330b3ea3eb1fa18203aeffb2552cdfcef3de06213b8fa6e94bbf1ac543ce
+100% tests passed, 0 tests failed out of 12
+
+out/gpu-settling-ctest256.log
+SHA256: a278d4ae83914cc2b7ad17125097a4919d2d8f57037e04b2f1c6d4815ba604b8
+100% tests passed, 0 tests failed out of 12
+
