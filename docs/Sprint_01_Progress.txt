@@ -166,8 +166,9 @@ Verified evidence
   the pause/single-step/reset checks passed afterward.
 
 Task coverage and remaining work
-S1-01: Source layout and pins implemented; Windows compatibility still requires
-       an actual build. Do not mark the full compatibility task complete yet.
+S1-01: Source layout and pins implemented. MSVC builds, HLSL compilation and
+       six CPU tests passed in both variants at source 1b969d1. Newer scan/sort
+       utilities still need Windows compilation/execution validation.
 S1-02: Metal lifecycle/resize/close and paused minimize/restore passed locally.
        Held-input focus-loss stress and Windows lifecycle validation remain.
 S1-03: Structured supported/degraded/unavailable JSON and actionable startup
@@ -225,7 +226,9 @@ S1-12: Timings, delayed counters, benchmark JSON/CSV, build provenance and
        Windows package/device checks remain.
 
 Open gates
-- Windows/D3D11 build and real-device execution are unverified.
+- Windows source 1b969d1 built and packaged in both variants. WARP startup
+  exposed an overly broad image capability requirement, now corrected locally;
+  WARP GPU execution and Windows real-device acceptance remain unverified.
 - Exhaustive zero/full pool tests passed through 16,384 slots on Metal. A local
   million-particle benchmark and short every-tick ownership/finite-state soak
   passed, followed by a passing ten-minute million-slot soak. Reference-

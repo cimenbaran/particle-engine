@@ -22,14 +22,12 @@ inline nlohmann::json capabilityReport(const bgfx::Caps& caps, bool allowIndirec
         "Particle rendering needs two vec4 instance-data slots.");
     require("index32",caps.supported&BGFX_CAPS_INDEX32,bool(caps.supported&BGFX_CAPS_INDEX32),true,
         "Pool and visibility lists require 32-bit index buffers.");
-    require("image_read_write",caps.supported&BGFX_CAPS_IMAGE_RW,bool(caps.supported&BGFX_CAPS_IMAGE_RW),true,
-        "GPU startup validation and diagnostics require compute images.");
     const auto format=caps.formats[bgfx::TextureFormat::RGBA32U];
     require("rgba32u_image_write",format&BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE,
         bool(format&BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE),true,
         "GPU validation and counter export require RGBA32U image writes.");
-    require("views",caps.limits.maxViews>=21,caps.limits.maxViews,21,
-        "The fixed frame graph uses view IDs through 20.");
+    require("views",caps.limits.maxViews>=22,caps.limits.maxViews,22,
+        "The GUI image test uses view IDs through 21; interactive rendering ends at 20.");
     const bool indirectAvailable=caps.supported&BGFX_CAPS_DRAW_INDIRECT;
     const bool indirect=allowIndirect && indirectAvailable;
     checks.push_back({{"feature","indirect_draw"},{"status",indirect?"supported":"degraded"},
@@ -42,7 +40,7 @@ inline nlohmann::json capabilityReport(const bgfx::Caps& caps, bool allowIndirec
         {"conventions",{{"handedness","right"},{"up_axis","Y"},{"distance_unit","metre"},
             {"ndc_depth",caps.homogeneousDepth?"minus_one_to_one":"zero_to_one"},
             {"origin_bottom_left",caps.originBottomLeft}}},
-        {"compute",{{"workgroup_threads",workgroupSize},{"workgroup_limit_probe","not exposed by pinned bgfx API"},
+        {"compute",{{"general_image_read_write_advertised",bool(caps.supported&BGFX_CAPS_IMAGE_RW)},{"image_access_required","write_only_rgba32u"},{"workgroup_threads",workgroupSize},{"workgroup_limit_probe","not exposed by pinned bgfx API"},
             {"buffer_read_write_probe","verified by startup GPU tests, not a separate capability bit"},
             {"build_variants",json::array({128,256})},{"selection","compile_time"}}},
         {"runtime_validation","Shader creation, buffer/image access, blits and readback still require successful GPU tests."}};

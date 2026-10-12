@@ -19,7 +19,12 @@ GPU IDs, backend, selected draw path and coordinate conventions. Normal app
 startup applies the same required checks before running its GPU test suite.
 
 Required: compute, six compute bindings, two vec4 instance-data slots, 32-bit
-index buffers, image read/write, RGBA32U image writes and view IDs through 20.
+index buffers, RGBA32U image writes and view IDs through 21 (the GUI image
+test; the interactive graph ends at 20). The general image read/write flag is
+reported separately and is not required: all diagnostic image operations are
+write-only stores, followed by blit/readback. The pinned D3D11 backend advertises
+that broad flag only at feature level 11.1+, independently of format-specific
+image-store support available at 11.0. Actual execution still requires GPU tests.
 Indirect draws are optional: unsupported or explicitly disabled uses masked
 fixed-capacity instancing. No synchronous count readback is introduced.
 

@@ -72,3 +72,21 @@ vec4 zero broadcasts in integration, reset and visibility clearing are now
 explicit four-component constructors. This preserves the intended zero records
 and addresses the same HLSL restriction across the remaining shaders. Windows
 compilation and WARP execution after this follow-up are still pending.
+
+Write-only image capability correction
+Both Windows variants in run 38299965035 (source 1b969d1) compiled the app and
+all shaders, passed all six then-existing CTests and packaged successfully.
+The WARP capability command then rejected the device solely because the general
+BGFX_CAPS_IMAGE_RW flag was false; RGBA32U image-write support was true. The
+GPU suite and replay did not run. This is build/package evidence, not a WARP
+correctness pass.
+
+Inspection of pinned renderer_d3d11.cpp shows the broad IMAGE_RW bit depends on
+feature level >=11.1, while per-format typed-store support is queried separately.
+Our diagnostics only store to RGBA32U images and then blit/read back; no shader
+uses imageLoad. Their declarations are now UIMAGE2D_WO, and the required check
+is the actual RGBA32U image-write capability. The general flag is still exposed
+as informational metadata. Tests accept write-only support and continue to
+reject a format with read support but no write support. No WARP capability is
+forged or assumed. Runtime validation after this correction remains pending.
+The view-count requirement also includes GUI validation's view 21 (22 views).

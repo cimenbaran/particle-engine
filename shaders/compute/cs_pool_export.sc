@@ -3,7 +3,7 @@
 BUFFER_RO(b_counts, uint, 0);
 BUFFER_RO(b_free, uint, 1);
 BUFFER_RO(b_active, uint, 2);
-IMAGE2D_RW(o_data, rgba32ui, 3);
+UIMAGE2D_WO(o_data, rgba32ui, 3);
 uniform vec4 u_pool;
 NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
