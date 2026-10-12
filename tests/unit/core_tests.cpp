@@ -88,6 +88,7 @@ int main() {
     CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
     CHECK(parse({"app","--gpu-test","--software-gpu"}).softwareGpu);
+    CHECK(parse({"app","--replay","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--capabilities","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--cosmetic-capacity","0"}).cosmeticCapacity==0);
     CHECK(parse({"app","--benchmark","x"}).cosmeticCapacity==0);
@@ -101,7 +102,7 @@ int main() {
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
         {"app","--software-gpu"},{"app","--software-gpu","--frames","2"},
-        {"app","--software-gpu","--benchmark","x"},{"app","--software-gpu","--replay","x"},
+        {"app","--software-gpu","--benchmark","x"},
         {"app","--software-gpu","--soak","1","--report","x"},
         {"app","--cosmetic-capacity","150001"},{"app","--cosmetic-capacity","-1"},
         {"app","--cosmetic-capacity","1","--replay","x"},

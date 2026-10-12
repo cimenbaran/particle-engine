@@ -529,7 +529,7 @@ int runReplay(pw::Window& window,Particles& particles,const std::filesystem::pat
     std::ifstream buildFile(assets/"build.json");nlohmann::json build;buildFile>>build;
     const auto applied=std::count_if(recording.commands.begin(),recording.commands.end(),[&](const auto& command){return command.tick<ticks;});
     nlohmann::json report={{"schema_version",1},{"passed",failure.empty()},{"failure",failure},
-        {"recording",std::filesystem::absolute(options.replay).string()},
+        {"recording",std::filesystem::absolute(options.replay).string()},{"software_renderer_requested",options.softwareGpu},
         {"input",nlohmann::json::parse(pw::encodeRecording(recording,particles.materials))},{"capacity",particles.particleCount},
         {"requested_ticks",recording.ticks},{"completed_ticks",ticks},{"applied_commands",applied},
         {"resources",pw::resourceReport(pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true),*bgfx::getStats())},

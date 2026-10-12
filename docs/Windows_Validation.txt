@@ -7,9 +7,10 @@ the recording profile comparison was found by CI and fixed by extracting the
 JSON string explicitly; the malformed-type regression is also covered.
 
 D3D11 software validation
-The explicit --software-gpu option is restricted to --gpu-test or --capabilities:
+The explicit --software-gpu option is restricted to --gpu-test, --replay or --capabilities:
   ParticleWorld.exe --software-gpu --capabilities warp-capabilities.json
   ParticleWorld.exe --software-gpu --gpu-test
+  python tests/replay_regression.py path/to/ParticleWorld.exe out/replay-regression --software-gpu
 
 The app creates a feature-level 11.0 D3D11 WARP device with D3D11CreateDevice and
 supplies it as bgfx's external device context. It owns the creation reference

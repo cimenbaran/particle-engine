@@ -51,7 +51,9 @@ Implemented and locally exercised
   intentional CPU quota rejection. Only compact summaries return to the CPU.
 - CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
-  The workflow is authored locally; it has not run on a remote CI service.
+  Remote macOS CI builds and package artifacts have passed. Windows HLSL
+  portability fixes and explicit WARP correctness checks are running; see
+  docs/Windows_Validation.txt for the remaining hardware scope.
 
 Verified evidence
 - Local machine: Apple M3 Max, 48 GB unified memory. This is not the design's
@@ -166,8 +168,8 @@ Verified evidence
 Task coverage and remaining work
 S1-01: Source layout and pins implemented; Windows compatibility still requires
        an actual build. Do not mark the full compatibility task complete yet.
-S1-02: Metal lifecycle/resize/close exercised. Minimize/focus-loss stress and
-       Windows lifecycle validation remain.
+S1-02: Metal lifecycle/resize/close and paused minimize/restore passed locally.
+       Held-input focus-loss stress and Windows lifecycle validation remain.
 S1-03: Structured supported/degraded/unavailable JSON and actionable startup
        checks implemented; synthetic capability and CLI tests pass. Device
        reports passed on Metal for supported and forced-fallback modes. The
@@ -186,8 +188,9 @@ S1-06: ImGui, fixed-box spawn/remove/impulse controls and free camera implemente
        Camera CPU math and native keyboard/focus/reset checks passed. Pointer
        spawn/remove/lift boxes, plane ray placement, wire previews and independent
        solid-material selection are implemented. Native spawn/remove, mixed
-       brush materials, queue timing and miss handling passed. Physical
-       mouse-look/capture stress and texture/capacity diagnostics remain.
+       brush materials, queue timing and miss handling passed. Allocation/texture/
+       capacity diagnostics are implemented. Physical mouse-look/capture stress
+       remains.
 S1-07: Particle/material/render layouts and Metal sentinel tests implemented.
        D3D11 sentinel validation remains.
 S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impulse
@@ -214,9 +217,10 @@ S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.
 S1-12: Timings, delayed counters, benchmark JSON/CSV, build provenance and
-       allocation panel and payload/renderer resource reports implemented. Peak
-       memory tracking, whole-GPU budget verification and Windows package/device
-       checks remain.
+       allocation panel and payload/renderer resource reports implemented. Sampled
+       renderer memory peaks and reset windows are implemented and tested on
+       Metal. Complete allocation peaks, whole-GPU budget verification and
+       Windows package/device checks remain.
 
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
@@ -231,10 +235,10 @@ Open gates
   dispatches.
 
 Next implementation order
-1. Extend replay coverage to longer workloads and D3D11; continue camera
-   capture validation.
+1. Run the new 1,024-tick replay regression on D3D11; both Metal rendering
+   paths passed. Continue camera capture validation.
 2. Collect controlled repeat and reference-machine timings; the local
    ten-minute large-pool soak has passed.
-3. Extend cosmetic profiles, mixed-scene benchmarking and peak resource
-   tracking; run the
-   remaining foundation/core gates on Metal and D3D11.
+3. Extend cosmetic profiles and reference-machine mixed-scene benchmarking;
+   run the remaining foundation/core gates on Metal and D3D11. Sampled resource
+   peaks are available, but complete GPU allocation budgets remain unverified.

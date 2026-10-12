@@ -38,8 +38,8 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--software-gpu") options.softwareGpu=true;
         else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--gpu-test] [--software-gpu] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
-    if(options.softwareGpu && !options.gpuTest && options.capabilities.empty())
-        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests or capability reporting");
+    if(options.softwareGpu && !options.gpuTest && options.capabilities.empty() && options.replay.empty())
+        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests, replay or capability reporting");
     if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.capabilities.empty()))
         throw std::runtime_error("--cosmetic-capacity is for interactive, bounded-frame or benchmark runs only");
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||

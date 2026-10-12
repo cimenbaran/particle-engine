@@ -1,0 +1,65 @@
+Clean GitHub Actions macOS artifact validation
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38297882620
+Job: 114973291858, macos-15, workgroup 256
+Commit: 3d814faa0d8e557aa02ed6f31053a056c353cbd2
+Compiler: AppleClang 17.0.0.17000013
+Build manifest: worktree_dirty=false
+Executable SHA256: 4d055d8fa53c7872e67a73cfd7a4fced5a271bea3a2a645f92fa56060574e25c
+
+Verified the downloaded executable against build.json, all 19 shader binary
+hashes against manifests and all compute workgroup defines as 256. Restored
+executable permission lost by artifact archiving. Ran --gpu-test locally on
+Apple M3 Max/Metal, exit code 0. This is local real-device execution of the
+remote-built artifact, not execution on the CI runner or Windows validation.
+
+Backend: "Metal"; capability status: "supported"
+Submission: compact visible instances; workgroup: 256
+GPU material ABI round-trip passed: 7 profiles
+GPU ABI + ordered compute round-trip passed: 1 particles
+GPU gravity/contact CPU-reference check passed: 1 particles
+GPU render records/color/class/IDs passed: 1 particles
+GPU ABI + ordered compute round-trip passed: 127 particles
+GPU gravity/contact CPU-reference check passed: 127 particles
+GPU render records/color/class/IDs passed: 127 particles
+GPU ABI + ordered compute round-trip passed: 128 particles
+GPU gravity/contact CPU-reference check passed: 128 particles
+GPU render records/color/class/IDs passed: 128 particles
+GPU ABI + ordered compute round-trip passed: 129 particles
+GPU gravity/contact CPU-reference check passed: 129 particles
+GPU render records/color/class/IDs passed: 129 particles
+GPU ABI + ordered compute round-trip passed: 255 particles
+GPU gravity/contact CPU-reference check passed: 255 particles
+GPU render records/color/class/IDs passed: 255 particles
+GPU ABI + ordered compute round-trip passed: 256 particles
+GPU gravity/contact CPU-reference check passed: 256 particles
+GPU render records/color/class/IDs passed: 256 particles
+GPU ABI + ordered compute round-trip passed: 257 particles
+GPU gravity/contact CPU-reference check passed: 257 particles
+GPU render records/color/class/IDs passed: 257 particles
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 1 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 127 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 128 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 129 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 255 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 256 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 257 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 16384 slots
+GPU frustum/compaction/masked fallback passed: 1 slots
+GPU frustum/compaction/masked fallback passed: 127 slots
+GPU frustum/compaction/masked fallback passed: 128 slots
+GPU frustum/compaction/masked fallback passed: 129 slots
+GPU frustum/compaction/masked fallback passed: 255 slots
+GPU frustum/compaction/masked fallback passed: 256 slots
+GPU frustum/compaction/masked fallback passed: 257 slots
+GPU frustum/compaction/masked fallback passed: 16384 slots
+GPU frustum/compaction/indirect passed: 1 slots
+GPU frustum/compaction/indirect passed: 127 slots
+GPU frustum/compaction/indirect passed: 128 slots
+GPU frustum/compaction/indirect passed: 129 slots
+GPU frustum/compaction/indirect passed: 255 slots
+GPU frustum/compaction/indirect passed: 256 slots
+GPU frustum/compaction/indirect passed: 257 slots
+GPU frustum/compaction/indirect passed: 16384 slots
+GPU audit clean/empty, injected ownership/numeric/identity faults and error latching passed
+Shader reload passed: missing/corrupt candidates, atomic rollback, duplicate targets and repeated swaps with GPU execution
+GPU physical/cosmetic isolation, independent overflow, expiry, reuse and reset passed

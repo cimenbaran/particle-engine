@@ -84,4 +84,27 @@ tests/results/m3-max-replay-{three-ticks,zero-ticks,ui-capture}.json with the
 corresponding inputs under tests/fixtures/recordings. All three passed from a
 working directory outside the repo. The masked fallback also passed the
 three-command fixture. A report aimed at its own input was rejected without
-changing the input bytes. Longer workloads and D3D11 remain open gates.
+changing the input bytes. D3D11 execution remains an open gate.
+
+LONGER REPLAY REGRESSION
+
+Run python tests/replay_regression.py PATH_TO_EXECUTABLE OUTPUT_DIRECTORY.
+The script constructs an empty 257-slot scene with 1,024 ticks and 81 commands,
+then runs it outside the checkout with default and forced masked rendering.
+Eight cycles fill Stone/Sand, reject 16 excess Wood spawns, remove Stone twice,
+reuse its slots for one-second Wood, impulse Sand, remove Sand after Wood
+expires, fill Ash, then remove Ash. The last tick leaves 73 new Wood particles.
+The independent oracle requires 73 active, 184 free and 128 rejected spawns,
+plus complete input execution and clean every-tick GPU audits. It therefore
+checks consequences of expiry, reuse, duplicate removal and material filtering
+over ticks well beyond the normal queue's 120-tick enqueue horizon.
+
+Both Metal paths passed locally using the development changes based on dabd513.
+The output directory retains the exact generated input, logs and JSON reports.
+This checks discrete pool invariants, not identical floating-point trajectories
+or a full snapshot comparison. Hardware reference and D3D11 results remain open.
+
+Windows CI runs this script against the packaged executable using explicit
+--software-gpu WARP. Replay reports label software_renderer_requested so these
+results cannot be mistaken for native hardware validation. Performance modes
+continue to reject --software-gpu. CI execution of the regression is pending.

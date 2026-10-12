@@ -51,6 +51,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $executable --software-gpu --gpu-test 2>&1 | Tee-Object -FilePath "out/warp-gpu-test.txt"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: D3D11 WARP replay regression
+        if: runner.os == 'Windows'
+        timeout-minutes: 7
+        run: python tests/replay_regression.py out/${{ matrix.preset }}/ParticleWorld.exe out/replay-regression --software-gpu
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows' && always()
         with:
@@ -58,6 +62,7 @@ jobs:
           path: |
             out/warp-capabilities.json
             out/warp-gpu-test.txt
+            out/replay-regression/
       - uses: actions/upload-artifact@v4
         with:
           name: ParticleWorld-${{ matrix.preset }}-wg${{ matrix.workgroup }}
