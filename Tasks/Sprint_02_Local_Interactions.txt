@@ -8,7 +8,8 @@ Source: Particle_World_Design.docx, sections 3-6 and 11-13.
 Preparation status: CPU coordinate/key/range/neighbor references and topology
 tests are available in ../docs/Spatial_Grid_Reference.txt. Live GPU indexing, exit
 resolution and all Sprint 2 completion gates remain open. An isolated GPU
-prefix-scan utility is under validation; see ../docs/GPU_Prefix_Scan.txt.
+prefix-scan utility and stable radix sort passed Metal tests in both workgroup
+variants; see ../docs/GPU_Prefix_Scan.txt and ../docs/GPU_Radix_Sort.txt.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

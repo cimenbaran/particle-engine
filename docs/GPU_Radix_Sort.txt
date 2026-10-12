@@ -1,0 +1,49 @@
+GPU STABLE RADIX SORT
+
+GpuRadixSort sorts interleaved (uint32 key, uint32 slot) records by unsigned key.
+Equal-key records retain their input order. It operates on a separate record
+buffer and never receives persistent particle state. UINT32_MAX sorts last, so
+future key generation can use it for inactive records without confusing it with
+a valid cell key. No physical particles are removed or moved by this utility.
+
+This is an isolated correctness implementation called by --gpu-test. It does
+not yet run in the live simulation. GPU key generation, occupied-cell ranges,
+exact-key hash lookup, neighbor consumption and contacts remain unfinished.
+
+The implementation uses 32 least-significant-bit-first stable partitions.
+For each bit, a kernel emits 1 for zero-bit records and 0 for one-bit records.
+GpuPrefixScan produces the exclusive zero count and total zero count. Scatter
+places zero-bit record i at prefix[i], and one-bit record i at totalZero + i -
+prefix[i]. Both destinations preserve source order within their partition.
+Scratch record buffers alternate between passes. All compute dispatches are
+ordered in a single sequential bgfx view; there is no synchronous CPU count
+readback and no allocation during submit. This baseline is intended to establish
+correctness before considering wider radix digits or fused passes.
+
+Construction accepts 0..1,048,576 records. Input must be a compute-readable
+uint32 dynamic index buffer containing at least 2*max(1,N) elements, retained
+through submission under bgfx lifetime rules. Input may not alias sort scratch
+storage. The output handle belongs to the sorter and represents N records only
+after submission has completed in the ordered compute graph. For N=0 no sort
+work is dispatched and there are no valid output records. Object destruction
+queues normal bgfx deferred releases. There are no implicit wide-count sums:
+radix flags are binary, so every prefix and destination fits the bounded count.
+
+GPU tests compare every sorted pair with std::stable_sort on a separate CPU
+copy and independently verify that every original input pair is unchanged.
+Counts are 0,1,127,128,129,255,256,257,16385,65537 and 1048576. The first nine
+counts cover equal keys, reverse order and mixed duplicate/high-bit keys. The
+two largest counts use the mixed profile, including key zero and UINT32_MAX.
+Repeated submits reuse scratch storage for the smaller sizes. Aliased input is
+rejected. Full readback is confined to --gpu-test diagnostic exports.
+
+No throughput, reference-machine budget or Windows execution claim follows
+from the local sort correctness tests. Any GPU sort consumer must still prove
+complete range construction and explicit index-failure handling before it can
+feed physical neighbor queries.
+
+Local Metal validation on Apple M3 Max passed all 29 input cases in each of
+the 128- and 256-thread variants, all nine CTests and the complete GPU suite.
+The final checks include explicit write-only diagnostic image declarations.
+The development source was based on 4c4b800 with the sort and capability changes
+uncommitted. Captured results: tests/results/m3-max-radix-sort.txt.

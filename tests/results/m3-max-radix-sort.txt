@@ -1,0 +1,31 @@
+GPU stable radix development validation
+Machine: Apple M3 Max, Metal
+Base commit: 4c4b800; radix and write-only image changes were uncommitted.
+No Windows execution or performance claim.
+
+Workgroup 128: 29 input cases across 11 sizes.
+GPU stable uint32 key/slot radix sort passed: 0 records
+GPU stable uint32 key/slot radix sort passed: 1 records
+GPU stable uint32 key/slot radix sort passed: 127 records
+GPU stable uint32 key/slot radix sort passed: 128 records
+GPU stable uint32 key/slot radix sort passed: 129 records
+GPU stable uint32 key/slot radix sort passed: 255 records
+GPU stable uint32 key/slot radix sort passed: 256 records
+GPU stable uint32 key/slot radix sort passed: 257 records
+GPU stable uint32 key/slot radix sort passed: 16385 records
+GPU stable uint32 key/slot radix sort passed: 65537 records
+GPU stable uint32 key/slot radix sort passed: 1048576 records
+
+Workgroup 256: 29 input cases across 11 sizes.
+GPU stable uint32 key/slot radix sort passed: 0 records
+GPU stable uint32 key/slot radix sort passed: 1 records
+GPU stable uint32 key/slot radix sort passed: 127 records
+GPU stable uint32 key/slot radix sort passed: 128 records
+GPU stable uint32 key/slot radix sort passed: 129 records
+GPU stable uint32 key/slot radix sort passed: 255 records
+GPU stable uint32 key/slot radix sort passed: 256 records
+GPU stable uint32 key/slot radix sort passed: 257 records
+GPU stable uint32 key/slot radix sort passed: 16385 records
+GPU stable uint32 key/slot radix sort passed: 65537 records
+GPU stable uint32 key/slot radix sort passed: 1048576 records
+
