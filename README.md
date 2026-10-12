@@ -1,8 +1,9 @@
 # Particle World
 
 Native C++20 GPU material sandbox based on the five sprint plans in `Tasks/`.
-Sprint 1 is in progress. The foundation scene uses gravity and analytic box
-contacts; granular pairs, water, reactions and persistent terrain come later.
+The foundation includes ballistic simulation and an experimental GPU granular
+mode with pair contacts and bounded walls. Water, reactions and persistent terrain
+remain planned; cross-platform granular stability and release gates are still open.
 
 ## Build
 
@@ -137,3 +138,18 @@ Windows CI can run D3D11 correctness checks through an explicitly created WARP
 software device using `--software-gpu --gpu-test`. This option is restricted to
 tests/capability reporting and does not certify hardware performance. See
 [Windows validation](docs/Windows_Validation.txt) for software and device gates.
+
+## Granular mode
+
+Enable **Particle collisions (resets scene)** in the app, or launch with
+`--granular` for a 512-slot sand demo (256 initial particles, cosmetics off).
+`--capacity` still overrides the capacity. Pause, single-step, reset, solid spawn,
+remove and impulse brushes work with the granular solver. The panel shows the
+12 m/s limit, substeps, contact counts, speed caps and boundary events. Faults
+remain latched on the GPU and pause the UI until reset. The Recording and
+Allocations panels start collapsed so the particles remain visible.
+
+Granular capture/replay, shader hot reload and benchmark/soak modes are not yet
+connected; ballistic recordings keep their existing behavior. See
+[interactive granular controls](docs/Interactive_Granular.txt) and the
+[GPU tick coordinator](docs/GPU_Granular_Step.txt) for limits and validation scope.

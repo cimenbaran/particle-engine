@@ -42,6 +42,8 @@ int main() {
     const auto edgeBox=pw::planeBrush({{7.9f,10,7.9f},{0,-1,0}},0,1);CHECK(edgeBox);
     CHECK(edgeBox->maximum[0]==7.95f && edgeBox->maximum[2]==7.95f);
 
+    pw::FlyCamera closeCamera;closeCamera.fromOrbit(0,8,5,1);
+    CHECK(std::abs(closeCamera.forward()[1]+1/std::sqrt(5.0f))<1e-6f && std::abs(closeCamera.forward()[2]+2/std::sqrt(5.0f))<1e-6f);
     pw::FlyCamera camera;camera.fromOrbit(0,10,3);
     const auto forward=camera.forward();CHECK(std::abs(forward[0])<1e-6f && forward[1]==0 && forward[2]==-1);
     camera.move(1,0,0,.1f,10);CHECK(std::abs(camera.position()[2]-9)<1e-6f);
@@ -87,6 +89,8 @@ int main() {
     };
     CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
+    CHECK(parse({"app","--granular"}).granular && parse({"app","--granular"}).capacity==512 && parse({"app","--granular"}).cosmeticCapacity==0);
+    CHECK(parse({"app","--granular","--capacity","129","--frames","8"}).capacity==129);
     CHECK(parse({"app","--gpu-test","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--replay","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--capabilities","x","--software-gpu"}).softwareGpu);
@@ -113,6 +117,8 @@ int main() {
         {"app","--replay","x","--scene","y"},{"app","--replay","x","--gpu-test"},
         {"app","--replay","x","--benchmark","y"},{"app","--replay","x","--capabilities","y"},
         {"app","--replay","x","--soak","1","--report","y"},
+        {"app","--granular","--gpu-test"},{"app","--granular","--replay","x"},
+        {"app","--granular","--benchmark","x"},{"app","--granular","--soak","10","--report","x"},
         {"app","--scene",""},{"app","--scene","x","--benchmark","y"},
         {"app","--scene","x","--soak","10","--report","x"},{"app","--scene","x","--capabilities","x"},
         {"app","--scene","x","--gpu-test"},{"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},

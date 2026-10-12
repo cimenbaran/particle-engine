@@ -4,8 +4,8 @@ Scope
 S2-08 preparation: an independent double-precision reference for sphere motion
 inside six analytic axis-aligned boundary planes, plus a core substep planner.
 The isolated GPU implementation is described in GPU_Swept_Bounds.txt.
-Neither is connected to the live integrator yet. Live particles still use the
-ballistic floor/wall clamps. Interior terrain, voxel sweeps, moving colliders,
+Optional interactive granular mode now composes the GPU sweep with contacts.
+The ballistic mode retains its original floor/wall clamps. Interior terrain, voxel sweeps, moving colliders,
 continuous particle-particle collision and granular stability are not claimed.
 
 Bounded domain
@@ -54,8 +54,8 @@ summed substep duration against the supplied float tick value.
 
 This schedule needs no synchronous GPU maximum-speed readback. Its guarantee
 requires the GPU to cap speed after external forces and again after velocity
-response, and report cap counts visibly. GpuSweptBounds implements the pre-sweep cap and candidate counters, but the
-complete live step and visible diagnostics are not implemented yet.
+response, and report cap counts visibly. GpuGranularStep and optional interactive
+granular mode now implement these stages and diagnostics.
 Position-solver corrections have a separate displacement budget; this travel
 bound does not cover them. Index rebuilding and swept/projected boundary handling
 must also cover position corrections before a granular step can be published.

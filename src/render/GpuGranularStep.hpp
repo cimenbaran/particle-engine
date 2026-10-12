@@ -9,7 +9,7 @@ namespace pw {
 class GpuGranularStep {
 public:
     GpuGranularStep(const std::filesystem::path& assets,std::uint32_t capacity,
-        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f);
+        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f,bool latchFailures=false);
     ~GpuGranularStep();
     GpuGranularStep(const GpuGranularStep&)=delete;
     GpuGranularStep& operator=(const GpuGranularStep&)=delete;
@@ -17,7 +17,8 @@ public:
         bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount);
     bgfx::DynamicVertexBufferHandle output() const{return output_;}
     // Phase error mask, proposed speed caps, max contact degree, boundary events.
-    bgfx::DynamicIndexBufferHandle status() const{return status_;}
+    bgfx::DynamicIndexBufferHandle status() const{return latchFailures_?latched_:status_;}
+    void resetFailures(std::uint16_t view);
     GranularStepPlan plan() const{return plan_;}
 private:
     void release();
@@ -26,15 +27,16 @@ private:
     GranularStepProfile profile_;
     GranularStepPlan plan_;
     float gravity_;
+    bool latchFailures_;
     GpuSweptBounds sweep_;
     GpuJacobiContacts contacts_;
     GpuVelocityReconstruction velocity_;
     GpuContactVelocity response_;
     std::array<bgfx::DynamicVertexBufferHandle,2> outputs_{{BGFX_INVALID_HANDLE,BGFX_INVALID_HANDLE}};
     bgfx::DynamicVertexBufferHandle forced_=BGFX_INVALID_HANDLE,finished_=BGFX_INVALID_HANDLE,output_=BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle zero_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE,phaseStatus_=BGFX_INVALID_HANDLE;
+    bgfx::DynamicIndexBufferHandle zero_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE,phaseStatus_=BGFX_INVALID_HANDLE,latched_=BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,force_=BGFX_INVALID_HANDLE,finish_=BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle collect_=BGFX_INVALID_HANDLE,apply_=BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle collect_=BGFX_INVALID_HANDLE,apply_=BGFX_INVALID_HANDLE,latch_=BGFX_INVALID_HANDLE;
     bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,step_=BGFX_INVALID_HANDLE,collection_=BGFX_INVALID_HANDLE;
 };
 void runGpuGranularStepTest(const std::filesystem::path& assets);

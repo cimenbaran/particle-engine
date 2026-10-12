@@ -1,0 +1,41 @@
+INTERACTIVE GRANULAR INTEGRATION VALIDATION
+Date: 2026-10-13, Apple M3 Max / Metal / macos-release.
+Source: commit containing this evidence; prior HEAD 5d9b9d2.
+
+Full GPU suites passed at 128 and 256 threads, including 25 coordinator fixtures
+(three added for persistent fault, held good input, and explicit reset recovery).
+The app-path fixture verifies common spawn radius, spawn count, impulse speed
+caps, all-slot membership/finite/identity audit, removal and mode reset.
+11/11 CTests passed at both sizes. Final camera/default-panel refinements and
+CLI/camera option checks were rebuilt/rechecked at 128; default build restored.
+
+Final bounded interactive run: --granular --capacity 129 --frames 120.
+Completed 99 ticks; final latched error=0, caps=0, contacts=4, boundary_events=540.
+Fault latching means a failed physics tick could not be silently cleared by a
+later successful tick. This is not a soak/performance benchmark.
+
+Ballistic replay regression: both default indirect and masked fallback completed
+1024 ticks and 81 commands; final active 73/free 184/rejected 128 in each mode.
+The unchanged ballistic recording profile remains separate from granular mode.
+
+Native UI observations using computer-use tools:
+- Collision toggle enabled on a 16,384-capacity cloud; diagnostics and solver
+  allocation row appeared, particles visibly rendered after auxiliary panels
+  were collapsed, and ballistic recording controls were disabled with a reason.
+- Updated panels start collapsed. At capacity 129, pause remained checked;
+  reset restored tick 0 and the scene; Single tick advanced to exactly tick 1
+  with new solver metrics, without controls shifting during pending snapshots.
+- Native close completed cleanly. The final closer camera was additionally
+  checked by the CPU direction test and bounded run; no screenshot artifact saved.
+These are targeted controls/render observations, not input stress or pile gates.
+
+Open: D3D11 integration validation, granular recording/hot reload, interior
+terrain, broad stability, performance and ten-minute granular soaks.
+
+Log SHA-256:
+b9a3dec681f6e4955265ccf6bbf907db05fd34338f99d6919ad3b5686cd1f614  out/interactive-granular-gpu.log
+839d483dec025d443b71bc29eb275c2247b01e0f71ce16f312d295b66b947275  out/interactive256-gpu.log
+03484b04e0eb19e7749f0814ba088f0ef6ee0cd8ba9157744c52d5dc9ed471f9  out/interactive-final-ctest.log
+f1cbaaf86b03a130818f11d569ce5ea5746b7ba0567678b7778c265535901a18  out/interactive256-ctest.log
+23df14f547205f9558495be416bb69a6c9f60846943ad2199d87f5cf6a38bac4  out/interactive-final-frames.log
+52fe25348f27b947c0ccd00c1778ed3594dd9fb2cfec09bd7ff64e75262dc029  out/interactive-ballistic-replay.log

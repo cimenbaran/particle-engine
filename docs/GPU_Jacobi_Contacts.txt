@@ -1,11 +1,10 @@
-GPU JACOBI POSITION CONTACTS - ISOLATED GRANULAR COMPONENT
+GPU JACOBI POSITION CONTACTS
 
 Scope
 GpuJacobiContacts computes one position-only Jacobi iteration for the physical
-solid pool. It is currently exercised by --gpu-test, not the live application.
-It is not a complete physics time step: prediction, velocity reconstruction,
-restitution/friction, analytic terrain handling, live error reporting/recovery,
-settling and energy/stability gates remain unfinished.
+solid pool. GPU tests and the optional interactive granular mode use it through
+GpuGranularStep, which supplies prediction, reconstruction, velocity response and
+boundary handling. General settling, energy/stability and terrain gates remain open.
 
 Profile and math
 Every indexed solid must have common radius 0.0625 m (diameter 0.125 m, equal to
@@ -86,7 +85,7 @@ hardware performance or D3D11 runtime certification for this component.
 A separate reconstruction component is now available in
 GPU_Velocity_Reconstruction.txt and is tested directly after this pass on Metal.
 GPU_Contact_Velocity.txt describes the separate restitution/friction pass.
-These components are not yet connected to a complete live time step.
+GpuGranularStep connects these components to optional interactive simulation.
 
 Optional inset-boundary constraints
 The constructor's final bounded flag (default false) enables projection against

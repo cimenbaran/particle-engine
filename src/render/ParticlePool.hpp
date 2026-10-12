@@ -13,7 +13,7 @@ public:
     ParticlePool& operator=(const ParticlePool&)=delete;
     void rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,bool resetDiagnostics=false);
     void apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-               bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command);
+               bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius=0.045f);
     bgfx::DynamicIndexBufferHandle counts() const {return counts_;}
     bgfx::DynamicIndexBufferHandle freeSlots() const {return free_;}
     bgfx::DynamicIndexBufferHandle activeSlots() const {return active_;}

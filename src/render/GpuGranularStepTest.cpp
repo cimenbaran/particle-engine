@@ -107,6 +107,9 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     p=fixture(129);p[7].thermalState[0]=std::numeric_limits<float>::quiet_NaN();check(p,1,9.81f,false,true);
     p=fixture(1);p[0].velocityInvMass[0]=std::numeric_limits<float>::max();check(p);
     GpuGranularStep recovery(assets,3);p=fixture(3);p[0].identity[3]=0;check(p,1,9.81f,false,true,&recovery);check(fixture(3),1,9.81f,true,false,&recovery);
+    GpuGranularStep latched(assets,3,GranularStepProfile{},4,9.81f,true);
+    p=fixture(3);p[0].identity[3]=0;check(p,1,9.81f,false,true,&latched);
+    check(fixture(3),1,9.81f,false,true,&latched);latched.resetFailures(0);check(fixture(3),1,9.81f,true,false,&latched);
     std::cout<<"GPU granular step passed: "<<cases<<" fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback\n";
 }
 }

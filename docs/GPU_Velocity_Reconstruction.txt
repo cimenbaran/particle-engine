@@ -1,12 +1,11 @@
-GPU VELOCITY RECONSTRUCTION - ISOLATED GRANULAR COMPONENT
+GPU VELOCITY RECONSTRUCTION
 
 Scope
 GpuVelocityReconstruction derives dynamic-solid velocity from beginning-of-step
 and corrected positions: (corrected - previous) / dt. It can directly follow
-GpuJacobiContacts in the same sequential GPU view. This is one part of S2-07;
-contact restitution, friction, low-speed bounce suppression, terrain response
-and a complete live granular time step remain unfinished. Live simulation is
-still ballistic. This utility currently runs only in --gpu-test.
+GpuJacobiContacts in the same sequential GPU view. Correction-relative mode
+(described below) preserves swept impact velocities. GpuGranularStep uses it
+in optional interactive granular simulation; broad stability gates remain open.
 
 Inputs and identity
 Previous must be the snapshot taken after start-of-step pool commands and before

@@ -33,7 +33,8 @@ Optional inset constraints in the Jacobi pass and correction-relative velocity
 reconstruction now support chaining swept prediction into contacts. See the
 updated Jacobi/reconstruction docs. A complete isolated tick coordinator now
 chains these components with forces, lifetimes and whole-tick rollback; see
-../docs/GPU_Granular_Step.txt. Interactive integration and broad stability gates
+../docs/GPU_Granular_Step.txt. Interactive integration is available through the collision toggle/--granular;
+see ../docs/Interactive_Granular.txt. Recording profiles and broad stability gates
 remain open.
 
 Tasks

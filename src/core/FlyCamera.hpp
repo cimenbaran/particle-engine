@@ -6,9 +6,9 @@ namespace pw {
 class FlyCamera {
 public:
     FlyCamera() {fromOrbit(.65f,24,12);}
-    void fromOrbit(float angle,float distance,float height) {
+    void fromOrbit(float angle,float distance,float height,float targetHeight=3) {
         position_={std::sin(angle)*distance,height,std::cos(angle)*distance};
-        yaw_=-angle;pitch_=std::atan2(3-height,distance);
+        yaw_=-angle;pitch_=std::atan2(targetHeight-height,distance);
     }
     const std::array<float,3>& position() const {return position_;}
     std::array<float,3> forward() const {

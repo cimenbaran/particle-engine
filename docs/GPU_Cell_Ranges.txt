@@ -4,8 +4,8 @@ GpuCellRanges builds sparse (cellKey, begin, end) records from a full-capacity
 sorted key/slot array. Intervals are half-open offsets in that sorted array.
 The profile matches GpuSpatialKeys: valid keys are below 2,097,152; UINT32_MAX
 is the inactive/excluded sentinel. No particle state is reordered or read back.
-This utility is currently used only by --gpu-test. Hash lookup, neighborhood
-consumption and a live physics response to index failure remain unfinished.
+This utility feeds hashing and contacts in GPU tests and optional interactive
+granular simulation. Whole-tick rollback and latched UI faults handle index errors.
 
 The compute graph clears per-slot ownership counters and metadata, marks cell
 starts, scans those flags, writes range starts/ends, audits slot ownership, and

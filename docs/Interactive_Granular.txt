@@ -1,0 +1,60 @@
+INTERACTIVE GRANULAR MODE
+
+Launch and controls
+Run ParticleWorld with --granular, or enable "Particle collisions (resets scene)"
+in the main panel. The CLI mode defaults to 512 capacity, 256 Sand particles in
+a compact drop, cosmetics disabled and a closer orbit view. Explicit --capacity,
+--cosmetic-capacity and --scene retain their meanings. The default app remains
+ballistic, preserving existing command recordings. Switching solver resets the
+selected scene, command queue, tick counter and diagnostic epoch.
+
+Granular scenes/spawns use common radius 0.0625 and density-derived inverse mass.
+Scene centre bounds must fit the inset enclosure. Solid spawn brushes are clipped
+to it; fully outside brushes and non-solid spawns are rejected visibly. The pool
+API keeps radius 0.045 as its default, so existing ballistic/cosmetic commands and
+recordings retain their previous state layout and radius.
+
+Every interactive granular tick applies queued commands to the main state, runs
+the GPU coordinator, copies its published state into the app's existing ping-pong
+buffers while producing render instances, and rebuilds active/free membership.
+Culling, indirect/fallback rendering and pool audits consume those main buffers.
+The solver's transaction begins after queued commands: failure rolls back physics
+and lifetime evolution, not user edits already applied at the tick boundary.
+
+Diagnostics and faults
+The panel displays 12 m/s maximum speed, four substeps, four contact iterations,
+proposed cap events, maximum contact degree and boundary events from the latest
+asynchronous 16-byte GPU sample. Metrics are per sampled tick, not accumulated
+counts or performance timing. Failed candidate work can contribute metrics.
+A GPU latch retains errors and blocks later physics ticks until Reset scene,
+Empty scene or successful scene/mode reset. CPU polling also pauses the UI.
+This prevents a catch-up tick from erasing a failure before its readback arrives.
+Reset begins a new diagnostic epoch; stale samples cannot relatch the CPU fault.
+The controls retain their positions while snapshots are pending.
+
+Pause, single tick, reset, remove, solid spawn and impulse brushes are supported.
+The Recording panel explains and disables ballistic capture/replay while granular
+mode is active. Shader reload is disabled in this mode until the whole solver can
+participate in a single reload transaction. Material reload retains existing
+validation. --granular rejects benchmark, soak, replay, GPU-test and capability
+report modes rather than labelling their old reports as granular results.
+
+Resource accounting
+The allocation panel adds solver payload and the extra diagnostic ring. With
+N=max(1,capacity), S=sum over prefix-scan levels of 4*(max(1,count)+groups), and
+H=bit_ceil(2*capacity+2), solver bytes are 1184*N + 256 + 4*S + 16*H. This covers
+the coordinator/components, both spatial indices, four scans and status buffers;
+it excludes driver alignment, shaders/uniforms and pending deferred destruction.
+The extra diagnostic ring adds 64 GPU texture bytes and 48 host readback bytes.
+This is requested payload accounting, not a certified resident-memory budget.
+
+Validation scope
+Both Metal workgroup variants passed 25 granular component fixtures and an app
+path fixture covering radius, spawn, impulse caps, membership/state audit, removal
+and solver reset. CLI option tests preserve existing defaults and reject invalid
+mode combinations. A bounded interactive run completed with zero latched errors.
+Native UI checks verified toggle, particle rendering, diagnostics, disabled
+recording controls, pause, reset and exactly one tick after reset. Panels start
+collapsed so they do not obscure the simulation. See the associated local result
+file. General pile stability, Windows interactive validation, granular recording,
+full hot reload, interior terrain, benchmarks and ten-minute soaks remain open.

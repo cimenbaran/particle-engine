@@ -1,8 +1,8 @@
 GPU EXCLUSIVE PREFIX SCAN
 
-GpuPrefixScan is a bounded compute utility for the future spatial radix sort.
-It is exercised only by --gpu-test today; the live ballistic simulation and
-its command-recording profile do not use it.
+GpuPrefixScan is a bounded compute utility used by spatial sorting and ranges
+in the optional interactive granular mode, as well as --gpu-test. The ballistic
+command-recording profile does not use it.
 
 For input a[0..N), output[i] is the sum of a[0..i), and total[0] is the sum of
 all N values. Arithmetic is explicitly uint32 modulo 2^32. Radix predicates

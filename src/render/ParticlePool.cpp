@@ -39,7 +39,8 @@ void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle st
     bgfx::dispatch(view,classify_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command) {
+                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius) {
+    if(radius!=0.045f && radius!=0.0625f) throw std::invalid_argument("Unsupported pool radius");
     CommandLimits limits;limits.materialCount=materialCount;
     if(!validate(command,limits,command.tick).empty()) throw std::runtime_error("Invalid pool command");
     if(command.type!=CommandType::SpawnBrush && command.type!=CommandType::ApplyImpulse && command.type!=CommandType::RemoveBrush)
@@ -48,7 +49,7 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(command.type==CommandType::SpawnBrush) rebuild(view,state);
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     const float minimum[]{command.minimum[0],command.minimum[1],command.minimum[2],float(command.material)};
-    const float maximum[]{command.maximum[0],command.maximum[1],command.maximum[2],0.045f};
+    const float maximum[]{command.maximum[0],command.maximum[1],command.maximum[2],radius};
     const float values[]{command.parameters[0],command.parameters[1],command.parameters[2],command.parameters[3]};
     const float params[]{float(capacity_),command.type==CommandType::SpawnBrush?float(command.count):(command.type==CommandType::RemoveBrush?1.0f:0.0f),float(materialCount),std::bit_cast<float>(std::uint32_t(command.sequence))};
     bgfx::setUniform(pool_,params);bgfx::setUniform(min_,minimum);bgfx::setUniform(max_,maximum);bgfx::setUniform(value_,values);

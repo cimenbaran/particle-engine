@@ -1,8 +1,8 @@
 GPU CONTACT VELOCITY RESPONSE
 
 Scope and inputs
-GpuContactVelocity is an isolated GPU restitution/friction component exercised
-by --gpu-test. Live simulation remains ballistic; S2-07 is not complete.
+GpuContactVelocity supplies restitution/friction in --gpu-test and optional
+interactive granular mode. Broader S2-07 stability gates remain open.
 It consumes immutable predicted and reconstructed ParticleGpu snapshots, the
 material table and upstream solver status. Only dynamic-solid velocity xyz may
 change. The independent all-pairs algorithm and invariant scope are specified

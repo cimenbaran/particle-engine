@@ -1,9 +1,9 @@
 GPU GRANULAR TICK COORDINATOR
 
 Scope
-GpuGranularStep owns a complete GPU granular tick, currently exercised only by
---gpu-test. The interactive application still uses its ballistic Particles path.
-Live UI/recording integration, larger piles, performance and long soaks remain open.
+GpuGranularStep owns a complete GPU granular tick. It is exercised by --gpu-test
+and the optional interactive particle-collision mode; see Interactive_Granular.txt.
+Granular recording integration, larger piles, performance and long soaks remain open.
 
 Default profile
 Tick 1/60 s; four substeps selected by GranularStepProfile at 12 m/s maximum
@@ -55,18 +55,21 @@ Status words:
 2 maximum particle contact degree observed in position/velocity passes.
 3 boundary response events across sweeps and final constraints.
 Metrics describe proposed work; errors mean no candidate changes were committed.
-Status clears at the start of each tick, allowing recovery after input is repaired.
-The application must latch/display failures before initiating a later tick.
+With the default latchFailures=false, status clears at each tick, allowing
+recovery after input repair. Interactive mode uses latchFailures=true: a separate
+GPU status retains error bits and gates subsequent physics ticks. resetFailures
+clears it on the same ordered view. The UI pauses after its asynchronous snapshot
+reports the fault; physics is already gated during that readback delay.
 
 Resources
-Owner payload is 256 bytes/slot plus three 16-byte status buffers, in addition to
+Owner payload is 256 bytes/slot plus four 16-byte status buffers, in addition to
 the owned sweep, contact, reconstruction and response components. Two separate
 spatial-index pipelines are currently retained by the contact and response owners.
 No reuse optimization or memory-budget certification is claimed. Each dispatch
 stays within the existing six-compute-binding capability floor.
 
 Validation
-22 Metal fixtures compare no-contact trajectories to independent force/sweep
+25 Metal fixtures compare no-contact trajectories to independent force/sweep
 calculations; cover workgroup boundaries, speed caps including FLT_MAX, static and
 phase exclusion, age/expiry, closed-pair rebound/momentum/energy, whole-tick rollback,
 a late contact-index failure and recovery. A floor body stays motionless for 120

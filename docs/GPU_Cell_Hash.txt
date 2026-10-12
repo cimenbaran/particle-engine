@@ -1,12 +1,12 @@
-GPU EXACT-KEY CELL HASH - ISOLATED SPRINT 2 COMPONENT
+GPU EXACT-KEY CELL HASH
 
 Scope
 GpuCellHash builds a sparse lookup from GpuCellRanges' fixed granular-grid
 triples (key, begin, end). Keys identify cells, not hashes: every insertion and
 query compares the complete key. Intervals are half-open offsets into the
 sorted key/slot array. Persistent particle state never moves. This component
-currently runs only in --gpu-test. Live neighbor queries, failure recovery,
-contacts and associated Sprint 2 completion gates remain open.
+runs in --gpu-test and optional interactive granular mode. Neighbor queries
+and contacts consume its failure-gated results. Broad stability gates remain open.
 
 Build and ownership contract
 Capacity is 0..1,048,576. The caller supplies compute-readable range storage
@@ -23,8 +23,8 @@ power of two at or above 2*capacity+2, so even maximum occupancy has load <0.5.
 An optional power-of-two table size from 2 to 4,194,304 permits controlled
 failure tests. GPU validation rejects load >=0.5. The largest default table
 uses 32 MiB, plus two 16-byte metadata/metric buffers; source ranges and query
-buffers are separate. These isolated resources are not yet part of live memory
-reports because no live simulation allocates them.
+buffers are separate. Interactive_Granular.txt describes their inclusion in the
+live granular allocation display.
 
 Each submit clears every table entry, metadata and metrics, including an empty
 rebuild. Separate ordered dispatches clear, insert and finalize. Insertion uses

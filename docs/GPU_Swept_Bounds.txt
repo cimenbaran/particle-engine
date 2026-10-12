@@ -2,9 +2,9 @@ GPU SWEPT BOUNDARIES
 
 Scope
 GpuSweptBounds performs constant-velocity sphere sweeps inside six analytic
-boundary planes and caps incoming speed. It is currently exercised only by
---gpu-test. It does not apply gravity, advance lifetime, rebuild the particle
-pool, resolve other particles, or replace the live ballistic integrator.
+boundary planes and caps incoming speed. GPU tests and optional interactive
+granular mode use it. GpuGranularStep supplies forces, contacts and lifetime
+evolution; the standalone sweep only changes dynamic-solid pose and velocity.
 Swept_Bounds_Reference.txt defines the independent CPU oracle and substep plan.
 
 Input profile

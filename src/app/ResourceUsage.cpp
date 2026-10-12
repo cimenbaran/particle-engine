@@ -2,11 +2,14 @@
 #include "core/ParticleTypes.hpp"
 #include "assets/Materials.hpp"
 #include <imgui.h>
+#include "core/ComputeDispatch.hpp"
+#include <algorithm>
+#include <bit>
 namespace pw {
 ResourceUsage& ResourceUsage::operator+=(const ResourceUsage& r) {
     state+=r.state;instances+=r.instances;lists+=r.lists;counters+=r.counters;indirect+=r.indirect;
     materials+=r.materials;geometry+=r.geometry;diagnosticTextures+=r.diagnosticTextures;
-    diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;return *this;
+    diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;granular+=r.granular;return *this;
 }
 
 ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit) {
@@ -24,11 +27,17 @@ ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,b
     r.seedUpload=n*sizeof(ParticleGpu);
     return r;
 }
+std::uint64_t granularPayloadBytes(std::uint32_t capacity) {
+    std::uint64_t scan=0;auto count=capacity;
+    for(;;){const auto groups=std::max(1u,dispatchGroups(count));scan+=4ull*(std::max(1u,count)+groups);if(groups==1)break;count=groups;}
+    // All component payloads + two full indices with four recursive scans.
+    return 1184ull*std::max(1u,capacity)+256+4*scan+16ull*std::bit_ceil(capacity*2+2);
+}
 nlohmann::json resourceReport(const ResourceUsage& u,const bgfx::Stats& s) {
     using Json=nlohmann::json;
     auto available=[](std::int64_t bytes)->Json {return bytes<0?Json(nullptr):Json(bytes);};
     return {{"schema_version",1},{"requested_payload_bytes",{
-        {"particle_state",u.state},{"render_instances",u.instances},{"active_free_lists",u.lists},
+        {"particle_state",u.state},{"granular_solver",u.granular},{"render_instances",u.instances},{"active_free_lists",u.lists},
         {"pool_visibility_counters",u.counters},{"indirect_arguments",u.indirect},{"material_table",u.materials},
         {"billboard_geometry",u.geometry},{"diagnostic_textures",u.diagnosticTextures},{"audit_buffers",u.auditBuffers},
         {"persistent_total",u.persistentPayload()},{"particle_buffers",u.particleBuffers()}}},
@@ -62,6 +71,7 @@ nlohmann::json resourcePeakReport(const ReportedMemoryPeaks& peaks,const char* s
 void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s,ReportedMemoryPeaks& peaks) {
     ImGui::SetNextWindowPos(ImVec2(492,248),ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(420,420),ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowCollapsed(true,ImGuiCond_FirstUseEver);
     ImGui::Begin("Allocations");
     ImGui::TextUnformatted("Requested GPU payload: all pools (MB)");
     if(ImGui::BeginTable("payload",2,ImGuiTableFlags_SizingStretchProp)) {
@@ -69,6 +79,7 @@ void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s,ReportedMemor
             ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextUnformatted(name);
             ImGui::TableNextColumn();ImGui::Text("%.6f",double(bytes)/1000000.0);
         };
+        if(u.granular) row("Granular solver",u.granular);
         row("State ping-pong",u.state);row("Render + visible instances",u.instances);
         row("Active/free slot lists",u.lists);row("Pool/visibility counters",u.counters);
         row("Indirect arguments",u.indirect);row("Materials + geometry",u.materials+u.geometry);

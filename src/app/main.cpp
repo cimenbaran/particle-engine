@@ -98,6 +98,11 @@ struct GuiContext {
 };
 struct Particles {
     const uint32_t particleCount;
+    std::filesystem::path assetsPath;
+    std::unique_ptr<pw::GpuGranularStep> granular;
+    std::unique_ptr<pw::PoolDiagnostics> granularDiagnostics;
+    bool granularFault=false;
+    std::string solverMessage;
     bgfx::DynamicVertexBufferHandle state[2]{BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE};
     bgfx::DynamicVertexBufferHandle instances = BGFX_INVALID_HANDLE;
     bgfx::VertexBufferHandle vertices = BGFX_INVALID_HANDLE;
@@ -122,7 +127,7 @@ struct Particles {
     pw::RecordingSession session;
     std::filesystem::path scenePath;
     std::string sceneMessage;
-    explicit Particles(const std::filesystem::path& assets,uint32_t capacity,const std::filesystem::path& preset={},const pw::ScenePreset* initialScene=nullptr):particleCount(capacity) {
+    explicit Particles(const std::filesystem::path& assets,uint32_t capacity,const std::filesystem::path& preset={},const pw::ScenePreset* initialScene=nullptr):particleCount(capacity),assetsPath(assets) {
         try {
             compute = pw::loadCompute(assets, "cs_particles");
             initialize = pw::loadCompute(assets, "cs_reset");
@@ -149,7 +154,22 @@ struct Particles {
             reset();
         } catch (...) { release(); throw; }
     }
+    void validateGranularScene(const pw::ScenePreset& candidate) const {
+        for(unsigned axis=0;axis<3;++axis) if(candidate.minimum[axis]<(axis==1?0.0625f:-7.9375f) || candidate.maximum[axis]>(axis==1?15.9375f:7.9375f))
+            throw std::runtime_error("Granular scene centres must fit inside the radius-inset enclosure");
+    }
+    void setGranular(bool enabled) {
+        if(session.active()) throw std::runtime_error("Finish the recording session before changing solver");
+        if(enabled) {
+            validateGranularScene(scene);
+            auto candidate=std::make_unique<pw::GpuGranularStep>(assetsPath,particleCount,pw::GranularStepProfile{},4,9.81f,true);
+            auto diagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
+            granular=std::move(candidate);granularDiagnostics=std::move(diagnostic);
+        } else {granularDiagnostics.reset();granular.reset();}
+        granularFault=false;reloadPending=false;reset();solverMessage.clear();
+    }
     void stageShaders(pw::ShaderReload& reload) {
+        if(granular) throw std::runtime_error("Switch off particle collisions before shader reload");
         reload.compute(compute,"cs_particles");reload.compute(initialize,"cs_reset");
         reload.graphics(draw,"vs_particles","fs_particles");
         pool->stageShaders(reload);diagnostics->stageShaders(reload);
@@ -177,6 +197,7 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
+        granularDiagnostics.reset();granular.reset();
         visibleDiagnostics.reset();
         diagnostics.reset();
         visibility.reset();
@@ -197,6 +218,14 @@ struct Particles {
         auto initial=pw::instantiateScene(scene,materials,particleCount,ids,
             initialCount==UINT32_MAX?std::nullopt:std::optional<uint32_t>(initialCount));
 
+        if(granular) {
+            validateGranularScene(scene);
+            for(auto& p:initial) if(p.identity[1]&1) {
+                p.positionRadius[3]=0.0625f;
+                p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*0.0625f*0.0625f*0.0625f*materials.entries[p.identity[0]].gpu.mechanical[0]);
+            }
+            granular->resetFailures(0);granularDiagnostics->beginEpoch();granularFault=false;
+        }
         diagnostics->beginEpoch();
         visibleDiagnostics->beginEpoch();
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
@@ -233,17 +262,20 @@ struct Particles {
         try {
             candidate=pw::loadScene(path);pw::validateSceneCapacity(*candidate,particleCount);
             pw::sceneMaterials(*candidate,materials);
+            if(granular) validateGranularScene(*candidate);
         } catch(const std::exception& error) {sceneMessage=std::string("Scene rejected: ")+error.what();return false;}
         scene=std::move(*candidate);scenePath=path;sceneMaterial=-1;reset();
         sceneMessage="Scene loaded";return true;
     }
     void captureFromReset() {
+        if(granular) throw std::runtime_error("Granular recording profile is not implemented yet");
         auto starting=scene;
         if(sceneMaterial>=0) starting.materials={materials.entries[sceneMaterial].name};
         session.capture(starting,materials,particleCount,pw::workgroupSize);
         reloadPending=false;reset();
     }
     void beginReplay(pw::CommandRecording recording,bool resetScene=true) {
+        if(granular) throw std::runtime_error("Switch off particle collisions before ballistic replay");
         session.replay(std::move(recording),materials,particleCount);
         scene=session.recording().scene;sceneMaterial=-1;scenePath.clear();reloadPending=false;
         if(resetScene) reset();
@@ -262,6 +294,14 @@ struct Particles {
         if(type==pw::CommandType::SpawnBrush) {command.minimum={-2,6,-2};command.maximum={2,10,2};}
         if(bounds) {command.minimum=bounds->minimum;command.maximum=bounds->maximum;}
         command.material=material==UINT32_MAX?(sceneMaterial<0?liveMaterialIds.front():unsigned(sceneMaterial)):material;
+        if(granular && type==pw::CommandType::SpawnBrush) {
+            if(command.material>=materials.entries.size() || materials.entries[command.material].gpu.identity[1]!=0) {commandMessage="Granular spawns require a solid material";return;}
+            for(unsigned axis=0;axis<3;++axis) {
+                command.minimum[axis]=std::max(command.minimum[axis],axis==1?0.0625f:-7.9375f);
+                command.maximum[axis]=std::min(command.maximum[axis],axis==1?15.9375f:7.9375f);
+                if(command.minimum[axis]>command.maximum[axis]) {commandMessage="Spawn brush is outside the granular enclosure";return;}
+            }
+        }
         pw::CommandLimits limits; limits.materialCount=uint32_t(materials.entries.size());
         const auto reason=commands.enqueue(command,limits);
         // Reload runs before queued commands are consumed. Reserve newly selected
@@ -287,16 +327,18 @@ struct Particles {
                 if(session.active()) throw std::runtime_error("Recording command rejected before GPU submission");
                 commandMessage="Queued command rejected after material reload";continue;
             }
-            pool->apply(view,state[current],materialBuffer,uint32_t(materials.entries.size()),command);
+            pool->apply(view,state[current],materialBuffer,uint32_t(materials.entries.size()),command,granular?0.0625f:0.045f);
             commandMessage="Brush submitted (spawns limited by free capacity)";
         }
         const float params[]{float(pw::FixedStep::tickSeconds),float(particleCount),float(materials.entries.size()),0};
+        auto source=state[current];auto program=compute;
+        if(granular) {granular->submit(view,source,materialBuffer,uint32_t(materials.entries.size()));source=granular->output();program=initialize;}
         bgfx::setUniform(uniform, params);
-        bgfx::setBuffer(0,state[current],bgfx::Access::Read);
+        bgfx::setBuffer(0,source,bgfx::Access::Read);
         bgfx::setBuffer(1,state[1-current],bgfx::Access::Write);
         bgfx::setBuffer(2,instances,bgfx::Access::Write);
         bgfx::setBuffer(3,materialBuffer,bgfx::Access::Read);
-        bgfx::dispatch(view,compute,pw::dispatchGroups(particleCount));
+        bgfx::dispatch(view,program,pw::dispatchGroups(particleCount));
         current=1-current;
         pool->rebuild(view,state[current]);
         session.observed(batch,commands.nextTick());
@@ -373,6 +415,25 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
     const auto stillFullCosmetic=snapshot(cosmetic);
     require(std::memcmp(fullCosmetic.data(),stillFullCosmetic.data(),fullCosmetic.size()*sizeof(pw::ParticleGpu))==0,"Physical spawn modified cosmetic state bytes");
     std::cout<<"GPU physical/cosmetic isolation, independent overflow, expiry, reuse and reset passed\n";
+    {
+        pw::ScenePreset granularScene;granularScene.count=0;granularScene.materials={"Sand"};
+        Particles sandbox(assets,129,{},&granularScene);sandbox.setGranular(true);bgfx::frame();
+        sandbox.queueBrush(pw::CommandType::SpawnBrush,0,64);sandbox.tick(1);
+        auto spawned=snapshot(sandbox);unsigned alive=0;
+        for(const auto& p:spawned)if(p.identity[1]&1){++alive;require(p.positionRadius[3]==0.0625f,"Granular application spawn radius mismatch");}
+        require(alive==64,"Granular application spawn count mismatch");
+        sandbox.queueBrush(pw::CommandType::ApplyImpulse,30);sandbox.tick(1);
+        pw::ParticleAudit audit(assets,129);audit.prepare(4,sandbox.state[sandbox.current],sandbox.pool->activeSlots(),sandbox.pool->freeSlots(),sandbox.pool->counts(),uint32_t(sandbox.materials.entries.size()));
+        require(audit.request(6,2),"Granular application audit request failed");
+        require(sandbox.granularDiagnostics->request(6,sandbox.granular->status(),2),"Granular application diagnostic request failed");
+        while(audit.pending() || sandbox.granularDiagnostics->pending()){auto frame=bgfx::frame();audit.poll(frame);sandbox.granularDiagnostics->poll(frame);}
+        require(audit.latest().active==129 && !audit.latest().free && !audit.latest().reserved && !audit.latest().rejected,"Granular application ownership/state audit failed");
+        require(!sandbox.granularDiagnostics->latest().active && sandbox.granularDiagnostics->latest().free>0,"Granular application cap/fault diagnostics failed");
+        sandbox.queueBrush(pw::CommandType::RemoveBrush,0);sandbox.tick(1);auto empty=snapshot(sandbox);
+        for(const auto& p:empty)require(!(p.identity[1]&1),"Granular application removal failed");
+        sandbox.setGranular(false);sandbox.reset(0);bgfx::frame();
+        std::cout<<"GPU interactive granular path passed: radius, spawn, impulse caps, state ownership, removal and mode reset\n";
+    }
 }
 
 int runBenchmark(pw::Window& window,Particles& particles,Particles* cosmetics,const std::filesystem::path& assets,const pw::RunOptions& options) {
@@ -711,7 +772,10 @@ int main(int argc, char** argv) {
         if(gpuTestOnly) {pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runGpuSpatialKeysTest(assets);pw::runGpuCellRangesTest(assets);pw::runGpuCellHashTest(assets);pw::runGpuNeighborsTest(assets);pw::runGpuJacobiContactsTest(assets);pw::runGpuVelocityReconstructionTest(assets);pw::runGpuContactVelocityTest(assets);pw::runGpuSweptBoundsTest(assets);pw::runGpuGranularStepTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
         std::optional<pw::CommandRecording> replay;
         if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));
-        Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:nullptr);
+        pw::ScenePreset granularScene;granularScene.name="Granular sand drop";granularScene.count=std::min(256u,options.capacity);
+        granularScene.minimum={-0.75f,1,-0.75f};granularScene.maximum={0.75f,2.5f,0.75f};granularScene.materials={"Sand"};
+        Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:(options.granular?&granularScene:nullptr));
+        if(options.granular) particles.setGranular(true);
         if(replay) {particles.beginReplay(std::move(*replay),false);return runReplay(window,particles,assets,options);}
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         std::unique_ptr<Particles> cosmetics;
@@ -740,7 +804,8 @@ int main(int argc, char** argv) {
         std::cout<<"Drawing: "<<(indirect?"GPU indirect":"masked fixed-capacity")<<'\n';
         uint64_t ticks=0; uint32_t frames=0, completedFrame=0; double lag=0;
         int width=0,height=0;
-        float yaw=0.65f, distance=24, elevation=12, impulseStrength=6, spawnLifetime=10;
+        float yaw=0.65f, distance=options.granular?8.0f:24.0f, elevation=options.granular?5.0f:12.0f, impulseStrength=6, spawnLifetime=10;
+        const float orbitTarget=options.granular?1.0f:3.0f;
         int presetSelection=0;
         constexpr const char* presetFiles[]{"ballistic.json","empty.json","sand_drop.json"};
         int spawnCount=1024,pointerTool=0;
@@ -757,6 +822,11 @@ int main(int argc, char** argv) {
         };
         auto previous=std::chrono::steady_clock::now();
         while(running) {
+            if(particles.granularDiagnostics) {
+                particles.granularDiagnostics->poll(completedFrame);
+                const auto& fault=particles.granularDiagnostics->latest();
+                if(fault.valid && fault.active) {particles.granularFault=true;paused=true;clock.reset();}
+            }
             particles.diagnostics->poll(completedFrame);
             particles.visibleDiagnostics->poll(completedFrame);
             if(cosmetics) {cosmetics->diagnostics->poll(completedFrame);cosmetics->visibleDiagnostics->poll(completedFrame);}
@@ -812,11 +882,30 @@ int main(int argc, char** argv) {
                 ImGui::Text("Active: %u | Free: %u",poolStats.active,poolStats.free);
                 ImGui::Text("Rejected spawns: %u",poolStats.rejected);
                 ImGui::TextDisabled("GPU snapshot at tick %llu",static_cast<unsigned long long>(poolStats.tick));
-            } else ImGui::TextDisabled("Waiting for GPU pool snapshot...");
+            } else {
+                ImGui::TextDisabled("Active: ... | Free: ...");
+                ImGui::TextDisabled("Rejected spawns: ...");
+                ImGui::TextDisabled("Waiting for GPU pool snapshot...");
+            }
             const auto& visibleStats=particles.visibleDiagnostics->latest();
             if(visibleStats.valid) ImGui::Text("Visible (delayed): %u",visibleStats.active);
             else ImGui::TextDisabled("Waiting for visibility snapshot...");
             ImGui::Text("Tick: %llu",static_cast<unsigned long long>(ticks));
+            bool collisions=bool(particles.granular);
+            ImGui::BeginDisabled(particles.session.active());
+            if(ImGui::Checkbox("Particle collisions (resets scene)",&collisions)) {
+                try {particles.setGranular(collisions);clock.reset();ticks=0;lag=0;reloadShaders=false;}
+                catch(const std::exception& error) {particles.solverMessage=error.what();}
+            }
+            ImGui::EndDisabled();
+            if(particles.granular) {
+                ImGui::Text("Granular: 12 m/s limit | %u substeps | 4 iterations",particles.granular->plan().substeps);
+                const auto& g=particles.granularDiagnostics->latest();
+                if(g.valid) ImGui::Text("Caps: %u | Contacts: %u | Boundary events: %u",g.free,g.reserved,g.rejected);
+                else ImGui::TextDisabled("Waiting for solver snapshot...");
+                if(particles.granularFault) ImGui::TextWrapped("Solver error 0x%x: physics held. Reset or load a valid scene to resume.",g.active);
+            }
+            if(!particles.solverMessage.empty()) ImGui::TextWrapped("%s",particles.solverMessage.c_str());
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
             bool step=ImGui::Button("Single tick"); if(step) paused=true;
             ImGui::BeginDisabled(particles.session.active());
@@ -843,7 +932,9 @@ int main(int argc, char** argv) {
                 }
                 ImGui::EndCombo();
             }
+            ImGui::BeginDisabled(bool(particles.granular));
             if(ImGui::Button("Reload shaders")) reloadShaders=true;
+            ImGui::EndDisabled();
             if(!shaderMessage.empty()) ImGui::TextWrapped("%s",shaderMessage.c_str());
             if(ImGui::Button("Reload materials")) particles.reloadPending=true;
             if(ImGui::IsItemHovered()) ImGui::SetTooltip("Reloads %s",particles.materialPath.string().c_str());
@@ -897,10 +988,10 @@ int main(int argc, char** argv) {
             if(particles.visibility->supportsIndirect()) {ImGui::SameLine();ImGui::Checkbox("Indirect draw",&indirect);}
             if(ImGui::Checkbox("Free camera",&freeCamera)) {
                 releaseCamera();
-                if(freeCamera) flyCamera.fromOrbit(yaw,distance,elevation);
+                if(freeCamera) flyCamera.fromOrbit(yaw,distance,elevation,orbitTarget);
             }
             ImGui::SameLine();
-            if(ImGui::Button("Reset view")) {yaw=.65f;distance=24;elevation=12;flyCamera.fromOrbit(yaw,distance,elevation);releaseCamera();}
+            if(ImGui::Button("Reset view")) {yaw=.65f;distance=options.granular?8.0f:24.0f;elevation=options.granular?5.0f:12.0f;flyCamera.fromOrbit(yaw,distance,elevation,orbitTarget);releaseCamera();}
             if(freeCamera) {
                 ImGui::SliderFloat("Camera speed (m/s)",&cameraSpeed,1,25);
                 ImGui::TextWrapped("Click the scene: WASD move, Q/E down/up, Shift faster. Hold right mouse to look; Esc releases it.");
@@ -915,12 +1006,15 @@ int main(int argc, char** argv) {
             if(stats->cpuTimerFreq) ImGui::Text("CPU frame: %.2f ms",1000.0*double(stats->cpuTimeFrame)/double(stats->cpuTimerFreq));
             if(stats->gpuTimerFreq) ImGui::Text("GPU frame: %.2f ms",1000.0*double(stats->gpuTimeEnd-stats->gpuTimeBegin)/double(stats->gpuTimerFreq));
             ImGui::Text("Dropped wall time: %.3f s",lag);
-            ImGui::TextWrapped("GPU pool: spawn, remove, lifetime and box contacts. Pair collisions are pending.");
+            ImGui::TextWrapped(particles.granular?"Granular sphere contacts and bounded walls. Spawns are clipped to the enclosure.":"Ballistic pool: spawn, remove, lifetime and box contacts.");
             const auto panelPosition=ImGui::GetWindowPos(),panelSize=ImGui::GetWindowSize();
             ImGui::End();
             ImGui::SetNextWindowPos(ImVec2(492,16),ImGuiCond_FirstUseEver);
             ImGui::SetNextWindowSize(ImVec2(420,210),ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowCollapsed(true,ImGuiCond_FirstUseEver);
             ImGui::Begin("Recording");
+            if(particles.granular) ImGui::TextWrapped("Recording currently supports the ballistic solver. Switch off particle collisions to record or replay.");
+            ImGui::BeginDisabled(bool(particles.granular));
             ImGui::InputText("File",recordingPath,sizeof(recordingPath));
             ImGui::BeginDisabled(particles.session.active());
             if(ImGui::Button("Record preset from reset")) {
@@ -956,9 +1050,11 @@ int main(int argc, char** argv) {
             if(particles.session.hasRecording()) ImGui::Text("%llu ticks | %u applied commands",static_cast<unsigned long long>(particles.session.recording().ticks),unsigned(particles.session.recording().commands.size()));
             ImGui::TextWrapped("%s",particles.session.message().c_str());
             if(!recordingMessage.empty()) ImGui::TextWrapped("%s",recordingMessage.c_str());
+            ImGui::EndDisabled();
             ImGui::End();
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
+            if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount);resources.diagnosticTextures+=64;resources.diagnosticHost+=48;}
             memoryPeaks.observe(pw::reportedMemory(*stats));
             pw::drawResourceUsage(resources,*stats,memoryPeaks);
             const auto& input=ImGui::GetIO();
@@ -992,7 +1088,7 @@ int main(int argc, char** argv) {
             if(freeCamera) {
                 const auto& eye=flyCamera.position();const auto target=flyCamera.target();
                 bx::mtxLookAt(view,{eye[0],eye[1],eye[2]},{target[0],target[1],target[2]},{0,1,0},bx::Handedness::Right);
-            } else bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,3,0},{0,1,0},bx::Handedness::Right);
+            } else bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,orbitTarget,0},{0,1,0},bx::Handedness::Right);
             bx::mtxProj(projection,55,float(width)/float(height),0.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
             float viewProjection[16];bx::mtxMul(viewProjection,view,projection);
             if(pointerTool && focused && !cameraCaptured && !cancelCamera) {
@@ -1027,12 +1123,15 @@ int main(int argc, char** argv) {
                     } else if(brushClick && !input.WantCaptureMouse) particles.commandMessage="Brush missed the selected plane inside the world bounds";
                 }
             }
+            if(particles.granularFault) {paused=true;step=false;}
             auto batch=clock.advance(elapsed,paused,step); lag+=batch.droppedSeconds;
             for(unsigned i=0;i<batch.count;++i) {
                 const bool sessionWasActive=particles.session.active();
                 particles.tick(uint16_t(i+1));if(cosmetics && !sessionWasActive) cosmetics->tick(uint16_t(i+1));++ticks;
                 if(sessionWasActive && !particles.session.active()) {paused=true;clock.reset();break;}
             }
+            if(particles.granularDiagnostics && ticks && (frames%8==0 || step || !particles.granularDiagnostics->latest().valid))
+                particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)
                 particles.diagnostics->request(6,particles.pool->counts(),ticks);
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
@@ -1055,6 +1154,14 @@ int main(int argc, char** argv) {
             if(frameLimit && frames>=frameLimit) running=false;
         }
         releaseCamera();
+        if(particles.granularDiagnostics && ticks) {
+            while(particles.granularDiagnostics->pending()) particles.granularDiagnostics->poll(bgfx::frame());
+            particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
+            while(particles.granularDiagnostics->pending()) particles.granularDiagnostics->poll(bgfx::frame());
+            const auto& g=particles.granularDiagnostics->latest();
+            std::cout<<"Granular final status: error="<<g.active<<", caps="<<g.free<<", contacts="<<g.reserved<<", boundary_events="<<g.rejected<<"\n";
+            if(g.active) throw std::runtime_error("Granular solver fault remained latched at shutdown");
+        }
         std::cout << "Clean shutdown after " << ticks << " ticks\n";
         return 0;
     } catch(const std::exception& error) {std::cerr << "Particle World: " << error.what() << '\n';return 1;}

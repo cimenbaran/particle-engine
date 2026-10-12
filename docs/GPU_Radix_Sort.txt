@@ -3,12 +3,12 @@ GPU STABLE RADIX SORT
 GpuRadixSort sorts interleaved (uint32 key, uint32 slot) records by unsigned key.
 Equal-key records retain their input order. It operates on a separate record
 buffer and never receives persistent particle state. UINT32_MAX sorts last, so
-future key generation can use it for inactive records without confusing it with
+key generation uses it for inactive records without confusing it with
 a valid cell key. No physical particles are removed or moved by this utility.
 
-This is an isolated correctness implementation called by --gpu-test. It does
-not yet run in the live simulation. GPU key generation, occupied-cell ranges,
-exact-key hash lookup, neighbor consumption and contacts remain unfinished.
+The implementation is exercised by --gpu-test and the optional interactive
+granular mode, through the complete key/range/hash/contact pipeline. Broad
+stability and performance gates remain open; see GPU_Granular_Step.txt.
 
 The implementation uses 32 least-significant-bit-first stable partitions.
 For each bit, a kernel emits 1 for zero-bit records and 0 for one-bit records.

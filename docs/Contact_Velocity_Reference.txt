@@ -85,4 +85,5 @@ GPU implementation
 GpuContactVelocity implements this contract in isolated GPU tests. See
 GPU_Contact_Velocity.txt for snapshot layout, publication gates and validation.
 The CPU reference remains independent and uses all pairs rather than the GPU
-spatial index. Neither implementation is connected to live time stepping yet.
+spatial index. The GPU implementation participates in optional interactive
+granular stepping; the CPU oracle remains test-only.

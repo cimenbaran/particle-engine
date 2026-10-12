@@ -1,14 +1,14 @@
 GPU CELL-KEY GENERATION FOR THE INITIAL GRANULAR PROFILE
 
 GpuSpatialKeys emits an initialized (cellKey, physicalSlot) record for every
-configured slot. It currently runs only in explicit GPU tests, together with
-GpuRadixSort. It is not connected to live simulation or physical neighbor queries.
-GPU cell ranges, complete-index gating and domain-exit resolution remain open.
+configured slot. It feeds sorting, ranges, hashing and neighbor queries in GPU
+tests and optional interactive granular simulation. GPU_Granular_Step.txt describes
+whole-tick failure gating and the bounded domain.
 
 The first granular profile fixes origin (0,0,0), cell width 0.125 m, signed
 minimum cell (-64,0,-64) and dimensions (128,128,128). This covers the half-open
 box [-8,8) x [0,16) x [-8,8) and 2,097,152 collision-free keys. The cell width
-covers a proposed common 0.05 m contact radius's 0.10 m centre support. This
+equals the common 0.0625 m radius's 0.125 m centre support. This
 is a deliberate first-profile configuration, not general arbitrary-origin or
 arbitrary-width GPU coordinate support. CPU SpatialGrid remains more general.
 
