@@ -1,0 +1,17 @@
+D3D11 WARP SETTLING TRACKER VALIDATION
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38319532572
+Source: b30abb6d47f6401ee1978c5dde79635894880853
+Both Windows jobs failed the separate granular stability step.
+This evidence establishes tracker component/integration coverage only.
+It does not certify the new positional static-friction implementation or physical GPU performance.
+
+Job 115044034451, log sha256=bd2eeb2d24b8863ecce1851e17fd2a6a8123355d8b4e72d9b05ccf749244ca56
+build (windows-2022, windows-release, 256)	CPU invariants	2026-10-12T23:18:38.6004273Z 100% tests passed, 0 tests failed out of 12
+build (windows-2022, windows-release, 256)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:19:09.4577622Z GPU settling passed: 45 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+build (windows-2022, windows-release, 256)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:19:11.3093151Z GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+build (windows-2022, windows-release, 256)	D3D11 WARP granular stability fixtures	2026-10-12T23:19:59.1436087Z resting_pile_64: FAIL; max penetration 4.47391e-05; deep 0/86; speed 0.0177045; Settling window: >1% deep contacts or speed >0.1 m/s
+Job 115044034688, log sha256=4c3adacf4f7befebdd18e0883445f9a2a2d8a0e92178e5989b142e3211fcedc5
+build (windows-2022, windows-release, 128)	CPU invariants	2026-10-12T23:13:30.2009826Z 100% tests passed, 0 tests failed out of 12
+build (windows-2022, windows-release, 128)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:13:55.2659330Z GPU settling passed: 45 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+build (windows-2022, windows-release, 128)	D3D11 WARP correctness (software, not hardware certification)	2026-10-12T23:13:57.1418657Z GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+build (windows-2022, windows-release, 128)	D3D11 WARP granular stability fixtures	2026-10-12T23:14:30.1071676Z resting_pile_64: FAIL; max penetration 4.47391e-05; deep 0/86; speed 0.0177045; Settling window: >1% deep contacts or speed >0.1 m/s

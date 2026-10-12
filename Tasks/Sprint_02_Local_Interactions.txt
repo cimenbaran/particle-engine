@@ -19,8 +19,9 @@ high-speed wall shots. Both Metal workgroup variants pass the fixed small-scene
 settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
 limits. Windows WARP fails the resting-pile speed gate at both workgroup sizes; see
 ../docs/Position_Friction_Reference.txt and the associated CI result. The gate
-remains unchanged. Position-level friction has an independent CPU reference;
-GPU integration and resolution of the failure remain open.
+remains unchanged. Positional static friction is now integrated for pairs and
+walls (static_traction_v1), and all seven scenes pass on Metal 128/256.
+Resolution of the Windows failure awaits validation of source 6dad618.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain, detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
@@ -28,8 +29,9 @@ granular recordings, full shader reload and performance comparisons remain open.
 Settling state-machine and geometric reference preparation is described in
 ../docs/Settling_Candidates.txt. The GPU tracker matches those
 references and now runs in the interactive granular path; see ../docs/GPU_Settling.txt.
-Metal app-path tests prove candidates remain active and reset correctly. Windows
-validation of this integration remains pending.
+Metal and D3D11 WARP app-path tests prove candidates remain active and reset
+correctly. Run 38319532572 passes 45 tracker fixtures and live integration checks
+at both workgroup sizes; its separate pile-stability gate still fails.
 
 Material, speed, spatial-cell and settling debug views are available in the live
 granular UI; see ../docs/Particle_Debug_Views.txt. Collision normals and detailed
@@ -37,7 +39,10 @@ occupancy/probe/pair/timing instrumentation remain open.
 
 A live granular lifecycle soak is available through --granular --soak and is
 scheduled for 600 seconds in Windows CI; see ../docs/Granular_Soak.txt. Smoke tests
-do not complete the ten-minute gate. Long-run results remain to be inspected.
+do not complete the ten-minute gate. A pre-static-friction Metal run at be2636
+passed 600 seconds, 38763 ticks and 151 lifecycle cycles; evidence is in
+../tests/results/m3-max-granular-soak-600.txt. The current friction profile and
+D3D11 still require their own ten-minute results.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
