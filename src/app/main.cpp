@@ -25,6 +25,7 @@
 #include "render/GpuVelocityReconstruction.hpp"
 #include "render/GpuSweptBounds.hpp"
 #include "render/GpuGranularStep.hpp"
+#include "render/GpuGranularStability.hpp"
 #include "render/GpuContactVelocity.hpp"
 #include "render/ParticlePool.hpp"
 #include "render/PoolDiagnostics.hpp"
@@ -744,7 +745,7 @@ int main(int argc, char** argv) {
         const bool gpuTestOnly=options.gpuTest,allowIndirect=options.indirect;
         const bool benchmarking=!options.benchmark.empty();
         pw::Window window;
-        Graphics graphics(window,!benchmarking && !options.soakSeconds && options.replay.empty() && !options.softwareGpu,options.softwareGpu);
+        Graphics graphics(window,!benchmarking && !options.soakSeconds && !options.granularCheck && options.replay.empty() && !options.softwareGpu,options.softwareGpu);
         const auto* caps=bgfx::getCaps();
         auto capabilities=pw::capabilityReport(*caps,allowIndirect);
         capabilities["backend"]=bgfx::getRendererName(caps->rendererType);
@@ -769,6 +770,13 @@ int main(int argc, char** argv) {
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
         pw::runGpuAuditTest(assets);
+        if(options.granularCheck) {
+            auto report=pw::runGpuGranularStability(assets);report["software_renderer_requested"]=options.softwareGpu;
+            std::ifstream manifest(assets/"build.json");if(manifest)manifest>>report["build"];
+            const std::filesystem::path destination=options.report;if(destination.has_parent_path())std::filesystem::create_directories(destination.parent_path());
+            std::ofstream file(destination);file<<report.dump(2)<<'\n';file.close();if(!file)throw std::runtime_error("Cannot write granular stability report");
+            return report["passed"].get<bool>()?0:1;
+        }
         if(gpuTestOnly) {pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runGpuSpatialKeysTest(assets);pw::runGpuCellRangesTest(assets);pw::runGpuCellHashTest(assets);pw::runGpuNeighborsTest(assets);pw::runGpuJacobiContactsTest(assets);pw::runGpuVelocityReconstructionTest(assets);pw::runGpuContactVelocityTest(assets);pw::runGpuSweptBoundsTest(assets);pw::runGpuGranularStepTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
         std::optional<pw::CommandRecording> replay;
         if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));

@@ -1,0 +1,17 @@
+D3D11 WARP GRANULAR COORDINATOR VALIDATION
+Source: 5d9b9d23329f2672a4d0af3c5d3c1757189196ea
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38315365234
+All four matrix jobs completed successfully.
+Windows software renderer results follow; not physical GPU certification.
+This source predates interactive integration and the standalone stability runner.
+
+Workgroup 128, job 115030586794
+Log SHA256: ac2a0511d08a4767bc98d349d578dd629e398636bb8b2cfb5c00afe83c45bec1
+2026-10-12T22:34:00.2916999Z 100% tests passed, 0 tests failed out of 11
+2026-10-12T22:34:28.7034486Z GPU granular step passed: 22 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+
+Workgroup 256, job 115030586867
+Log SHA256: 326cd49739e3cc98173ef4dfb6d02023507acb20d37fbf33f106af442448e8e1
+2026-10-12T22:34:06.9271931Z 100% tests passed, 0 tests failed out of 11
+2026-10-12T22:34:35.9961660Z GPU granular step passed: 22 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+

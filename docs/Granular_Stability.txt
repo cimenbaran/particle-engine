@@ -1,0 +1,42 @@
+GRANULAR STABILITY FIXTURES
+
+Run the installed executable with --granular-check --report result.json.
+On macOS:
+  out/macos-release/ParticleWorld.app/Contents/MacOS/ParticleWorld --granular-check --report out/granular-stability.json
+On Windows, add --software-gpu for D3D11 WARP validation. The CI matrix runs
+this mode at both 128 and 256 threads and uploads the report and console log.
+Exit code 0 means all fixtures passed; 1 indicates failure. Setup/startup
+failures may exit before a JSON report exists; retain the console log as well.
+
+The fixed profile uses radius 0.0625 m, inverse mass 1, restitution 0,
+friction 0.5, four substeps, four Jacobi iterations and a 12 m/s speed cap.
+Five fixtures run 600 ticks each: a falling column of 16, a resting cube of
+64, a cube against a wall, 64 coincident spawns, and 64 particles in a closed
+zero-gravity dissipative fixture. There are also 129 high-speed wall shots
+(30 ticks) and a grazing floor particle (60 ticks). Total: 3,090 ticks.
+The initial arrays and deterministic seeded velocities are recorded in JSON.
+
+At tick 1, every 30 ticks and the final tick, readback checks finite state,
+immutable input bytes, persistent identity/material/mass, lifetime arithmetic,
+inset enclosure containment and the speed cap. Solver faults latch every tick.
+Age is checked against repeated float substeps; drift from real-valued elapsed
+time is reported separately. Fixtures do not exercise pool allocation; the
+separate --gpu-test app-path audit covers membership and allocation invariants.
+
+For each settling fixture, every sampled state in the final two seconds must
+have at most 1% of contacts penetrating more than 10% of radius and maximum
+speed at most 0.1 m/s. Contacts use centre distance <= 0.1251 m. The report also
+records gravitational potential and mechanical energy. A cube can collapse
+from a temporary symmetric arrangement, lowering gravitational energy; an
+early snapshot alone is not sufficient evidence of settling.
+
+The two closed-energy fixtures must never exceed initial kinetic energy at a
+sample and must finish no higher than their halfway sample, within 1e-4 times
+max(1, initial energy). This is sampled evidence, not an every-tick energy proof.
+Coincident initial overlaps can inject projection energy and are assessed for
+bounded speed and eventual settling, not conservation of initial energy.
+
+These small fixtures establish reproducible regression coverage. They do not
+certify arbitrary scene stability, physical D3D11 hardware, interior terrain,
+performance, or ten-minute soaks. Elapsed time includes readbacks and setup.
+See tests/results/m3-max-granular-stability.txt for local Metal measurements.

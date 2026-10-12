@@ -51,6 +51,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $executable --software-gpu --gpu-test 2>&1 | Tee-Object -FilePath "out/warp-gpu-test.txt"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: D3D11 WARP granular stability fixtures
+        if: runner.os == 'Windows'
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          $executable = Join-Path $PWD "out/${{ matrix.preset }}/ParticleWorld.exe"
+          & $executable --software-gpu --granular-check --report "out/granular-stability.json" 2>&1 | Tee-Object -FilePath "out/granular-stability.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: D3D11 WARP replay regression
         if: runner.os == 'Windows'
         timeout-minutes: 7
@@ -62,6 +70,8 @@ jobs:
           path: |
             out/warp-capabilities.json
             out/warp-gpu-test.txt
+            out/granular-stability.json
+            out/granular-stability.txt
             out/replay-regression/
       - uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,30 @@
+METAL GRANULAR STABILITY - APPLE M3 MAX, 48 GB
+Date: 2026-10-13
+Base source: aa5984ec19bcca6492b1604a9288e808996dfd0e plus the stability runner in this commit.
+Physics implementation unchanged from base. Reports record a dirty build manifest.
+Both variants: 11/11 CTests passed; restored default build to 128 threads.
+
+out/granular-stability-final128.json
+SHA256: 0e96341edb5704d7d0f45b32a701d62fedaa86cf2d23be925c6ecd2c448d35c1
+Backend: Metal; workgroup: 128; passed: True
+  falling_column_16: 600 ticks, passed=True, final penetration=0.00151537359, tail max speed=7.68862665e-05, initial/max sampled energy=0/192.47234
+  resting_pile_64: 600 ticks, passed=True, final penetration=7.31207404e-05, tail max speed=0.0689236252, initial/max sampled energy=0/15.6323704
+  wall_pile_64: 600 ticks, passed=True, final penetration=2.97930092e-05, tail max speed=0.0500357601, initial/max sampled energy=128/128
+  coincident_spawn_64: 600 ticks, passed=True, final penetration=2.53617764e-05, tail max speed=5.27128577e-07, initial/max sampled energy=0/4178.18596
+  closed_dissipative_64: 600 ticks, passed=True, final penetration=0, tail max speed=1.77779451, initial/max sampled energy=130.648799/130.648799
+  high_speed_wall_129: 30 ticks, passed=True, final penetration=0, tail max speed=0, initial/max sampled energy=64500000/64500000
+  grazing_floor: 60 ticks, passed=True, final penetration=0, tail max speed=3, initial/max sampled energy=4.5/4.5
+
+out/granular-stability256.json
+SHA256: 8227d381124365e46f1657762220f26aeabef92e725287a19fc5adb8e488bb5b
+Backend: Metal; workgroup: 256; passed: True
+  falling_column_16: 600 ticks, passed=True, final penetration=0.00151537359, tail max speed=7.68862665e-05, initial/max sampled energy=0/192.47234
+  resting_pile_64: 600 ticks, passed=True, final penetration=7.31207404e-05, tail max speed=0.0689236252, initial/max sampled energy=0/15.6323704
+  wall_pile_64: 600 ticks, passed=True, final penetration=2.97930092e-05, tail max speed=0.0500357601, initial/max sampled energy=128/128
+  coincident_spawn_64: 600 ticks, passed=True, final penetration=2.53617764e-05, tail max speed=5.27128577e-07, initial/max sampled energy=0/4178.18596
+  closed_dissipative_64: 600 ticks, passed=True, final penetration=0, tail max speed=1.77779451, initial/max sampled energy=130.648799/130.648799
+  high_speed_wall_129: 30 ticks, passed=True, final penetration=0, tail max speed=0, initial/max sampled energy=64500000/64500000
+  grazing_floor: 60 ticks, passed=True, final penetration=0, tail max speed=3, initial/max sampled energy=4.5/4.5
+
+These results are fixed sampled fixtures, not performance or soak certification.
+See docs/Granular_Stability.txt for assertions, cadence and limitations.

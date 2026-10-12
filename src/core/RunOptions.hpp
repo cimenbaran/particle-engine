@@ -7,7 +7,7 @@
 namespace pw {
 struct RunOptions {
     std::uint32_t capacity=16384,cosmeticCapacity=16384,frames=0,warmup=120,soakSeconds=0;
-    bool gpuTest=false,indirect=true,softwareGpu=false,granular=false;
+    bool gpuTest=false,indirect=true,softwareGpu=false,granular=false,granularCheck=false;
     std::string benchmark,report,capabilities,scene,replay;
 };
 inline RunOptions parseOptions(int argc,char** argv) {
@@ -33,20 +33,25 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--capabilities") {options.capabilities=value(i);if(options.capabilities.empty()) throw std::runtime_error("Empty capability report path");}
         else if(arg=="--scene") {options.scene=value(i);if(options.scene.empty()) throw std::runtime_error("Empty scene path");}
         else if(arg=="--replay") {options.replay=value(i);if(options.replay.empty()) throw std::runtime_error("Empty replay path");}
+        else if(arg=="--granular-check") options.granularCheck=true;
         else if(arg=="--granular") options.granular=true;
         else if(arg=="--no-indirect") options.indirect=false;
         else if(arg=="--gpu-test") options.gpuTest=true;
         else if(arg=="--software-gpu") options.softwareGpu=true;
-        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--granular] [--gpu-test] [--software-gpu] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
+        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--granular] [--granular-check --report path.json] [--gpu-test] [--software-gpu] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
+    if(options.granularCheck && (options.report.empty() || options.granular || options.gpuTest || options.soakSeconds ||
+       !options.benchmark.empty() || !options.replay.empty() || !options.capabilities.empty() || !options.scene.empty() ||
+       options.frames || specifiedWarmup || specifiedCapacity || specifiedCosmetics))
+        throw std::runtime_error("--granular-check requires --report and uses fixed validation fixtures");
     if(options.granular) {
         if(options.gpuTest || options.soakSeconds || !options.benchmark.empty() || !options.replay.empty() || !options.capabilities.empty())
             throw std::runtime_error("--granular currently supports interactive/bounded-frame runs only");
         if(!specifiedCapacity) options.capacity=512;
         if(!specifiedCosmetics) options.cosmeticCapacity=0;
     }
-    if(options.softwareGpu && !options.gpuTest && options.capabilities.empty() && options.replay.empty())
-        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests, replay or capability reporting");
+    if(options.softwareGpu && !options.gpuTest && !options.granularCheck && options.capabilities.empty() && options.replay.empty())
+        throw std::runtime_error("--software-gpu is restricted to Windows GPU tests, granular checks, replay or capability reporting");
     if(specifiedCosmetics && (options.gpuTest || options.soakSeconds || !options.replay.empty() || !options.capabilities.empty()))
         throw std::runtime_error("--cosmetic-capacity is for interactive, bounded-frame or benchmark runs only");
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||
@@ -58,7 +63,7 @@ inline RunOptions parseOptions(int argc,char** argv) {
         throw std::runtime_error("--capabilities cannot combine with execution modes or timing/report options");
     if(options.soakSeconds && (options.report.empty() || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup))
         throw std::runtime_error("--soak requires --report and cannot combine with GPU-test, benchmark, frames or warmup modes");
-    if(!options.report.empty() && !options.soakSeconds && options.replay.empty()) throw std::runtime_error("--report requires --soak or --replay");
+    if(!options.report.empty() && !options.soakSeconds && options.replay.empty() && !options.granularCheck) throw std::runtime_error("--report requires --soak, --replay or --granular-check");
     if(options.gpuTest && !options.benchmark.empty()) throw std::runtime_error("GPU tests and benchmark modes are mutually exclusive");
     if(specifiedWarmup && options.benchmark.empty()) throw std::runtime_error("--warmup requires --benchmark");
     if(!options.benchmark.empty()) {

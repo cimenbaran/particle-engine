@@ -58,3 +58,6 @@ recording controls, pause, reset and exactly one tick after reset. Panels start
 collapsed so they do not obscure the simulation. See the associated local result
 file. General pile stability, Windows interactive validation, granular recording,
 full hot reload, interior terrain, benchmarks and ten-minute soaks remain open.
+
+Fixed small-scene settling and energy regression checks are now available via
+--granular-check; see Granular_Stability.txt for their scope and limits.

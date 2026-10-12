@@ -5,37 +5,22 @@ Planning window: Weeks 5-6; extend if the granular correctness gate fails.
 Dependencies: Sprint 1 foundation and core gates.
 Source: Particle_World_Design.docx, sections 3-6 and 11-13.
 
-Preparation status: CPU coordinate/key/range/neighbor references and topology
-tests are available in ../docs/Spatial_Grid_Reference.txt. Live GPU indexing, exit
-resolution and all Sprint 2 completion gates remain open. An isolated GPU
-prefix-scan utility and stable radix sort passed Metal tests in both workgroup
-variants; see ../docs/GPU_Prefix_Scan.txt and ../docs/GPU_Radix_Sort.txt.
-GPU key emission and occupied-cell ranges are under isolated validation in
-../docs/GPU_Spatial_Keys.txt and ../docs/GPU_Cell_Ranges.txt.
-Exact-key GPU hashing and failure-gated queries are covered by
-../docs/GPU_Cell_Hash.txt. Shared support-aware traversal and full GPU-pipeline
-membership fixtures are described in ../docs/GPU_Neighbors.txt. Live neighbor
-consumption and index recovery remain open. An isolated position-only Jacobi
-iteration is described in ../docs/GPU_Jacobi_Contacts.txt; live time stepping,
-terrain handling and stability gates remain open.
-Position-derived velocity reconstruction is validated separately in
-../docs/GPU_Velocity_Reconstruction.txt. Restitution/friction have an independent
-CPU reference and invariant fixtures in ../docs/Contact_Velocity_Reference.txt;
-the isolated GPU response is described in ../docs/GPU_Contact_Velocity.txt.
-Live granular integration and cross-backend response validation remain open.
+Implementation status: GPU signed-grid keys, scan, radix sort, occupied ranges,
+exact-key hashing and support-aware traversal feed the live granular solver.
+Jacobi contacts, correction-relative velocity reconstruction, restitution and
+friction, swept enclosure boundaries, substeps and speed diagnostics are
+integrated. Faults latch and stop publication until reset. The interactive
+collision toggle/--granular mode is described in ../docs/Interactive_Granular.txt;
+component contracts and CPU-reference coverage are in the GPU_* documents.
 
-Swept boundary and fixed substep reference preparation is described in
-../docs/Swept_Bounds_Reference.txt. The isolated GPU boundary pass is described in
-../docs/GPU_Swept_Bounds.txt. Visible speed-cap diagnostics, interior terrain and
-live boundary integration remain open.
-
-Optional inset constraints in the Jacobi pass and correction-relative velocity
-reconstruction now support chaining swept prediction into contacts. See the
-updated Jacobi/reconstruction docs. A complete isolated tick coordinator now
-chains these components with forces, lifetimes and whole-tick rollback; see
-../docs/GPU_Granular_Step.txt. Interactive integration is available through the collision toggle/--granular;
-see ../docs/Interactive_Granular.txt. Recording profiles and broad stability gates
-remain open.
+The separate --granular-check runner now covers falling columns, resting and
+wall piles, coincident spawns, closed dissipative motion, grazing contact and
+high-speed wall shots. Both Metal workgroup variants pass the fixed small-scene
+settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
+limits. Windows execution is added to CI; results must be verified separately.
+These fixtures do not complete the broad stability or ten-minute soak gates.
+Settling-candidate hysteresis, interior terrain, detailed debug views/metrics,
+granular recordings, full shader reload and performance comparisons remain open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
