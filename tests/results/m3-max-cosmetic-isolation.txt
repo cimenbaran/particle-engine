@@ -1,0 +1,62 @@
+Packaged Metal verification; launched from /tmp
+Build manifest:
+{
+  "schema": 1,
+  "binary_sha256": "794fe20145777579c54301be98e0bec900252a5cc1b225925631916dd0e34c0e",
+  "git_commit": "3c3c4611ca3194186da577d5cce10c328551a80e",
+  "worktree_dirty": false,
+  "compiler_id": "AppleClang",
+  "compiler_version": "21.0.0.21000099"
+}
+
+Backend: "Metal"; capability status: "supported"
+Submission: compact visible instances; workgroup: 128
+GPU material ABI round-trip passed: 7 profiles
+GPU ABI + ordered compute round-trip passed: 1 particles
+GPU gravity/contact CPU-reference check passed: 1 particles
+GPU render records/color/class/IDs passed: 1 particles
+GPU ABI + ordered compute round-trip passed: 127 particles
+GPU gravity/contact CPU-reference check passed: 127 particles
+GPU render records/color/class/IDs passed: 127 particles
+GPU ABI + ordered compute round-trip passed: 128 particles
+GPU gravity/contact CPU-reference check passed: 128 particles
+GPU render records/color/class/IDs passed: 128 particles
+GPU ABI + ordered compute round-trip passed: 129 particles
+GPU gravity/contact CPU-reference check passed: 129 particles
+GPU render records/color/class/IDs passed: 129 particles
+GPU ABI + ordered compute round-trip passed: 255 particles
+GPU gravity/contact CPU-reference check passed: 255 particles
+GPU render records/color/class/IDs passed: 255 particles
+GPU ABI + ordered compute round-trip passed: 256 particles
+GPU gravity/contact CPU-reference check passed: 256 particles
+GPU render records/color/class/IDs passed: 256 particles
+GPU ABI + ordered compute round-trip passed: 257 particles
+GPU gravity/contact CPU-reference check passed: 257 particles
+GPU render records/color/class/IDs passed: 257 particles
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 1 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 127 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 128 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 129 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 255 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 256 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 257 slots
+GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: 16384 slots
+GPU frustum/compaction/masked fallback passed: 1 slots
+GPU frustum/compaction/masked fallback passed: 127 slots
+GPU frustum/compaction/masked fallback passed: 128 slots
+GPU frustum/compaction/masked fallback passed: 129 slots
+GPU frustum/compaction/masked fallback passed: 255 slots
+GPU frustum/compaction/masked fallback passed: 256 slots
+GPU frustum/compaction/masked fallback passed: 257 slots
+GPU frustum/compaction/masked fallback passed: 16384 slots
+GPU frustum/compaction/indirect passed: 1 slots
+GPU frustum/compaction/indirect passed: 127 slots
+GPU frustum/compaction/indirect passed: 128 slots
+GPU frustum/compaction/indirect passed: 129 slots
+GPU frustum/compaction/indirect passed: 255 slots
+GPU frustum/compaction/indirect passed: 256 slots
+GPU frustum/compaction/indirect passed: 257 slots
+GPU frustum/compaction/indirect passed: 16384 slots
+GPU audit clean/empty, injected ownership/numeric/identity faults and error latching passed
+Shader reload passed: missing/corrupt candidates, atomic rollback, duplicate targets and repeated swaps with GPU execution
+GPU physical/cosmetic isolation, independent overflow, expiry, reuse and reset passed

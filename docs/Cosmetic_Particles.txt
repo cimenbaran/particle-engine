@@ -54,3 +54,7 @@ Validation on Metal
 - 120-frame runs with cosmetics disabled and at 150,000-slot cosmetic capacity
   shut down cleanly. This checks allocation/lifecycle, not maximum live effects
   throughput. D3D11 and mixed-scene reference-machine timing remain unverified.
+
+Packaged evidence: tests/results/m3-max-cosmetic-isolation.txt contains the
+clean build manifest, executable SHA256 and GPU suite output for implementation
+commit 3c3c461. The package ran from /tmp using its own bundled assets.
