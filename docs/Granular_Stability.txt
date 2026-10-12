@@ -40,3 +40,22 @@ These small fixtures establish reproducible regression coverage. They do not
 certify arbitrary scene stability, physical D3D11 hardware, interior terrain,
 performance, or ten-minute soaks. Elapsed time includes readbacks and setup.
 See tests/results/m3-max-granular-stability.txt for local Metal measurements.
+
+Per-particle diagnostic snapshots
+Each verified sample now includes particle_state: persistent slot/generation,
+position, velocity, radius and inverse mass for every fixture particle. These
+come from the existing readback; no extra GPU passes, samples or gate changes
+are introduced. fastest_particle selects the lowest slot on an exact speed tie
+and records its speed, six signed wall gaps and nearby particle geometry.
+Wall-gap order is x-min, x-max, y-min, y-max, z-min, z-max. Negative surface gap
+means penetration. Nearby records are within 0.002 m surface separation. Their
+unit normals point from the other body toward the fastest body; negative relative
+normal speed means approach. Coincident centres have null normal/speed components,
+not a fabricated geometric normal. These are geometric observations after a tick,
+not the actual sequence of normals or impulses used during its solver iterations.
+
+Snapshot fields are diagnostic additions to schema 1. They are not a recording
+format and cannot yet be passed to the replay CLI. Existing initial_state and
+invariant metadata remain authoritative for the fixed workload. This information
+supports comparing backend trajectories and identifying the body responsible for
+a sampled settling violation, rather than inferring a cause from maximum speed.

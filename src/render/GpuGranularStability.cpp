@@ -38,6 +38,41 @@ Metrics measure(const std::vector<ParticleGpu>& state,float gravity) {
             const double distance=std::sqrt(squared);if(distance<=0.1251){++m.contacts;const double overlap=std::max(0.0,0.125-distance);m.maxPenetration=std::max(m.maxPenetration,overlap);if(overlap>0.00625)++m.deep;}}
     }return m;
 }
+// Read-only forensic data from an already verified sample. This adds no GPU
+// submissions and does not participate in any gate or simulation decision.
+Json inspectSample(const std::vector<ParticleGpu>& state) {
+    Json particles=Json::array();unsigned fastest=0;double maximum=-1;
+    for(unsigned i=0;i<state.size();++i){const auto& p=state[i];double squared=0;
+        for(unsigned a=0;a<3;++a)squared+=double(p.velocityInvMass[a])*p.velocityInvMass[a];
+        if(squared>maximum){maximum=squared;fastest=i;}
+        particles.push_back({{"slot",p.identity[2]},{"generation",p.identity[3]},
+            {"position",{p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]}},
+            {"velocity",{p.velocityInvMass[0],p.velocityInvMass[1],p.velocityInvMass[2]}},
+            {"radius",p.positionRadius[3]},{"inverse_mass",p.velocityInvMass[3]}});
+    }
+    if(state.empty())return {{"particle_state",particles},{"fastest_particle",nullptr}};
+    const auto& query=state[fastest];Json near=Json::array(),walls=Json::array();
+    for(unsigned axis=0;axis<3;++axis){
+        walls.push_back(double(query.positionRadius[axis])-(axis==1?0.0:-8.0)-query.positionRadius[3]);
+        walls.push_back((axis==1?16.0:8.0)-double(query.positionRadius[axis])-query.positionRadius[3]);
+    }
+    for(unsigned i=0;i<state.size();++i){if(i==fastest)continue;
+        std::array<double,3> delta{},relative{};double squared=0;
+        for(unsigned a=0;a<3;++a){delta[a]=double(query.positionRadius[a])-state[i].positionRadius[a];squared+=delta[a]*delta[a];relative[a]=double(query.velocityInvMass[a])-state[i].velocityInvMass[a];}
+        const double distance=std::sqrt(squared),gap=distance-query.positionRadius[3]-state[i].positionRadius[3];
+        if(gap>0.002)continue;
+        Json contact={{"slot",state[i].identity[2]},{"surface_gap",gap},{"normal",nullptr},{"relative_normal_speed",nullptr},{"relative_tangent_speed",nullptr}};
+        if(distance>0){
+            for(double& d:delta)d/=distance;
+            double normalSpeed=0;for(unsigned a=0;a<3;++a)normalSpeed+=relative[a]*delta[a];
+            double tangentSquared=0;for(unsigned a=0;a<3;++a){const double v=relative[a]-normalSpeed*delta[a];tangentSquared+=v*v;}
+            contact["normal"]=delta;contact["relative_normal_speed"]=normalSpeed;contact["relative_tangent_speed"]=std::sqrt(tangentSquared);
+        }
+        near.push_back(std::move(contact));
+    }
+    return {{"particle_state",std::move(particles)},{"fastest_particle",{{"slot",query.identity[2]},
+        {"speed",std::sqrt(maximum)},{"wall_gaps",std::move(walls)},{"nearby_particles",std::move(near)}}}};
+}
 Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
     const auto started=std::chrono::steady_clock::now();const auto count=std::uint32_t(scene.state.size());
     Json result={{"name",scene.name},{"capacity",count},{"requested_ticks",scene.ticks},{"gravity",scene.gravity},{"settling_required",scene.settling},{"closed_energy_required",scene.closed},{"cap_required",scene.requiresCap},{"samples",Json::array()},{"passed",false},{"failure",""}};
@@ -85,6 +120,7 @@ Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
             }
             final=measure(state,scene.gravity);maxEnergy=std::max(maxEnergy,final.kinetic);sawCap|=status[1]>0;
             result["samples"].push_back({{"tick",tick},{"age_error_seconds",double(state[0].thermalState[3])-tick/60.0},{"energy",final.kinetic},{"potential_energy",final.potential},{"mechanical_energy",final.kinetic+final.potential},{"max_speed",final.maxSpeed},{"contacts",final.contacts},{"deep_contacts",final.deep},{"max_penetration",final.maxPenetration},{"solver_caps",status[1]},{"solver_max_degree",status[2]},{"boundary_events",status[3]}});
+            result["samples"].back().update(inspectSample(state));
             if(final.maxSpeed>12.0001)throw std::runtime_error("Speed limit exceeded");
             if(tick==scene.ticks/2)tailEnergy=final.kinetic;
             if(tick>=scene.ticks-std::min(120u,scene.ticks)) {tailMaxSpeed=std::max(tailMaxSpeed,final.maxSpeed);tailOverlapPassed&=std::uint64_t(final.deep)*100<=final.contacts;}
@@ -120,7 +156,7 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
         if(!result["passed"].get<bool>())report["passed"]=false;report["scenes"].push_back(std::move(result));
     }
     const auto* caps=bgfx::getCaps();report["machine"]={{"platform",SDL_GetPlatform()},{"ram_mb",SDL_GetSystemRAM()},{"vendor_id",caps->vendorId},{"device_id",caps->deviceId}};
-    report["notes"]={"Snapshots at tick 1 and every 30 ticks; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark."};
+    report["notes"]={"Snapshots at tick 1 and every 30 ticks; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark.","Each verified sample records all particle positions/velocities and the fastest particle nearby-contact geometry; these fields do not change gates.","Fastest-particle wall gaps are x-min, x-max, y-min, y-max, z-min, z-max; nearby normals point toward that particle, and negative normal speed means approach."};
     return report;
 }
 }
