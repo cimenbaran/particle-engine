@@ -1,4 +1,6 @@
 #include "platform/Window.hpp"
+#include "Benchmark.hpp"
+#include "core/RunOptions.hpp"
 #include "core/FixedStep.hpp"
 #include "core/CommandQueue.hpp"
 #include "core/ParticleTypes.hpp"
@@ -26,9 +28,8 @@
 #include <cstdlib>
 
 namespace {
-constexpr uint32_t particleCount = 16384;
 struct Graphics {
-    Graphics(pw::Window& window) {
+    Graphics(pw::Window& window,bool vsync=true) {
         int w, h; window.drawable(w,h);
         bgfx::Init init;
 #if defined(__APPLE__)
@@ -40,7 +41,7 @@ struct Graphics {
         init.fallback = false;
         init.profile = true;
         init.swapChain.width = uint32_t(w); init.swapChain.height = uint32_t(h);
-        init.reset = BGFX_RESET_VSYNC;
+        init.reset = vsync?BGFX_RESET_VSYNC:0;
         if (!bgfx::init(init)) throw std::runtime_error("bgfx initialization failed for the required platform backend");
     }
     ~Graphics() { bgfx::shutdown(); }
@@ -55,6 +56,7 @@ struct GuiContext {
     ~GuiContext() { ImGui_ImplSDL3_Shutdown(); ImGui::DestroyContext(); }
 };
 struct Particles {
+    const uint32_t particleCount;
     bgfx::DynamicVertexBufferHandle state[2]{BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE};
     bgfx::DynamicVertexBufferHandle instances = BGFX_INVALID_HANDLE;
     bgfx::VertexBufferHandle vertices = BGFX_INVALID_HANDLE;
@@ -75,7 +77,7 @@ struct Particles {
     std::vector<std::uint32_t> liveMaterialIds;
     int sceneMaterial=-1; // -1 mixes the available solid profiles.
     bool reloadPending=false;
-    explicit Particles(const std::filesystem::path& assets) {
+    explicit Particles(const std::filesystem::path& assets,uint32_t capacity):particleCount(capacity) {
         try {
             compute = pw::loadCompute(assets, "cs_particles");
             initialize = pw::loadCompute(assets, "cs_reset");
@@ -135,7 +137,7 @@ struct Particles {
         if(bgfx::isValid(uniform)) bgfx::destroy(uniform);
     }
     ~Particles() { release(); }
-    void reset(uint32_t initialCount=particleCount) {
+    void reset(uint32_t initialCount=UINT32_MAX) {
         diagnostics->beginEpoch();
         visibleDiagnostics->beginEpoch();
         bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
@@ -230,18 +232,98 @@ struct Particles {
         else bgfx::submit(view,draw);
     }
 };
+int runBenchmark(pw::Window& window,Particles& particles,const std::filesystem::path& assets,const pw::RunOptions& options) {
+    constexpr int width=1920,height=1080;
+    int windowWidth,windowHeight;window.drawable(windowWidth,windowHeight);
+    struct Target {
+        bgfx::TextureHandle color=BGFX_INVALID_HANDLE,depth=BGFX_INVALID_HANDLE,readback=BGFX_INVALID_HANDLE;
+        bgfx::FrameBufferHandle frame=BGFX_INVALID_HANDLE;
+        ~Target() {
+            bgfx::setViewFrameBuffer(10,BGFX_INVALID_HANDLE);
+            if(bgfx::isValid(frame)) bgfx::destroy(frame);
+            if(bgfx::isValid(readback)) bgfx::destroy(readback);
+            if(bgfx::isValid(depth)) bgfx::destroy(depth);
+            if(bgfx::isValid(color)) bgfx::destroy(color);
+        }
+    } target;
+    target.color=bgfx::createTexture2D(width,height,false,1,bgfx::TextureFormat::RGBA8,BGFX_TEXTURE_RT);
+    target.depth=bgfx::createTexture2D(width,height,false,1,bgfx::TextureFormat::D32F,BGFX_TEXTURE_RT);
+    if(!bgfx::isValid(target.color) || !bgfx::isValid(target.depth)) throw std::runtime_error("Benchmark render target unavailable");
+    const bgfx::TextureHandle attachments[]{target.color,target.depth};
+    target.frame=bgfx::createFrameBuffer(2,attachments,false);
+    if(!bgfx::isValid(target.frame)) throw std::runtime_error("Benchmark framebuffer unavailable");
+    bgfx::setViewFrameBuffer(10,target.frame);
+    const auto* caps=bgfx::getCaps();
+    const bool indirect=options.indirect && particles.visibility->supportsIndirect();
+    pw::Benchmark benchmark(options);
+    float view[16],projection[16],viewProjection[16];
+    bx::mtxLookAt(view,{std::sin(.65f)*24,12,std::cos(.65f)*24},{0,3,0},{0,1,0},bx::Handedness::Right);
+    bx::mtxProj(projection,55,float(width)/height,.1f,150,caps->homogeneousDepth,bx::Handedness::Right);
+    bx::mtxMul(viewProjection,view,projection);
+    const auto frustum=pw::extractFrustum(viewProjection,caps->homogeneousDepth);
+    bgfx::setViewRect(10,0,0,uint16_t(width),uint16_t(height));
+    bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x101925ff,1.0f,0);
+    bgfx::setViewTransform(10,view,projection);
+    // Finish the seed upload before warmup; one fixed tick per benchmark frame.
+    bgfx::frame();
+    const uint64_t total=uint64_t(options.warmup)+options.frames;
+    std::chrono::steady_clock::time_point measuredBegin;
+    for(uint64_t frame=0;frame<total;++frame) {
+        if(frame==options.warmup) {
+            particles.diagnostics->request(6,particles.pool->counts(),frame);
+            while(particles.diagnostics->pending()) {particles.diagnostics->poll(bgfx::frame());SDL_PumpEvents();}
+            measuredBegin=std::chrono::steady_clock::now();
+        }
+        const auto begin=std::chrono::steady_clock::now();
+        SDL_Event event;
+        while(SDL_PollEvent(&event)) if(event.type==SDL_EVENT_QUIT || event.type==SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+            throw std::runtime_error("Benchmark cancelled");
+        int w,h;window.drawable(w,h);
+        if(w!=windowWidth || h!=windowHeight || (SDL_GetWindowFlags(window.get())&SDL_WINDOW_MINIMIZED))
+            throw std::runtime_error("Benchmark interrupted by resize/minimize");
+        particles.tick(1);
+        particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
+        bgfx::touch(10);particles.render(10,indirect);
+        const auto submitted=bgfx::frame();
+        const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
+        if(frame>=options.warmup) benchmark.add(submitted,frame+1,ms);
+        benchmark.collect(*bgfx::getStats());
+    }
+    // Bounded drain for delayed GPU timestamps; excluded from measured samples.
+    for(unsigned i=0;i<32 && benchmark.gpuSamples()<options.frames;++i) {
+        bgfx::frame();benchmark.collect(*bgfx::getStats());SDL_PumpEvents();
+    }
+    particles.diagnostics->request(6,particles.pool->counts(),total);
+    particles.visibleDiagnostics->request(6,particles.visibility->counts(),total);
+    while(particles.diagnostics->pending() || particles.visibleDiagnostics->pending()) {
+        const auto frame=bgfx::frame();particles.diagnostics->poll(frame);particles.visibleDiagnostics->poll(frame);SDL_PumpEvents();
+    }
+    benchmark.setCompletedWall(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-measuredBegin).count());
+    target.readback=bgfx::createTexture2D(width,height,false,1,bgfx::TextureFormat::RGBA8,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
+    if(!bgfx::isValid(target.readback)) throw std::runtime_error("Benchmark image validation allocation failed");
+    std::vector<uint32_t> pixels(width*height);
+    bgfx::TextureRegion dst;dst.handle=target.readback;bgfx::TextureRegion src;src.handle=target.color;
+    bgfx::blit(7,dst,src);const auto imageReady=bgfx::read(dst,pixels.data());
+    while(bgfx::frame()<imageReady) SDL_PumpEvents();
+    const auto& counts=particles.diagnostics->latest();
+    const auto& visible=particles.visibleDiagnostics->latest();
+    if(!counts.valid || !visible.valid || counts.active!=options.capacity || counts.free!=0 || visible.active>counts.active)
+        throw std::runtime_error("Benchmark final GPU counts failed validation");
+    const auto differentPixels=uint32_t(std::count_if(pixels.begin(),pixels.end(),[&](auto pixel){return pixel!=pixels.front();}));
+    if(!differentPixels) throw std::runtime_error("Benchmark rendered a uniform image instead of particles");
+    benchmark.write(assets,width,height,indirect,counts.active,visible.active,differentPixels,*caps);
+    return 0;
+}
+
 }
 int main(int argc, char** argv) {
     try {
-        uint32_t frameLimit=0; bool gpuTestOnly=false,allowIndirect=true;
-        for(int i=1;i<argc;++i) {
-            if(std::string(argv[i])=="--frames" && i+1<argc) frameLimit=std::stoul(argv[++i]);
-            else if(std::string(argv[i])=="--no-indirect") allowIndirect=false;
-            else if(std::string(argv[i])=="--gpu-test") gpuTestOnly=true;
-            else throw std::runtime_error("Usage: ParticleWorld [--frames count] [--gpu-test] [--no-indirect]");
-        }
+        const auto options=pw::parseOptions(argc,argv);
+        const auto frameLimit=options.frames;
+        const bool gpuTestOnly=options.gpuTest,allowIndirect=options.indirect;
+        const bool benchmarking=!options.benchmark.empty();
         pw::Window window;
-        Graphics graphics(window);
+        Graphics graphics(window,!benchmarking);
         const auto* caps=bgfx::getCaps();
         const uint64_t required=BGFX_CAPS_COMPUTE;
         std::cout << "Backend: " << bgfx::getRendererName(caps->rendererType) << '\n';
@@ -256,9 +338,11 @@ int main(int argc, char** argv) {
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
         if(gpuTestOnly) return 0;
+        Particles particles(assets,options.capacity);
+        if(benchmarking) return runBenchmark(window,particles,assets,options);
         GuiContext gui(window.get());
         pw::ImGuiRenderer guiRenderer(assets);
-        Particles particles(assets);
+
         pw::FixedStep clock;
         bool running=true,paused=false,cull=true;
         bool indirect=allowIndirect && particles.visibility->supportsIndirect();
@@ -298,7 +382,7 @@ int main(int argc, char** argv) {
             ImGui::SetNextWindowSize(ImVec2(460,680),ImGuiCond_FirstUseEver);
             ImGui::Begin("Particle World - foundation");
             ImGui::Text("Backend: %s",bgfx::getRendererName(caps->rendererType));
-            ImGui::Text("Capacity: %u | Seed: 42",particleCount);
+            ImGui::Text("Capacity: %u | Seed: 42",particles.particleCount);
             const auto& poolStats=particles.diagnostics->latest();
             if(poolStats.valid) {
                 ImGui::Text("Active: %u | Free: %u",poolStats.active,poolStats.free);

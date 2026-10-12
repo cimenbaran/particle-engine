@@ -2,6 +2,10 @@
 #include "core/CommandQueue.hpp"
 #include "core/FixedStep.hpp"
 #include "core/Frustum.hpp"
+#include "core/RunOptions.hpp"
+#include "core/TimingSummary.hpp"
+#include <string>
+#include <vector>
 #include "core/ParticleTypes.hpp"
 #include <cstdlib>
 #include <iostream>
@@ -17,6 +21,23 @@ int main() {
     float invalidMatrix[16]{};bool invalidFrustum=false;
     try {pw::extractFrustum(invalidMatrix,true);} catch(const std::exception&) {invalidFrustum=true;}
     CHECK(invalidFrustum);
+    std::vector<double> timings;
+    for(int i=100;i>=1;--i) timings.push_back(i);
+    const auto timing=pw::summarize(timings);
+    CHECK(timing.minimum==1 && timing.median==50 && timing.p95==95 && timing.maximum==100 && timing.mean==50.5);
+    bool badTiming=false;try {pw::summarize({});} catch(const std::exception&) {badTiming=true;}CHECK(badTiming);
+    auto parse=[](std::vector<std::string> args) {
+        std::vector<char*> raw;for(auto& arg:args) raw.push_back(arg.data());return pw::parseOptions(int(raw.size()),raw.data());
+    };
+    CHECK(parse({"app"}).capacity==16384);
+    const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
+    CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
+    for(const auto& args:std::vector<std::vector<std::string>>{
+        {"app","--capacity","-1"},{"app","--capacity","1048577"},{"app","--frames","2oops"},
+        {"app","--frames","4294967296"},{"app","--frames","0"},{"app","--capacity"},
+        {"app","--warmup","1"},{"app","--gpu-test","--benchmark","x"}}) {
+        bool failed=false;try {parse(args);} catch(const std::exception&) {failed=true;}CHECK(failed);
+    }
     pw::FixedStep clock;
     CHECK(clock.advance(1.0/120, false, false).count == 0);
     CHECK(clock.advance(1.0/120, false, false).count == 1);

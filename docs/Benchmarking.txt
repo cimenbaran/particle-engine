@@ -1,0 +1,61 @@
+REPRODUCIBLE BALLISTIC BENCHMARK
+
+Build the app, then run (from the repository):
+
+./build/macos-release/src/app/ParticleWorld.app/Contents/MacOS/ParticleWorld \
+  --capacity 1000000 --benchmark out/benchmarks/local-million \
+  --warmup 120 --frames 600
+
+Windows uses build/windows-release/src/app/ParticleWorld.exe with the same flags.
+The command writes local-million.json and local-million.csv only after completing
+the run. --capacity accepts 1 through 1,048,576; interactive mode defaults to
+16,384. In benchmark mode --frames is the measured frame count (default 600),
+and --warmup is the excluded frame count (default 120). --no-indirect selects
+the masked fixed-capacity fallback. Close/minimize/resize cancels the benchmark.
+
+The native window services platform events while rendering to a fixed offscreen
+1920x1080 RGBA8/D32F framebuffer. This avoids desktop window-size constraints.
+VSync is disabled, the camera is fixed, UI and periodic diagnostics are excluded,
+and each frame advances exactly one 1/60-second tick. This is a fixed-workload
+benchmark, not the interactive real-time catch-up scheduler. Initial seed 42,
+mixed solid profiles, a 0.045 m radius, gravity and analytic box/floor contact are
+used. Pair contacts, fluids, terrain voxels and thermal reactions are absent.
+
+Warmup GPU work is drained before measurement. Per-frame submit-wall time
+includes event handling, simulation/render submission and bgfx::frame backpressure.
+GPU intervals are matched to submitted frame IDs; missing queries remain blank
+in CSV and their coverage is reported. Percentiles use nearest-rank selection.
+The local-sample flag requires at least 95% GPU timing coverage, observed
+submission/GPU p95 <=16.7 ms, and completed mean <=16.7 ms. It does not certify
+unobserved GPU frames. Do not derive completed throughput simply by inverting
+GPU interval timing.
+Completed wall duration spans measured submission through the final GPU counter
+readback and includes bounded timestamp-drain overhead. Its mean and throughput
+are separate from per-frame submission and GPU intervals.
+
+After timing, the app verifies the final active/free/visible counts and reads
+the render target once to reject a uniform/blank image. These are scale smoke
+checks, not exhaustive million-slot ownership or finite-state certification.
+Existing exhaustive readback tests still cover capacities through 16,384.
+
+JSON captures hardware/driver IDs, CPU model where available, RAM, compiler,
+Git revision/dirty status, executable SHA-256, shader fingerprints, material
+source, workload settings, timing summaries and final counts. The buffer-memory
+estimate excludes materials, geometry, render targets, driver allocations and
+temporary seed upload. A dirty build is explicitly identified; the binary hash
+identifies the exact tested executable. Keep both JSON and CSV when comparing.
+
+LOCAL BASELINE: APPLE M3 MAX, 48 GB (12 OCTOBER 2026)
+
+benchmarks/results/m3-max-million-2026-10-12.json and .csv record one million
+active/visible particles, 120 warmup and 600 measured frames, indirect draws:
+- Submit-wall p95: 4.98525 ms.
+- GPU p95: 8.907 ms, 598/600 GPU samples captured.
+- Completed mean frame time: 3.02019 ms; throughput: 331.105 frames/second.
+- Final image differed from its background corner in 109,721 pixels.
+- Particle-buffer estimate: 200,000,064 bytes (about 190.7 MiB).
+
+This local sample is within 16.7 ms under the report's timing checks. It does
+not certify the design's M1 Pro/Windows reference machines, on-screen frame
+pacing, thermal stability or ten-minute soak. Repeated controlled runs and full
+large-pool ownership/finite-state validation remain required before release.

@@ -57,7 +57,7 @@ Use **Lift center particles** to queue an upward velocity change for the next
 tick. It affects the selected solid material inside the center box; mixed scenes
 target Stone. Single-step applies it while paused; reset clears pending commands.
 
-The foundation has a 16,384-slot GPU pool with a common particle radius. Use
+The foundation defaults to a 16,384-slot GPU pool with a common particle radius. Use
 **Empty scene**, then **Spawn particles**, to add a batch on the next tick.
 Set a lifetime in simulation seconds (zero means infinite). **Remove center
 particles** frees slots inside the same box used by the lift control. Spawning
@@ -71,6 +71,11 @@ Supported devices use a GPU-written indirect draw count. The fallback draws at
 fixed capacity and masks unused records. Toggle **Frustum culling** and
 **Indirect draw** to compare; the delayed visible count shows culling results.
 
-The million-particle benchmark, shader reload, scene/command recording and
+Capacity is configurable with `--capacity 1000000` (maximum 1,048,576).
+For a fixed 1080p benchmark with JSON/CSV output, use
+`--benchmark out/benchmarks/local --capacity 1000000 --warmup 120 --frames 600`.
+See [benchmark methodology and local results](docs/Benchmarking.txt).
+
+Large-pool soak/ownership tests, shader reload, scene/command recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.

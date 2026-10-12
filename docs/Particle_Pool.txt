@@ -1,7 +1,8 @@
 GPU PARTICLE POOL - CURRENT IMPLEMENTATION
 
-Capacity: 16,384 slots in the interactive app. The pool class accepts up to
-1,048,576, but the larger capacity is not yet validated or benchmarked.
+Capacity: 16,384 by default; --capacity accepts 1 through 1,048,576. A million
+particles have a local 1080p ballistic benchmark. Exhaustive ownership tests
+still cover up to 16,384; larger runs currently check final counts and rendering.
 
 Each slot keeps the existing 64-byte particle record. Identity is material ID,
 flags (bit zero = alive), stable slot ID, generation. Reset begins a new scene
@@ -41,7 +42,8 @@ Rebuilding before each spawn batch favors simple ownership and safe reuse.
 It is O(capacity) per spawn command and is not the final million-particle
 allocation optimization. Visibility reads active indices but still dispatches
 capacity-sized workgroups and clears the full render output for fallback safety.
-This is not a claim that the million-particle performance gate is met.
+The local million-particle result is documented in Benchmarking.txt; reference
+hardware and full correctness/soak gates remain open.
 
 Live diagnostics sample the four uint32 pool counters plus a separate visible
 count record (16 bytes each; 32 bytes per normal sample). Compute view
@@ -66,7 +68,8 @@ GPU tests read back state and membership explicitly. They cover capacities
 lifetime expiry; masked render records; and generation wrap rejection.
 Diagnostic tests also cover full-ring rejection, recycling, reset epochs,
 latest-sample selection, per-state values, and shutdown with a pending request.
-Metal passes locally. D3D11, million-slot and ten-minute soak gates remain open.
+Metal passes locally. D3D11, exhaustive million-slot ownership and ten-minute
+soak gates remain open.
 
 VISIBILITY AND DRAW CONTRACT
 

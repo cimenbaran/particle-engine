@@ -42,6 +42,9 @@ Implemented and locally exercised
 - GPU sphere/frustum culling, visible-record compaction and GPU-written indexed
   indirect drawing. The optional fixed-capacity fallback masks its cleared tail.
   Camera movement while paused rebuilds visibility without advancing simulation.
+- Configurable capacity through 1,048,576 and a fixed 1080p offscreen benchmark
+  with warmup, frame-ID-matched GPU timing, completion-based throughput, JSON/CSV
+  output, input/build provenance and final count/image checks.
 - CPU invariant/material tests, real-device GPU ABI tests and bounded runs.
 - A Windows/macOS CI workflow for builds, shaders, CPU tests and artifacts.
   The workflow is authored locally; it has not run on a remote CI service.
@@ -93,6 +96,16 @@ Verified evidence
   and fallback/no-culling modes; an empty fallback scene showed no stale pixels.
   The delayed visible count changed from 12,381 to 16,384 with culling disabled
   at paused tick 0, while active count remained 16,384.
+- One-million-particle benchmark on M3 Max: 600 measured frames after 120
+  warmup; submit-wall p95 4.98525 ms, GPU p95 8.907 ms (598/600 samples),
+  completion-based mean 3.02019 ms. Final active and visible counts both one
+  million; final image had 109,721 pixels different from its background corner.
+  JSON/CSV and methodology are saved under benchmarks/results and docs.
+- Numeric CLI bounds and nearest-rank percentile tests passed. CSV row counts,
+  tick range and timing percentiles were independently checked against JSON.
+- Fallback benchmark passed count/image checks at 16,384 particles. A zero-
+  warmup limit check passed at 1,048,576 active/visible particles. Interactive
+  mode ran one million particles for 180 frames and shut down after 89 ticks.
 - Normal FetchContent downloads completed and exact bgfx/bx/bimg submodule
   commits were verified; the final build no longer uses the temporary checkout.
 - SDL archive builds use the pinned SDL revision rather than probing parent Git.
@@ -109,6 +122,9 @@ Verified evidence
 - Visibility-enabled package passed 600 frames using GPU indirect draws and
   180 frames with --no-indirect from /tmp (298 and 88 ticks, clean shutdown).
   All 16 packaged shader hashes match their manifests.
+- Packaged benchmark ran one million particles for 120 measured frames from
+  /tmp and passed count/image checks. The packaged executable SHA-256 matched
+  build.json and the generated report provenance.
 - Local package: out/macos-release/ParticleWorld.app (not distribution-signed
   or notarized). Source build and package both use bundle Resources/assets.
 - Native visual inspection showed particles and readable ImGui controls.
@@ -139,29 +155,32 @@ S1-08: Clock, command validation, bounded queue, ordering, quotas and GPU impuls
        Heat/terrain tools and command recording remain.
 S1-09: Gravity, drag, analytic contacts, GPU free lists, generation updates,
        lifetime and active compaction implemented. Pool ownership is tested at
-       the current 16,384-slot maximum. Million-slot and D3D11 gates remain.
+       capacities through 16,384 slots. Larger runs validate counts/rendering;
+       exhaustive million-slot ownership and D3D11 gates remain.
 S1-10: Fixed in-code seed, versioned material JSON, packed asset builder and
        schema fingerprints implemented. Scene files, command recording and
        cosmetic pools remain.
 S1-11: GPU frustum culling, compact records and indirect drawing implemented.
        Fixed-capacity fallback tails are cleared/masked; material classes are
        preserved. D3D11 validation and later class-specific rendering remain.
-S1-12: Timings, delayed pool counters, native test mode and CI files exist.
-       More diagnostic panels, benchmark JSON/CSV, memory accounting and
-       Windows package checks remain.
+S1-12: Timings, delayed counters, benchmark JSON/CSV, build provenance and
+       particle-buffer estimates implemented. Broader memory accounting,
+       diagnostic panels and Windows package/device checks remain.
 
 Open gates
 - Windows/D3D11 build and real-device execution are unverified.
-- Zero/full/current-capacity pool tests passed on Metal. Ten-minute soak and
-  million-particle validation/benchmark have not been completed.
-- No baseline p95 target is claimed. The current demo has no pair contacts.
+- Exhaustive zero/full pool tests passed through 16,384 slots on Metal. A local
+  million-particle benchmark passed its count/image checks; exhaustive large-pool
+  finite-state/ownership tests, reference-hardware tests and ten-minute soak remain.
+- The local ballistic sample is within 16.7 ms; reference-machine performance
+  certification is not claimed. The current demo has no pair contacts.
 - Full-particle readback is limited to explicit startup/GPU tests. Steady-state
   diagnostics read two 16-byte counter records and never determine draws or
   dispatches.
 
 Next implementation order
 1. Complete shader cache/reload and the platform capability report.
-2. Scale capacity under ownership tests and add a reproducible benchmark
-   harness before claiming the million-particle target.
+2. Extend exhaustive ownership/finite-state validation to large pools and run
+   the ten-minute soak; collect controlled repeat and reference-machine timings.
 3. Add cosmetic pools, presets and real-device benchmark output; run the
    remaining foundation/core gates on Metal and D3D11.

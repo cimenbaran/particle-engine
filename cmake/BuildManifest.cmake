@@ -1,0 +1,8 @@
+file(SHA256 "${BINARY}" binary_hash)
+execute_process(COMMAND git -C "${SOURCE_ROOT}" rev-parse HEAD OUTPUT_VARIABLE revision OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND git -C "${SOURCE_ROOT}" status --porcelain OUTPUT_VARIABLE changes OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(dirty false)
+if(NOT changes STREQUAL "")
+  set(dirty true)
+endif()
+file(WRITE "${OUTPUT}" "{\n  \"schema\": 1,\n  \"binary_sha256\": \"${binary_hash}\",\n  \"git_commit\": \"${revision}\",\n  \"worktree_dirty\": ${dirty},\n  \"compiler_id\": \"${COMPILER_ID}\",\n  \"compiler_version\": \"${COMPILER_VERSION}\"\n}\n")
