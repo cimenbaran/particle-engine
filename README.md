@@ -33,7 +33,8 @@ Windows, independent of the current working directory. `--frames 180` runs a bou
 particle/material/render-record ABI, pool ownership, frustum/compaction,
 indirect arguments, ordered compute and
 material-driven integration checks on a real graphics device
-and exits with a failure code on a mismatch. Startup also runs these checks.
+and exits with a failure code on a mismatch. Startup runs the core GPU checks;
+`--gpu-test` additionally checks shader reload and physical/cosmetic isolation.
 CPU-only tests need neither a graphics device nor downloaded libraries:
 
 ```sh
@@ -81,8 +82,8 @@ Use `--capacity 1000000 --soak 600 --report out/soak/million.json` for an
 audit on every tick and repeated spawn/remove/expiry stress. See
 [soak testing](docs/Soak_Testing.txt) for coverage and results.
 
-The local ten-minute Metal soak passed at one million slots. Command recording and
-Windows device validation remain Sprint 1 work. See
+The local ten-minute Metal soak passed at one million slots. Windows device
+validation and other foundation gates remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
 
 Use `--capabilities out/device.json` to export advertised GPU support and the
@@ -111,3 +112,23 @@ shows the region. Commands apply on the next tick. See
 Use **Scene presets** for a ballistic cloud, empty workspace, or seeded sand
 drop. Custom files load with `--scene path.json`; invalid reloads preserve the
 current scene. See [scene presets](docs/Scene_Presets.txt) for the versioned schema.
+
+The **Recording** window captures physical commands from a seeded reset. Stop
+and save the recording, then replay it in memory or load its file. Playback
+starts paused; use single-step or resume. For a command-line replay and GPU
+audit, run `--replay capture.json --report replay-result.json`. Recording clears
+cosmetics and locks scene/material changes. See [recording controls and file
+format](docs/Command_Recordings.txt).
+
+**Cosmetic sparks** uses an independent pool that starts empty. Bursts have
+finite lifetimes; overflow drops effects without consuming physical capacity.
+Use `--cosmetic-capacity 0` to disable it, or choose up to 150,000 slots. A
+benchmark includes this second pool only when explicitly requested, for example
+`--capacity 100000 --cosmetic-capacity 150000 --benchmark out/dual --frames 600`.
+This filled ballistic workload has no water or pairwise solver. See
+[cosmetic controls and limits](docs/Cosmetic_Particles.txt).
+
+The **Allocations** window separates requested buffer payload from renderer
+estimates and shows resource handle counts. An unavailable driver counter is
+shown explicitly. Benchmark, soak and replay reports include a resource
+breakdown; see [memory accounting](docs/Resource_Usage.txt) for exclusions.

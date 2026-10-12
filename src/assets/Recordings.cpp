@@ -89,7 +89,7 @@ CommandRecording parseRecording(std::string_view text,const MaterialLibrary& mat
     if(text.size()>maxRecordingBytes) throw std::runtime_error("Recording exceeds 16 MiB");
     const auto root=Json::parse(text);
     fields(root,{"schema_version","simulation_profile","tick_hz","capacity","workgroup_size","materials_hash","scene","ticks","commands"});
-    if(integer(root.at("schema_version"),1)!=1 || root.at("simulation_profile")!=profile || integer(root.at("tick_hz"),60)!=60)
+    if(integer(root.at("schema_version"),1)!=1 || root.at("simulation_profile").get<std::string>()!=std::string(profile) || integer(root.at("tick_hz"),60)!=60)
         throw std::runtime_error("Unsupported recording version, simulation profile or tick rate");
     if(root.at("materials_hash")!=hashText(materials.contentHash)) throw std::runtime_error("Recording material table hash mismatch");
     CommandRecording recording;recording.materialsHash=materials.contentHash;

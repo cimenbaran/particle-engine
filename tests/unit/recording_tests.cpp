@@ -77,7 +77,8 @@ int main(int argc,char** argv) {
         if(!rejected) throw std::runtime_error("Accepted invalid recording: "+candidate.dump());
     };
     rejects([](auto& j){j["schema_version"]=2;});rejects([](auto& j){j["tick_hz"]=30;});
-    rejects([](auto& j){j["simulation_profile"]="future_fluid";});rejects([](auto& j){j["capacity"]=0;});
+    rejects([](auto& j){j["simulation_profile"]="future_fluid";});
+    rejects([](auto& j){j["simulation_profile"]=42;});rejects([](auto& j){j["capacity"]=0;});
     rejects([](auto& j){j["materials_hash"]="0000000000000000";});rejects([](auto& j){j["workgroup_size"]=64;});
     rejects([](auto& j){j["ticks"]=216001;});rejects([](auto& j){j["commands"][0]["tick"]=121;});
     rejects([](auto& j){j["commands"][0]["tick"]=-1;});rejects([](auto& j){j["commands"][0]["count"]=4097;});

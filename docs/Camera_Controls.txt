@@ -31,3 +31,10 @@ while the control panel had focus, and Reset view restoring the original
 position without changing the tick or particle count. Physical held-button
 mouse-look and focus/minimize capture stress still need device validation;
 Windows input behavior is unverified.
+
+Additional local window lifecycle check: the packaged Metal app remained at
+paused tick 334 with 16,384 physical particles while zooming the native window,
+minimizing/restoring it through the Window menu, and restoring the original
+size. The UI and scene rendered correctly afterwards; dynamic vertex/index
+buffer counts remained 10/8 with the independent cosmetic pool enabled. This
+check did not hold relative mouse capture and does not close that stress gate.
