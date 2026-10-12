@@ -1,0 +1,45 @@
+GPU EXCLUSIVE PREFIX SCAN
+
+GpuPrefixScan is a bounded compute utility for the future spatial radix sort.
+It is exercised only by --gpu-test today; the live ballistic simulation and
+its command-recording profile do not use it.
+
+For input a[0..N), output[i] is the sum of a[0..i), and total[0] is the sum of
+all N values. Arithmetic is explicitly uint32 modulo 2^32. Radix predicates
+will be 0/1, so their sums cannot overflow with the supported maximum N of
+1,048,576. Callers using arbitrary integers must account for modular arithmetic;
+this utility does not label an overflowing integer sum as an exact wide sum.
+
+Each workgroup performs a shared-memory tree scan, writing its local exclusive
+prefixes and block total. Block totals are recursively scanned, then scanned
+block offsets are added back from the top level down. Dispatches remain ordered
+in one sequential bgfx view; no CPU sum or synchronous readback controls them.
+The implementation supports the configured 128/256 workgroup sizes. Partial
+blocks contribute zero for inactive lanes, but every lane executes every group
+barrier. A zero-length scan writes total zero and has no valid output elements.
+
+Construction fixes N and allocates reusable scratch buffers for all levels.
+submit requires a valid uint32 compute-readable dynamic index buffer with at
+least max(1,N) elements. The input may not alias any scan scratch handle. The
+caller must retain it through submission under bgfx lifetime rules. The output
+and total handles belong to the scan instance and become meaningful only after
+its ordered dispatches. A consumer must follow them in the compute graph. No
+GPU object is allocated per submit. Destruction uses bgfx deferred releases.
+
+--gpu-test compares every output element, the GPU total and unchanged input
+against an independent serial CPU sum. Cases cover N=0,1,127,128,129,255,256,
+257,16383,16384,16385,65535,65536,65537,1048576, each with all-zero, all-one,
+mixed-bit and wrapping-integer inputs. Reusing each scan object across those
+four patterns checks that results do not depend on stale scratch contents.
+Invalid capacity and aliasing are rejected. A dedicated export shader writes
+RGBA32U diagnostic pixels after compute; readback is confined to GPU tests.
+
+These tests verify scan arithmetic and GPU ordering, not radix sorting,
+occupied-cell range construction, hash probing or a physical contact solver.
+Windows/HLSL execution is still pending CI validation.
+
+Local validation on Apple M3 Max/Metal passed all 60 scan cases in each of the
+128- and 256-thread variants, plus all nine CTests and the complete GPU suite.
+The development source was based on 4c4e28a with the scan changes uncommitted.
+Captured scan results are retained in tests/results/m3-max-prefix-scan.txt.
+These are local correctness results, not cross-platform or performance gates.

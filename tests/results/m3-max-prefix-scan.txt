@@ -1,0 +1,39 @@
+GPU prefix scan development validation
+Machine: Apple M3 Max, Metal
+Base commit: 4c4e28a; scan implementation changes were uncommitted during these tests.
+No Windows or benchmark claim.
+
+Workgroup 128, four input patterns per size:
+GPU exclusive prefix scan passed: 0 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 1 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 127 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 128 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 129 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 255 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 256 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 257 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16383 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16384 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16385 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65535 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65536 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65537 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 1048576 elements, zero/one/mixed/wrapping sums
+
+Workgroup 256, four input patterns per size:
+GPU exclusive prefix scan passed: 0 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 1 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 127 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 128 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 129 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 255 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 256 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 257 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16383 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16384 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 16385 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65535 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65536 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 65537 elements, zero/one/mixed/wrapping sums
+GPU exclusive prefix scan passed: 1048576 elements, zero/one/mixed/wrapping sums
+
