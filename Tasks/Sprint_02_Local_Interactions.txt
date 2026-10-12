@@ -24,6 +24,10 @@ CPU reference and invariant fixtures in ../docs/Contact_Velocity_Reference.txt;
 the isolated GPU response is described in ../docs/GPU_Contact_Velocity.txt.
 Live granular integration and cross-backend response validation remain open.
 
+Swept boundary and fixed substep reference preparation is described in
+../docs/Swept_Bounds_Reference.txt. GPU sweeps, speed-cap diagnostics and live
+boundary integration remain open.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

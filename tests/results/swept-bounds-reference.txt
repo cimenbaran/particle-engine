@@ -1,0 +1,21 @@
+SWEPT BOUNDARY REFERENCE VALIDATION
+Date: 2026-10-13, Apple M3 Max, AppleClang release builds.
+Source: commit containing this evidence; prior HEAD d056363.
+
+core-tests: 6/6 passed.
+macos-release: 11/11 CTests passed, default workgroup 128 configuration.
+New swept_bounds_reference test:
+- 512 deterministic elastic trajectories independently checked by unfolding and
+  folding each interval; endpoint and velocity tolerances 1e-9.
+- 4,608 dissipative trajectories, energy non-increase tolerance 1e-8, containment
+  tolerance 1e-10 and x/z permutation comparison tolerance 1e-9.
+- Analytic floor, endpoint, resting/grazing, friction and corner cases.
+- Zero duration, invalid input and exhausted event-budget cases.
+- Substep travel bounds, tick duration, boundary rounding and invalid budgets.
+
+No GPU/live sweep claim: this is the independent oracle and core schedule for
+future GPU boundary integration. No shader or application runtime behavior changed.
+
+Log SHA-256:
+904af1dd1b4eb52f3e79b785f660a3b2a23f2cac95a1783ab5e14569a9da96f6  out/swept-core-ctest.log
+ee3a4a5d5d8d201f92707fdcd4cf13e1a41313e1a035e8bb12735e8f591674e7  out/swept-ctest.log

@@ -1,0 +1,71 @@
+SWEPT BOUNDARIES AND GRANULAR SUBSTEP PROFILE
+
+Scope
+S2-08 preparation: an independent double-precision reference for sphere motion
+inside six analytic axis-aligned boundary planes, plus a core substep planner.
+Neither is connected to the live integrator yet. Live particles still use the
+ballistic floor/wall clamps. Interior terrain, voxel sweeps, moving colliders,
+continuous particle-particle collision and granular stability are not claimed.
+
+Bounded domain
+Default planes enclose [-8,8] x [0,16] x [-8,8]. A sphere of radius 0.0625 has
+centre limits [-7.9375,7.9375] x [0.0625,15.9375] x [-7.9375,7.9375]. The proposed
+granular profile includes a ceiling, keeping centres inside the existing spatial
+index. This differs from the current ballistic model's open top and must be
+reported as a distinct solver profile when connected to recordings and the UI.
+
+Sweep oracle: tests/reference/SweptBounds.hpp
+For a finite, initially contained sphere, find the earliest time to any inward
+boundary, move to that time, respond and consume the remaining duration. This
+retains post-impact travel rather than snapping the final endpoint to a wall.
+Gravity/drag are applied by the caller before this constant-velocity sweep.
+A hit exactly at the end of the interval still changes velocity. Starting on a
+plane and moving outward causes an immediate response; tangent or inward motion
+does not spuriously bounce. Invalid starting overlap/outside state is rejected,
+not silently repaired. Spawn projection/rejection belongs to the future owner.
+
+Restitution is in [0,1]; incoming normal speed at or below the default 0.5 m/s
+threshold resolves to zero. Friction is in [0,1] and removes at most mu times
+the normal impulse magnitude from tangential speed, never reversing it.
+Simultaneous edge/corner contacts resolve all incident normal components together
+and apply friction in their common tangent space. The support is the Euclidean
+magnitude of the combined normal impulse. This defines the corner policy and
+avoids applying friction multiple times in an arbitrary axis order.
+Contacts are grouped only within 16 double epsilons times the step/impact time.
+
+A finite event budget (default 16, allowed 1..1024) prevents unbounded loops.
+Exhaustion throws; it never returns a partially advanced state as success.
+Duration must be finite in [0,1]. Positions/boundaries/velocities must be valid
+within the float input range; calculations use doubles. The input is copied.
+The future GPU implementation must expose exhaustion and preserve the complete
+pre-step state when the step cannot be published, rather than dropping travel.
+
+Substep planner: src/core/GranularStep.hpp
+The default profile is 1/60 s ticks, 12 m/s speed limit, smallest feature 0.125 m,
+and at most eight substeps. It selects four equal substeps. For each candidate
+count it checks the actual float duration that will be passed to GPU uniforms:
+ speedLimit * substepSeconds <= smallestFeature / 2.
+It selects the first count satisfying the bound. Invalid profiles or a bound
+that cannot fit the budget are rejected. It does not silently lower the requested
+speed limit or increase the advertised substep budget. Allowed maximum is 64.
+Float division can introduce the usual tick-duration rounding error; tests check
+summed substep duration against the supplied float tick value.
+
+This schedule needs no synchronous GPU maximum-speed readback. Its guarantee
+requires the GPU to cap speed after external forces and again after velocity
+response, and report cap counts visibly. Those caps are not implemented yet.
+Position-solver corrections have a separate displacement budget; this travel
+bound does not cover them. Index rebuilding and swept/projected boundary handling
+must also cover position corrections before a granular step can be published.
+
+Validation
+swept_bounds_reference checks analytic floor impacts, exact endpoint hits,
+starting-on-plane cases, grazing, low-speed bounce suppression, friction stopping
+and partial sliding, simultaneous corners, zero duration and failure gates.
+512 seeded high-speed elastic trajectories are compared to independently unfolded
+and modulo-folded interval endpoints and velocities, including repeated bounces.
+4,608 restitution/friction cases check containment, non-increasing squared speed
+and x/z permutation invariance. The substep profile checks representative speeds,
+feature sizes, exact half-feature travel, nextafter overflow of that limit,
+invalid values and insufficient budgets. See tests/results/swept-bounds-reference.txt.
+GPU agreement, visible limits, interior terrain and full live-step tests remain open.
