@@ -1,0 +1,23 @@
+WINDOWS WARP CONTACT RESPONSE VALIDATION (128 THREADS)
+Run: https://github.com/cimenbaran/particle-engine/actions/runs/38313123559
+Source: 7668d25b78b0ef55611cd25bce811e4f5847eaba
+Job: 115023321574, Windows 2022 / windows-release / 128, completed success.
+Observed 2026-10-13. Other matrix jobs are not certified by this file.
+
+Completed-job log confirms 10/10 CTests and full WARP GPU suite, including
+38 Jacobi fixtures, 43 reconstruction fixtures, 74 restitution/friction fixtures.
+This confirms the explicit-component contact-normal fix compiled and executed on
+D3D11 WARP. This source predates static integration, swept boundaries, bounded
+contacts and the granular tick coordinator. No newer-component or hardware claim.
+
+Local complete job log SHA-256:
+d25ae7e44ea160c2315abd2075d0164aadb0bd7e24ea07c73d9542d007497b69  out/ci-38313123559-windows128.log
+
+Matrix follow-up: Windows 256 job 115023321714 compiled the complete application
+and shaders, then failed recording_validation with "Cannot replace recording
+file". WARP GPU tests did not run for that job. Overall run concluded failure.
+The message omitted GetLastError, so the exact OS cause is not established.
+In-process publication is now serialized and errors include the native code;
+the existing concurrent-save test now checks 16 rounds. Windows confirmation of
+this mitigation remains pending.
+c96d4da97bff98a51304d343b4c939138abf5ed60fa202e22dead444554c4339  out/ci-38313123559-windows256.log

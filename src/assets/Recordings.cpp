@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <atomic>
+#include <mutex>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -138,8 +139,14 @@ void saveRecording(const std::filesystem::path& path,const CommandRecording& rec
         output.write(text.data(),std::streamsize(text.size()));output.close();
         if(!output) throw std::runtime_error("Cannot write complete recording");
 #if defined(_WIN32)
-        if(!MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
-            throw std::runtime_error("Cannot replace recording file");
+        // Concurrent in-process publishers must not race Windows replacement
+        // handles. Serialization covers only publication, not JSON/file writing.
+        static std::mutex publicationMutex;
+        const std::lock_guard publicationLock(publicationMutex);
+        if(!MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)) {
+            const auto error=GetLastError();
+            throw std::runtime_error("Cannot replace recording file: Windows error "+std::to_string(error));
+        }
 #else
         std::filesystem::rename(temporary,path);
 #endif

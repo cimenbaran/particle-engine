@@ -122,11 +122,13 @@ int main(int argc,char** argv) {
     auto empty=recording;empty.commands.clear();empty.ticks=0;
     pw::saveRecording(file,empty,materials);CHECK(pw::loadRecording(file,materials).ticks==0);
     auto alternate=recording;++alternate.ticks;
-    auto firstWriter=std::async(std::launch::async,[&]{pw::saveRecording(file,recording,materials);});
-    auto secondWriter=std::async(std::launch::async,[&]{pw::saveRecording(file,alternate,materials);});
-    firstWriter.get();secondWriter.get();
-    const auto concurrent=pw::loadRecording(file,materials);
-    CHECK((concurrent.ticks==recording.ticks || concurrent.ticks==alternate.ticks) && concurrent.commands.size()==3);
+    for(unsigned attempt=0;attempt<16;++attempt) {
+        auto firstWriter=std::async(std::launch::async,[&]{pw::saveRecording(file,recording,materials);});
+        auto secondWriter=std::async(std::launch::async,[&]{pw::saveRecording(file,alternate,materials);});
+        firstWriter.get();secondWriter.get();
+        const auto concurrent=pw::loadRecording(file,materials);
+        CHECK((concurrent.ticks==recording.ticks || concurrent.ticks==alternate.ticks) && concurrent.commands.size()==3);
+    }
     const auto blocked=directory/"destination-directory";std::filesystem::create_directories(blocked);failed=false;
     try{pw::saveRecording(blocked,recording,materials);}catch(const std::exception&){failed=true;}CHECK(failed && std::filesystem::is_directory(blocked));
     for(const auto& entry:std::filesystem::directory_iterator(directory)) CHECK(entry.path().filename().string().find(".tmp.")==std::string::npos);
