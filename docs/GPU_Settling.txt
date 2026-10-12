@@ -1,4 +1,4 @@
-GPU SETTLING CANDIDATES (ISOLATED COMPONENT)
+GPU SETTLING CANDIDATES
 
 GpuSettling consumes immutable physical particle state, materials and a four-word
 upstream status buffer. Call submit once per completed fixed tick. It rebuilds
@@ -31,25 +31,32 @@ entire history for that tick. Partial contacts cannot publish candidates.
 Status words: error bits, candidate count, acquiring count, and candidate count
 currently inside missing-support grace. Error bits are 1 upstream, 2 index,
 4 particle profile and 8 traversal. A later valid tick can start acquisition again;
-this tracker does not own the solver's persistent fault latch. Reading counts must
+the default component mode does not own a persistent fault latch. The live app
+enables optional latchFailures: any error keeps history invalid until reset, and
+status() exposes the latched error with the latest counts. The zero-capacity case
+also latches and resets. This is separate from the physics fault latch. Reading counts must
 follow the advance dispatch. It reads status[0] while atomically updating only the
 three independent count words. Reduction has already completed before advance.
 
 Requested GPU payload (excluding shaders, uniforms, alignment and deferred frees):
-80*N + 80 + 2*S + 8*H bytes, N=max(1,capacity), H=bit_ceil(2*capacity+2),
+80*N + 96 + 2*S + 8*H bytes, N=max(1,capacity), H=bit_ceil(2*capacity+2),
 S=sum over scan levels of 4*(max(1,count)+max(1,ceil(count/workgroup))).
-The tracker owns 32*N bytes for history/support, a 16-byte status, and one full
+The tracker owns 32*N bytes for history/support, two 16-byte status buffers, and one full
 spatial index with two recursive scans. It can be optimized to share an index only
 when snapshot identity and lifetime are guaranteed; the current rebuild is explicit.
 
---gpu-test includes 38 fixtures comparing exact per-slot histories to the CPU
+--gpu-test includes 45 fixtures comparing exact per-slot histories to the CPU
 state machine and double all-pairs support oracle, plus bytewise unchanged particle
 inputs. Cases cover 0/1/127/128/129/255/256/257/1024 slots, dwell boundaries,
 speed/contact dead bands, contact-loss grace, impulse/recycling/exclusion/reset,
 upstream/index/profile failures and recovery, static-supported stacks, side/deep/
 coincident contacts, non-solid support, extreme finite speed, one-tick profiles,
-UINT32_MAX counter boundaries and dense 1023-neighbor traversal.
+UINT32_MAX counter boundaries, dense 1023-neighbor traversal, and latched fault
+retention/reset at nonzero and zero capacity.
 
-Interactive diagnostics, live active-list verification and scene lifecycle wiring
-remain open. This component alone does not complete S2-09 or authorize deposition.
+The interactive granular path now submits once after the committed physics tick,
+exposes delayed counts, and resets history/diagnostic epochs on scene reset. An
+application fixture verifies acquisition while retaining active-list ownership,
+impulse release, same-generation scene reset, empty-scene clearing and mode
+teardown. No deposition is performed. See Interactive_Granular.txt.
 Windows runtime validation must be checked separately in the CI results.

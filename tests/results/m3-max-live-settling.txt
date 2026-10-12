@@ -1,0 +1,37 @@
+LIVE GRANULAR SETTLING - METAL
+Date: 2026-10-13; Apple M3 Max, 48 GB
+Base: 038481c517f9ccf83aecdb36d2e549ecccdebf13 plus live integration in this commit.
+128 and 256 threads: full --gpu-test and 12/12 CTests passed.
+Default workgroup restored to 128.
+
+Native UI: --granular --capacity 129 showed 129 active and 129 visible particles,
+129 settling candidates, zero acquiring and zero grace counts. Particle pile visible.
+Paused reset returned tick to zero and cleared old diagnostic snapshots.
+Single tick advanced exactly to tick 1, candidate/acquiring/grace counts all zero.
+Closed test window normally; final solver and settling errors zero.
+No performance, soak or Windows certification inferred.
+
+out/live-settling128.log
+SHA256: 21254fc01e7417f83197d19f3d7bcf2ffa4b919c9189c9f24629e435410decec
+GPU settling passed: 45 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+
+out/live-settling256.log
+SHA256: 5ee46a78112c098008f38938bc325d349931383aa02c0f4157a409d8695bcfe1
+GPU settling passed: 45 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown
+
+out/live-settling-ctest128.log
+SHA256: 35167dd16cca6a5d59b738ea81a14cc5ceb8fbc34f0a46464f13387367eb712f
+100% tests passed, 0 tests failed out of 12
+
+out/live-settling-ctest256.log
+SHA256: 758809a8f77574eed5f5ceaadcb8424d2eebefec28022e9f3d7578d83199ace1
+100% tests passed, 0 tests failed out of 12
+
+out/live-settling-ui.log
+SHA256: c202163e93220ef3dea82701b8313ddf6ac81e118df7e6d9ac7d3bad42684a94
+Granular final status: error=0, caps=0, contacts=3, boundary_events=0
+Settling final status: error=0, candidates=0, acquiring=0, contact_grace=0
+Clean shutdown after 1 ticks
+

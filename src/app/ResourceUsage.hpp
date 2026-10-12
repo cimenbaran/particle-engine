@@ -13,6 +13,7 @@ struct ResourceUsage {
     std::uint64_t persistentPayload() const {return particleBuffers()+materials+geometry+diagnosticTextures+auditBuffers;}
 };
 ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit=false);
+std::uint64_t settlingPayloadBytes(std::uint32_t capacity);
 std::uint64_t granularPayloadBytes(std::uint32_t capacity);
 nlohmann::json resourceReport(const ResourceUsage& usage,const bgfx::Stats& stats);
 ReportedMemory reportedMemory(const bgfx::Stats& stats);

@@ -119,6 +119,15 @@ void runGpuSettlingTest(const std::filesystem::path& assets) {
     bgfx::update(maximum.history(),0,bgfx::copy(maximumHistory.data(),sizeof(SettlingState)));
     p=fixture(1);p[0].positionRadius[1]=1;run(p,1,&maximum,&maximumHistory,0,0,maximumProfile);
     require(!maximumHistory[0].candidate,"Settling maximum grace wrapped");
+    GpuSettling latched(assets,1,{},true);std::vector<SettlingState> latchedHistory(1);
+    run(fixture(1),30,&latched,&latchedHistory);
+    run(fixture(1),1,&latched,&latchedHistory,1,1);
+    run(fixture(1),30,&latched,&latchedHistory,1);
+    latched.reset(0);latchedHistory.assign(1,{});run(fixture(1),1,&latched,&latchedHistory);
+    require(latchedHistory[0].quietTicks==1,"Settling latch reset failed");
+    GpuSettling emptyLatched(assets,0,{},true);std::vector<SettlingState> noHistory;
+    run({},1,&emptyLatched,&noHistory,1,1);run({},1,&emptyLatched,&noHistory,1);
+    emptyLatched.reset(0);run({},1,&emptyLatched,&noHistory);
     bool rejected=false;try{SettlingProfile invalid;invalid.enterSpeed=0;GpuSettling bad(assets,1,invalid);}catch(const std::invalid_argument&){rejected=true;}
     require(rejected,"GPU settling accepted unsupported speed profile");
     std::cout<<"GPU settling passed: "<<cases<<" fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes\n";

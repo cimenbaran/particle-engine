@@ -19,12 +19,14 @@ high-speed wall shots. Both Metal workgroup variants pass the fixed small-scene
 settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
 limits. Windows execution is added to CI; results must be verified separately.
 These fixtures do not complete the broad stability or ten-minute soak gates.
-Settling-candidate hysteresis, interior terrain, detailed debug views/metrics,
+Interior terrain, detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in
-../docs/Settling_Candidates.txt. An isolated GPU tracker now matches those
-references; see ../docs/GPU_Settling.txt. Live integration remains open.
+../docs/Settling_Candidates.txt. The GPU tracker matches those
+references and now runs in the interactive granular path; see ../docs/GPU_Settling.txt.
+Metal app-path tests prove candidates remain active and reset correctly. Windows
+validation of this integration remains pending.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

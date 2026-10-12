@@ -103,6 +103,8 @@ struct Particles {
     std::filesystem::path assetsPath;
     std::unique_ptr<pw::GpuGranularStep> granular;
     std::unique_ptr<pw::PoolDiagnostics> granularDiagnostics;
+    std::unique_ptr<pw::GpuSettling> settling;
+    std::unique_ptr<pw::PoolDiagnostics> settlingDiagnostics;
     bool granularFault=false;
     std::string solverMessage;
     bgfx::DynamicVertexBufferHandle state[2]{BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE};
@@ -166,8 +168,11 @@ struct Particles {
             validateGranularScene(scene);
             auto candidate=std::make_unique<pw::GpuGranularStep>(assetsPath,particleCount,pw::GranularStepProfile{},4,9.81f,true);
             auto diagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
+            auto tracker=std::make_unique<pw::GpuSettling>(assetsPath,particleCount,pw::SettlingProfile{},true);
+            auto trackingDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             granular=std::move(candidate);granularDiagnostics=std::move(diagnostic);
-        } else {granularDiagnostics.reset();granular.reset();}
+            settling=std::move(tracker);settlingDiagnostics=std::move(trackingDiagnostic);
+        } else {settlingDiagnostics.reset();settling.reset();granularDiagnostics.reset();granular.reset();}
         granularFault=false;reloadPending=false;reset();solverMessage.clear();
     }
     void stageShaders(pw::ShaderReload& reload) {
@@ -199,7 +204,7 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
-        granularDiagnostics.reset();granular.reset();
+        settlingDiagnostics.reset();settling.reset();granularDiagnostics.reset();granular.reset();
         visibleDiagnostics.reset();
         diagnostics.reset();
         visibility.reset();
@@ -226,7 +231,8 @@ struct Particles {
                 p.positionRadius[3]=0.0625f;
                 p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*0.0625f*0.0625f*0.0625f*materials.entries[p.identity[0]].gpu.mechanical[0]);
             }
-            granular->resetFailures(0);granularDiagnostics->beginEpoch();granularFault=false;
+            granular->resetFailures(0);granularDiagnostics->beginEpoch();
+            settling->reset(0);settlingDiagnostics->beginEpoch();granularFault=false;
         }
         diagnostics->beginEpoch();
         visibleDiagnostics->beginEpoch();
@@ -334,7 +340,8 @@ struct Particles {
         }
         const float params[]{float(pw::FixedStep::tickSeconds),float(particleCount),float(materials.entries.size()),0};
         auto source=state[current];auto program=compute;
-        if(granular) {granular->submit(view,source,materialBuffer,uint32_t(materials.entries.size()));source=granular->output();program=initialize;}
+        if(granular) {granular->submit(view,source,materialBuffer,uint32_t(materials.entries.size()));source=granular->output();
+            settling->submit(view,source,materialBuffer,uint32_t(materials.entries.size()),granular->status());program=initialize;}
         bgfx::setUniform(uniform, params);
         bgfx::setBuffer(0,source,bgfx::Access::Read);
         bgfx::setBuffer(1,state[1-current],bgfx::Access::Write);
@@ -433,7 +440,30 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         require(!sandbox.granularDiagnostics->latest().active && sandbox.granularDiagnostics->latest().free>0,"Granular application cap/fault diagnostics failed");
         sandbox.queueBrush(pw::CommandType::RemoveBrush,0);sandbox.tick(1);auto empty=snapshot(sandbox);
         for(const auto& p:empty)require(!(p.identity[1]&1),"Granular application removal failed");
+        sandbox.scene.count=1;sandbox.scene.minimum={0,0.0625f,0};sandbox.scene.maximum=sandbox.scene.minimum;sandbox.reset(1);bgfx::frame();
+        for(unsigned i=0;i<30;++i){sandbox.tick(1);bgfx::frame();}
+        auto readSettling=[&]{
+            audit.prepare(4,sandbox.state[sandbox.current],sandbox.pool->activeSlots(),sandbox.pool->freeSlots(),sandbox.pool->counts(),uint32_t(sandbox.materials.entries.size()));
+            require(audit.request(6,sandbox.commands.nextTick()),"Settling app audit request failed");
+            require(sandbox.settlingDiagnostics->request(6,sandbox.settling->status(),sandbox.commands.nextTick()),"Settling app diagnostics request failed");
+            require(sandbox.diagnostics->request(6,sandbox.pool->counts(),sandbox.commands.nextTick()),"Settling app pool request failed");
+            while(audit.pending() || sandbox.settlingDiagnostics->pending() || sandbox.diagnostics->pending()) {
+                auto frame=bgfx::frame();audit.poll(frame);sandbox.settlingDiagnostics->poll(frame);sandbox.diagnostics->poll(frame);
+            }
+            require(audit.latest().active==129 && !audit.latest().free && !audit.latest().reserved && !audit.latest().rejected,"Settling changed active/free ownership");
+            require(!sandbox.settlingDiagnostics->latest().active,"Settling app tracker error");
+        };
+        readSettling();
+        require(sandbox.settlingDiagnostics->latest().free==1 && sandbox.diagnostics->latest().active==1 && sandbox.diagnostics->latest().free==128,"Settling candidate was not retained as active matter");
+        sandbox.queueBrush(pw::CommandType::ApplyImpulse,6);sandbox.tick(1);readSettling();
+        require(!sandbox.settlingDiagnostics->latest().free && sandbox.diagnostics->latest().active==1,"Impulse failed to release active settling candidate");
+        sandbox.reset(1);bgfx::frame();sandbox.tick(1);readSettling();
+        require(!sandbox.settlingDiagnostics->latest().free && sandbox.settlingDiagnostics->latest().reserved==1,"Scene reset reused candidate history");
+        sandbox.reset(0);bgfx::frame();sandbox.tick(1);readSettling();
+        require(!sandbox.settlingDiagnostics->latest().free && !sandbox.settlingDiagnostics->latest().reserved && !sandbox.diagnostics->latest().active,"Empty scene retained settling candidates");
         sandbox.setGranular(false);sandbox.reset(0);bgfx::frame();
+        require(!sandbox.settling && !sandbox.settlingDiagnostics,"Ballistic mode retained settling resources");
+        std::cout<<"GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown\n";
         std::cout<<"GPU interactive granular path passed: radius, spawn, impulse caps, state ownership, removal and mode reset\n";
     }
 }
@@ -836,6 +866,11 @@ int main(int argc, char** argv) {
                 const auto& fault=particles.granularDiagnostics->latest();
                 if(fault.valid && fault.active) {particles.granularFault=true;paused=true;clock.reset();}
             }
+            if(particles.settlingDiagnostics) {
+                particles.settlingDiagnostics->poll(completedFrame);
+                const auto& tracking=particles.settlingDiagnostics->latest();
+                if(tracking.valid && tracking.active) {particles.granularFault=true;paused=true;clock.reset();}
+            }
             particles.diagnostics->poll(completedFrame);
             particles.visibleDiagnostics->poll(completedFrame);
             if(cosmetics) {cosmetics->diagnostics->poll(completedFrame);cosmetics->visibleDiagnostics->poll(completedFrame);}
@@ -912,7 +947,11 @@ int main(int argc, char** argv) {
                 const auto& g=particles.granularDiagnostics->latest();
                 if(g.valid) ImGui::Text("Caps: %u | Contacts: %u | Boundary events: %u",g.free,g.reserved,g.rejected);
                 else ImGui::TextDisabled("Waiting for solver snapshot...");
-                if(particles.granularFault) ImGui::TextWrapped("Solver error 0x%x: physics held. Reset or load a valid scene to resume.",g.active);
+                const auto& tracking=particles.settlingDiagnostics->latest();
+                if(tracking.valid) ImGui::Text("Settling candidates: %u | Acquiring: %u | Contact grace: %u",tracking.free,tracking.reserved,tracking.rejected);
+                else ImGui::TextDisabled("Waiting for settling snapshot...");
+                ImGui::TextDisabled("Candidates remain active particles");
+                if(particles.granularFault) ImGui::TextWrapped("Solver error 0x%x / tracking error 0x%x: paused. Reset or load a valid scene to resume.",g.active,tracking.active);
             }
             if(!particles.solverMessage.empty()) ImGui::TextWrapped("%s",particles.solverMessage.c_str());
             ImGui::Checkbox("Paused",&paused); ImGui::SameLine();
@@ -1063,7 +1102,7 @@ int main(int argc, char** argv) {
             ImGui::End();
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
-            if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount);resources.diagnosticTextures+=64;resources.diagnosticHost+=48;}
+            if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=128;resources.diagnosticHost+=96;}
             memoryPeaks.observe(pw::reportedMemory(*stats));
             pw::drawResourceUsage(resources,*stats,memoryPeaks);
             const auto& input=ImGui::GetIO();
@@ -1141,6 +1180,8 @@ int main(int argc, char** argv) {
             }
             if(particles.granularDiagnostics && ticks && (frames%8==0 || step || !particles.granularDiagnostics->latest().valid))
                 particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
+            if(particles.settlingDiagnostics && ticks && (frames%8==0 || step || !particles.settlingDiagnostics->latest().valid))
+                particles.settlingDiagnostics->request(6,particles.settling->status(),ticks);
             if(frames%8==0 || step || !particles.diagnostics->latest().valid)
                 particles.diagnostics->request(6,particles.pool->counts(),ticks);
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
@@ -1170,6 +1211,14 @@ int main(int argc, char** argv) {
             const auto& g=particles.granularDiagnostics->latest();
             std::cout<<"Granular final status: error="<<g.active<<", caps="<<g.free<<", contacts="<<g.reserved<<", boundary_events="<<g.rejected<<"\n";
             if(g.active) throw std::runtime_error("Granular solver fault remained latched at shutdown");
+        }
+        if(particles.settlingDiagnostics && ticks) {
+            while(particles.settlingDiagnostics->pending()) particles.settlingDiagnostics->poll(bgfx::frame());
+            particles.settlingDiagnostics->request(6,particles.settling->status(),ticks);
+            while(particles.settlingDiagnostics->pending()) particles.settlingDiagnostics->poll(bgfx::frame());
+            const auto& s=particles.settlingDiagnostics->latest();
+            std::cout<<"Settling final status: error="<<s.active<<", candidates="<<s.free<<", acquiring="<<s.reserved<<", contact_grace="<<s.rejected<<"\n";
+            if(s.active) throw std::runtime_error("Settling fault remained latched at shutdown");
         }
         std::cout << "Clean shutdown after " << ticks << " ticks\n";
         return 0;

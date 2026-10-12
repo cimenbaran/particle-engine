@@ -33,6 +33,11 @@ std::uint64_t granularPayloadBytes(std::uint32_t capacity) {
     // All component payloads + two full indices with four recursive scans.
     return 1184ull*std::max(1u,capacity)+256+4*scan+16ull*std::bit_ceil(capacity*2+2);
 }
+std::uint64_t settlingPayloadBytes(std::uint32_t capacity) {
+    std::uint64_t scan=0;auto count=capacity;
+    for(;;){const auto groups=std::max(1u,dispatchGroups(count));scan+=4ull*(std::max(1u,count)+groups);if(groups==1)break;count=groups;}
+    return 80ull*std::max(1u,capacity)+96+2*scan+8ull*std::bit_ceil(capacity*2+2);
+}
 nlohmann::json resourceReport(const ResourceUsage& u,const bgfx::Stats& s) {
     using Json=nlohmann::json;
     auto available=[](std::int64_t bytes)->Json {return bytes<0?Json(nullptr):Json(bytes);};

@@ -1,9 +1,9 @@
 SETTLING CANDIDATE CONTRACT
 
-S2-09 remains open. src/core/Settling.hpp implements and tests the sidecar state
+src/core/Settling.hpp implements and tests the sidecar state
 transition; tests/reference/SettlingSupport.hpp is an independent all-pairs
-support oracle. The isolated GPU tracker is implemented and validated against these references;
-see GPU_Settling.txt. Interactive integration remains open.
+support oracle. The GPU tracker is implemented and validated against these references;
+see GPU_Settling.txt. Interactive integration retains candidates as active matter.
 
 One 16-byte history belongs to one physical slot: generation, consecutive quiet
 ticks, consecutive unsupported ticks and candidate (0/1). History never changes
@@ -40,6 +40,6 @@ ineligibility, failed ticks, nonfinite inputs, malformed history, one-tick and
 UINT32_MAX profiles, 100,000 steady ticks, floor/stack/static support, side contacts,
 coincident centres and deep overlap. CTest name: settling_hysteresis.
 
-Next: attach the tracker to the final committed live GPU state, expose counts
-in diagnostics, and verify candidates remain in the physical active list. Do not
+The live tracker consumes final committed GPU state and exposes delayed counts;
+an application fixture verifies physical active-list membership. Do not
 use snapshot-only diagnostics to accumulate dwell: they miss intervening ticks.

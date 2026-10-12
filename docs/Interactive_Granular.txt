@@ -45,7 +45,9 @@ N=max(1,capacity), S=sum over prefix-scan levels of 4*(max(1,count)+groups), and
 H=bit_ceil(2*capacity+2), solver bytes are 1184*N + 256 + 4*S + 16*H. This covers
 the coordinator/components, both spatial indices, four scans and status buffers;
 it excludes driver alignment, shaders/uniforms and pending deferred destruction.
-The extra diagnostic ring adds 64 GPU texture bytes and 48 host readback bytes.
+Settling adds 80*N + 96 + 2*S + 8*H bytes for its history, index and fault latch.
+The solver and settling diagnostic rings add 128 GPU texture bytes and 96 host
+readback bytes.
 This is requested payload accounting, not a certified resident-memory budget.
 
 Validation scope
@@ -61,3 +63,22 @@ full hot reload, interior terrain, benchmarks and ten-minute soaks remain open.
 
 Fixed small-scene settling and energy regression checks are now available via
 --granular-check; see Granular_Stability.txt for their scope and limits.
+
+Settling candidates
+The live granular path advances a separate tracker once per completed physics
+tick. The UI reports candidates, acquiring particles and candidates inside the
+contact-loss grace interval. Counts are delayed GPU diagnostics. Candidates remain
+active particles: they still integrate, collide, render and accept impulses.
+Default acquisition requires 30 supported ticks at <=0.05 m/s; retention uses
+<=0.1 m/s and up to two missing-contact ticks. See Settling_Candidates.txt.
+
+Scene reset clears history even when slot generations repeat, starts a new
+diagnostic epoch and clears both fault latches. Changing to ballistic mode releases
+tracker resources. A tracking error invalidates all candidates on the GPU and
+remains latched; the UI pauses when its diagnostic arrives. The physics solver
+keeps its separate fault latch. Shutdown checks and prints both statuses.
+
+Application-path tests verify a candidate remains in the active list with valid
+free-list ownership, an impulse releases it without deleting it, and scene/empty
+resets cannot inherit stale history. These checks complement the 45 isolated GPU
+tracker fixtures. Deposition and terrain ownership transfer remain Sprint 3 work.
