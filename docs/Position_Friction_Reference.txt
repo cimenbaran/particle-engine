@@ -46,3 +46,10 @@ the full GPU suite and 13 CTests. The new profile passes a five-second allocatio
 soak. See tests/results/m3-max-static-friction.txt. The earlier ten-minute soak
 uses pre-change physics and is recorded separately. Windows cross-backend
 stability remains open pending a fresh run; the 0.1 m/s gate was not widened.
+
+Windows follow-up at source 6dad618
+Run 38321953983 passes the GPU suite and resting-pile fixture at both workgroups.
+The wall-pile fixture fails with tail speed 0.16091604284441838 m/s at tick 510;
+its overlap gate passes. The other six stability scenes pass. This supersedes
+the earlier resting-pile failure as the current blocker. The ten-minute Windows
+soak was not reached. See tests/results/ci-38321953983-static-friction.txt.

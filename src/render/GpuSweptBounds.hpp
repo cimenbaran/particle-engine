@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include "core/AnalyticSphere.hpp"
 #include <filesystem>
 #include <array>
 namespace pw {
@@ -12,10 +13,10 @@ public:
     void submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,
         bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,
         bgfx::DynamicIndexBufferHandle upstream,float dt,float speedLimit=12,
-        float bounceThreshold=0.5f,std::uint32_t eventBudget=16);
+        float bounceThreshold=0.5f,std::uint32_t eventBudget=16,const AnalyticSphere& obstacle={});
     bgfx::DynamicVertexBufferHandle output() const {return output_;}
     // errors (1 upstream, 2 profile/state, 4 exhaustion, 8 arithmetic),
-    // proposed capped bodies, total collision events, total incident planes.
+    // proposed capped bodies, total collision events, total incident normals (planes plus sphere hits).
     bgfx::DynamicIndexBufferHandle status() const {return status_;}
 private:
     void release();
@@ -24,7 +25,7 @@ private:
     bgfx::DynamicVertexBufferHandle candidate_=BGFX_INVALID_HANDLE,output_=BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle status_=BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,sweep_=BGFX_INVALID_HANDLE,apply_=BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,profile_=BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,profile_=BGFX_INVALID_HANDLE,sphere_=BGFX_INVALID_HANDLE;
 };
 void runGpuSweptBoundsTest(const std::filesystem::path& assets);
 }

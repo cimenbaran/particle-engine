@@ -1,0 +1,37 @@
+WINDOWS STATIC-FRICTION STABILITY RESULT
+Run https://github.com/cimenbaran/particle-engine/actions/runs/38321953983
+Source 6dad618897535451a4b99facedc6d544cfd46380; static_traction_v1.
+Both WARP workgroup jobs pass the full GPU correctness suite (85 Jacobi fixtures).
+Both fail wall_pile_64: tail maximum speed 0.16091604284441838 m/s at tick 510,
+above the unchanged 0.1 m/s settling limit. Overlap gate passes.
+resting_pile_64 now passes, tail max 0.000005052424967288988 m/s.
+Other six stability fixtures pass. Ten-minute WARP soak was not reached.
+No cross-backend stability completion claim; the new optional sphere component
+was not part of this source. Physical GPU and performance validation remain separate.
+
+out/ci-38321953983-wg128/granular-stability.json sha256=653ff00121c5b1361c7b7870f54a4ecfe71ae5107ad44c994603432ba3552993
+{"failure": "", "name": "falling_column_16", "passed": true, "tail_max_speed": 3.178417682647705e-05, "tail_overlap_passed": true}
+{"failure": "", "name": "resting_pile_64", "passed": true, "tail_max_speed": 5.052424967288988e-06, "tail_overlap_passed": true}
+{"failure": "Settling window: >1% deep contacts or speed >0.1 m/s", "name": "wall_pile_64", "passed": false, "tail_max_speed": 0.16091604284441838, "tail_overlap_passed": true}
+{"age_error_seconds": -7.915496826171875e-05, "boundary_events": 235, "contacts": 77, "deep_contacts": 0, "energy": 0.0013812104336406981, "max_penetration": 0.00023786722332323762, "max_speed": 0.04327977406790276, "mechanical_energy": 85.00690397329497, "potential_energy": 85.00552276286133, "solver_caps": 0, "solver_max_degree": 4, "tick": 480}
+{"age_error_seconds": -8.678436279296875e-05, "boundary_events": 233, "contacts": 83, "deep_contacts": 0, "energy": 0.02729332642796673, "max_penetration": 0.00023786722332323762, "max_speed": 0.16091604284441838, "mechanical_energy": 84.81088822567574, "potential_energy": 84.78359489924777, "solver_caps": 0, "solver_max_degree": 5, "tick": 510}
+{"age_error_seconds": -9.441375732421875e-05, "boundary_events": 246, "contacts": 85, "deep_contacts": 0, "energy": 0.002201547454644736, "max_penetration": 0.00023786722332323762, "max_speed": 0.03253953867856198, "mechanical_energy": 82.91423587971995, "potential_energy": 82.9120343322653, "solver_caps": 0, "solver_max_degree": 5, "tick": 540}
+{"age_error_seconds": -0.00010204315185546875, "boundary_events": 240, "contacts": 86, "deep_contacts": 0, "energy": 0.0040409805945086, "max_penetration": 0.00023786722167140617, "max_speed": 0.06802782469809664, "mechanical_energy": 82.17473516756922, "potential_energy": 82.17069418697471, "solver_caps": 0, "solver_max_degree": 5, "tick": 570}
+{"age_error_seconds": -0.00010967254638671875, "boundary_events": 252, "contacts": 77, "deep_contacts": 0, "energy": 0.0005252659819923855, "max_penetration": 0.00023786722167140617, "max_speed": 0.015795030504371324, "mechanical_energy": 81.76518212947367, "potential_energy": 81.76465686349168, "solver_caps": 0, "solver_max_degree": 4, "tick": 600}
+{"failure": "", "name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"failure": "", "name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.7777916759710983, "tail_overlap_passed": true}
+{"failure": "", "name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"failure": "", "name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}
+out/ci-38321953983-wg256/granular-stability.json sha256=6e5acc8a78af1ec230d349c3158c258a2c44554699348a3f98dae3f0ed6fa052
+{"failure": "", "name": "falling_column_16", "passed": true, "tail_max_speed": 3.178417682647705e-05, "tail_overlap_passed": true}
+{"failure": "", "name": "resting_pile_64", "passed": true, "tail_max_speed": 5.052424967288988e-06, "tail_overlap_passed": true}
+{"failure": "Settling window: >1% deep contacts or speed >0.1 m/s", "name": "wall_pile_64", "passed": false, "tail_max_speed": 0.16091604284441838, "tail_overlap_passed": true}
+{"age_error_seconds": -7.915496826171875e-05, "boundary_events": 235, "contacts": 77, "deep_contacts": 0, "energy": 0.0013812104336406981, "max_penetration": 0.00023786722332323762, "max_speed": 0.04327977406790276, "mechanical_energy": 85.00690397329497, "potential_energy": 85.00552276286133, "solver_caps": 0, "solver_max_degree": 4, "tick": 480}
+{"age_error_seconds": -8.678436279296875e-05, "boundary_events": 233, "contacts": 83, "deep_contacts": 0, "energy": 0.02729332642796673, "max_penetration": 0.00023786722332323762, "max_speed": 0.16091604284441838, "mechanical_energy": 84.81088822567574, "potential_energy": 84.78359489924777, "solver_caps": 0, "solver_max_degree": 5, "tick": 510}
+{"age_error_seconds": -9.441375732421875e-05, "boundary_events": 246, "contacts": 85, "deep_contacts": 0, "energy": 0.002201547454644736, "max_penetration": 0.00023786722332323762, "max_speed": 0.03253953867856198, "mechanical_energy": 82.91423587971995, "potential_energy": 82.9120343322653, "solver_caps": 0, "solver_max_degree": 5, "tick": 540}
+{"age_error_seconds": -0.00010204315185546875, "boundary_events": 240, "contacts": 86, "deep_contacts": 0, "energy": 0.0040409805945086, "max_penetration": 0.00023786722167140617, "max_speed": 0.06802782469809664, "mechanical_energy": 82.17473516756922, "potential_energy": 82.17069418697471, "solver_caps": 0, "solver_max_degree": 5, "tick": 570}
+{"age_error_seconds": -0.00010967254638671875, "boundary_events": 252, "contacts": 77, "deep_contacts": 0, "energy": 0.0005252659819923855, "max_penetration": 0.00023786722167140617, "max_speed": 0.015795030504371324, "mechanical_energy": 81.76518212947367, "potential_energy": 81.76465686349168, "solver_caps": 0, "solver_max_degree": 4, "tick": 600}
+{"failure": "", "name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"failure": "", "name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.7777916759710983, "tail_overlap_passed": true}
+{"failure": "", "name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"failure": "", "name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}

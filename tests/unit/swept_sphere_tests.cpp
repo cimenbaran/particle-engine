@@ -1,4 +1,5 @@
 #include "../reference/SweptSphere.hpp"
+#include "core/AnalyticSphere.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <random>
@@ -8,6 +9,12 @@ bool near(double a,double b,double tolerance=1e-10){return std::abs(a-b)<=tolera
 double speed2(const SweepState& s){double n=0;for(double v:s.velocity)n+=v*v;return n;}
 template<class F>bool rejects(F f){try{f();return false;}catch(const std::exception&){return true;}}
 int main(){
+    pw::validateAnalyticSphere({});pw::validateAnalyticSphere({{0,8,0},4});
+    for(float bad:{-1.0f,0.01f,4.01f,std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()})
+        CHECK(rejects([&]{pw::validateAnalyticSphere({{0,8,0},bad});}));
+    CHECK(rejects([&]{pw::validateAnalyticSphere({{0,0.5f,0},1});}));
+    CHECK(rejects([&]{pw::validateAnalyticSphere({{8,8,0},1});}));
+    CHECK(rejects([&]{pw::validateAnalyticSphere({{0,8,std::numeric_limits<float>::quiet_NaN()},0});}));
     const SphereCollider sphere{{0,0,0},0.9375};const double radius=0.0625;
     const SweepState input{{-2,0,0},{10,0,0}};
     auto r=sweepSphere(input,0.2,radius,sphere,0.5,0);

@@ -17,15 +17,15 @@ The separate --granular-check runner now covers falling columns, resting and
 wall piles, coincident spawns, closed dissipative motion, grazing contact and
 high-speed wall shots. Both Metal workgroup variants pass the fixed small-scene
 settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
-limits. Windows WARP fails the resting-pile speed gate at both workgroup sizes; see
-../docs/Position_Friction_Reference.txt and the associated CI result. The gate
-remains unchanged. Positional static friction is now integrated for pairs and
-walls (static_traction_v1), and all seven scenes pass on Metal 128/256.
-Resolution of the Windows failure awaits validation of source 6dad618.
+limits. Static_traction_v1 passes all seven on Metal128/256. Windows WARP run
+38321953983 passes the full correctness suite and now passes resting_pile_64,
+but wall_pile_64 reaches 0.160916 m/s at tick 510 in the final settling window
+(limit 0.1). Both workgroups reproduce it; penetration coverage passes. See
+../tests/results/ci-38321953983-static-friction.txt. Do not widen the gate.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain has a tested CPU sphere-sweep oracle in
-../docs/Swept_Sphere_Reference.txt; GPU collision/constraint/support integration
-remains open. Detailed debug views/metrics,
+../docs/Swept_Sphere_Reference.txt and an optional GPU sweep component tested
+on Metal. Live constraint/support/rendering integration remains open. Detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in

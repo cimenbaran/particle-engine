@@ -78,3 +78,43 @@ half-feature travel guarantee is not a guarantee about position-solver correctio
 GpuGranularStep now composes this pass with forces, bounded corrections and
 whole-tick publication; see GPU_Granular_Step.txt. It remains outside live UI
 stepping and does not close the integration/stability gates listed above.
+
+Optional interior sphere (component API)
+submit accepts an AnalyticSphere after the event budget. Radius zero disables
+it, preserving the existing live profile. Enabled radii are 0.0625..4 metres;
+centre coordinates must be finite. The expanded sphere plus a 0.125 m clearance
+must fit inside the inset enclosure, so simultaneous sphere/plane contacts cannot
+occur in the supported profile. This is one fixed sphere using the moving body's
+friction and restitution. No particle-sized allocations or extra compute bindings
+are added; a vec4 uniform supplies the collider.
+
+Each event chooses the earlier of the six-plane impact and the sphere entry.
+Remaining time is retained, so sphere-then-wall and wall-then-sphere paths work in
+one submission. Exact plane ties still use the existing common-tangent response.
+Sphere response removes only bounded tangential speed and applies the same bounce
+threshold. Total incident-normal diagnostics count both wall planes and sphere
+hits. Budget exhaustion still rolls back the whole pool, including earlier impacts.
+Initial overlap of a participating dynamic body reports state error 2. Existing
+static/dead/excluded preservation rules remain; this is not overlap recovery.
+
+Entry uses geometric chord construction and a stable near-surface root. If GPU
+division places a computed entry just beyond dt but the segment endpoint lies
+inside the expanded sphere, that endpoint independently proves the collision and
+retains it at dt. A 0.000002 m outward guard at sphere impacts avoids repeated
+zero-time re-entry caused by a rounded surface position. The existing 0.0002 m
+position comparison tolerance was not widened. This guard is numerical separation,
+not a scene-scale collider inflation or general contact-skin policy.
+
+The 87 sweep fixtures include the prior 45 enclosure cases plus sphere workgroup
+boundaries, nine restitution/friction combinations, six approach and endpoint
+directions, grazing/miss/slow contact, a 10000 m/s shot, both sphere/wall event
+orders, exhaustion, initial-overlap rollback, reuse, exclusions and upstream faults.
+Pure sphere trajectories compare with the independent double oracle; mixed paths
+use analytic one-dimensional distances. Original buffers and persistent fields
+remain bitwise unchanged. Both Metal workgroup suites pass; Windows is unverified.
+
+The live granular coordinator still supplies the disabled default. Enabling a
+scene requires matching Jacobi constraints, settling support, collider rendering,
+scene configuration, reset/recording contracts and stability tests. A swept
+prediction alone is insufficient because particle corrections could push a body
+back into the obstacle. See Swept_Sphere_Reference.txt for the remaining work.

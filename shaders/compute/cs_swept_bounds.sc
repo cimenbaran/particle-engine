@@ -8,6 +8,21 @@ BUFFER_RW(b_candidate,vec4,3);
 BUFFER_RW(b_status,uint,4);
 uniform vec4 u_velocity; // capacity, dt, material count
 uniform vec4 u_sweep; // speed limit, bounce threshold, event budget
+uniform vec4 u_sweep_sphere; // fixed sphere centre/radius; zero radius disables
+const float sphereSkin=0.000002;
+// Outward normal and entry time; 2 means no hit in any supported dt.
+vec4 sphereImpact(vec3 p,vec3 v) {
+  if(u_sweep_sphere.w==0.0)return vec4(0.0,0.0,0.0,2.0);
+  float speed=length(v);if(speed==0.0)return vec4(0.0,0.0,0.0,2.0);
+  vec3 direction=v/speed,offset=p-u_sweep_sphere.xyz;float approach=-dot(offset,direction);
+  if(approach<=0.0)return vec4(0.0,0.0,0.0,2.0);
+  vec3 perpendicular=offset+direction*approach;float miss=length(perpendicular),radius=u_sweep_sphere.w+0.0625;
+  if(miss>=radius)return vec4(0.0,0.0,0.0,2.0);
+  float chord=sqrt(max(0.0,(radius-miss)*(radius+miss))),distance=length(offset);
+  float time=max(0.0,(distance-radius)*(distance+radius)/(speed*(approach+chord)));
+  vec3 normal=perpendicular-direction*chord;normal/=length(normal);
+  return vec4(normal,min(time,2.0));
+}
 bool coefficient(float v) {uint b=floatBitsToUint(v);return (b&0x7fffffffu)==0u || b<=0x3f800000u;}
 float hitTime(float p,float v,float lo,float hi) {
   if(v==0.0) return 2.0;
@@ -35,6 +50,7 @@ void main() {
   vec3 lo=vec3(-7.9375,0.0625,-7.9375),hi=vec3(7.9375,15.9375,7.9375);
   if(any(lessThan(pose.xyz,lo)) || any(greaterThan(pose.xyz,hi))) {atomicOr(b_status[0],2u);return;}
   vec3 p=pose.xyz,v=motion.xyz;
+  if(u_sweep_sphere.w>0.0 && length(p-u_sweep_sphere.xyz)<u_sweep_sphere.w+pose.w){atomicOr(b_status[0],2u);return;}
   float largest=max(abs(v.x),max(abs(v.y),abs(v.z)));
   if(largest>0.0) {
     vec3 scaled=largest>18446744073709551616.0?v*5.421010862427522e-20:v;
@@ -48,11 +64,27 @@ void main() {
   float remaining=u_velocity.y;uint events=0u,planes=0u;
   LOOP while(remaining>0.0) {
     vec3 times=vec3(hitTime(p.x,v.x,lo.x,hi.x),hitTime(p.y,v.y,lo.y,hi.y),hitTime(p.z,v.z,lo.z,hi.z));
-    float first=min(times.x,min(times.y,times.z)),travel=min(first,remaining);
+    vec4 sphere=sphereImpact(p,v);
+    // Division can round an endpoint root just beyond dt. A contained endpoint
+    // independently proves an entry occurred; retain that collision at dt.
+    if(sphere.w>remaining && sphere.w<2.0 && u_sweep_sphere.w>0.0 &&
+       length(p+v*remaining-u_sweep_sphere.xyz)<=u_sweep_sphere.w+pose.w)sphere.w=remaining;
+    float wall=min(times.x,min(times.y,times.z)),first=min(wall,sphere.w),travel=min(first,remaining);
     p+=v*travel;
     if(first>remaining) break;
     if(events>=uint(u_sweep.z)) {atomicOr(b_status[0],4u);return;}
     ++events;remaining=max(0.0,remaining-first);
+    if(sphere.w<wall) {
+      vec3 normal=sphere.xyz;float incoming=dot(v,normal);
+      float outgoing=-incoming>u_sweep.y?-material.z*incoming:0.0;
+      vec3 tangent=v-normal*incoming;float speed=length(tangent),support=max(0.0,outgoing-incoming);
+      float scale=speed>0.0?max(0.0,1.0-material.y*support/speed):0.0;
+      v=normal*outgoing+tangent*scale;
+      // A two-micrometre outward guard prevents a rounded surface point from
+      // repeatedly re-entering this same convex collider at time zero.
+      p=u_sweep_sphere.xyz+normal*(u_sweep_sphere.w+pose.w+sphereSkin);++planes;
+      continue;
+    }
     bool x=times.x==first,y=times.y==first,z=times.z==first;
     vec3 old=v;
     if(x) {p.x=old.x>0.0?hi.x:lo.x;v.x=reflected(old.x,material.z);++planes;}

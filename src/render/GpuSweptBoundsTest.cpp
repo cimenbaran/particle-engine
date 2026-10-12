@@ -4,6 +4,7 @@
 #include "core/ComputeDispatch.hpp"
 #include "assets/Materials.hpp"
 #include "../../tests/reference/SweptBounds.hpp"
+#include "../../tests/reference/SweptSphere.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -29,7 +30,8 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     SweepHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     SweepHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));unsigned cases=0;
     auto check=[&](std::vector<ParticleGpu> input,float dt,float e,float mu,float limit=1000,std::uint32_t budget=128,
-                  std::uint32_t error=0,std::uint32_t upstream=0,GpuSweptBounds* reused=nullptr) {
+                  std::uint32_t error=0,std::uint32_t upstream=0,GpuSweptBounds* reused=nullptr,
+                  AnalyticSphere obstacle={},const reference::SweepResult* known=nullptr) {
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);
         materials[0].mechanical[1]=mu;materials[0].mechanical[2]=e;
         SweepHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
@@ -38,7 +40,7 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
         std::array<std::uint32_t,4> initial{upstream,0,0,0};
         SweepHandle status(bgfx::createDynamicIndexBuffer(bgfx::copy(initial.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ));
         auto owned=reused?nullptr:std::make_unique<GpuSweptBounds>(assets,count);auto& sweep=reused?*reused:*owned;
-        sweep.submit(0,state.value,materialBuffer.value,3,status.value,dt,limit,0.5f,budget);
+        sweep.submit(0,state.value,materialBuffer.value,3,status.value,dt,limit,0.5f,budget,obstacle);
         SweepHandle image(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
         SweepHandle staging(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         SweepHandle oldImage(bgfx::createTexture2D(4,std::uint16_t(storage),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -67,15 +69,24 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
             for(unsigned a=0;a<3;++a){start.position[a]=p.positionRadius[a];start.velocity[a]=p.velocityInvMass[a];squared+=start.velocity[a]*start.velocity[a];}
             const double speed=std::sqrt(squared);
             if(speed>limit){for(double& v:start.velocity)v*=double(limit)/speed;++capped;}
-            const auto expected=reference::sweepBounds(start,dt,e,mu,0.5,{},budget);events+=expected.events;planes+=expected.planes;
+            reference::SweepResult expected;
+            if(known)expected=*known;
+            else if(obstacle.radius>0){
+                const reference::SphereCollider collider{{obstacle.centre[0],obstacle.centre[1],obstacle.centre[2]},obstacle.radius};
+                const auto result=reference::sweepSphere(start,dt,p.positionRadius[3],collider,e,mu,0.5);
+                expected={result.state,result.hit?1u:0u,result.hit?1u:0u};
+            }else expected=reference::sweepBounds(start,dt,e,mu,0.5,{},budget);
+            events+=expected.events;planes+=expected.planes;
             double finalSpeed=0,initialEnergy=0;
             for(unsigned a=0;a<3;++a) {
                 require(std::isfinite(actual[i].positionRadius[a]) && std::abs(actual[i].positionRadius[a]-expected.state.position[a])<2e-4,"GPU sweep position differs from CPU reference");
-                require(std::isfinite(actual[i].velocityInvMass[a]) && std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a])),"GPU sweep velocity differs from CPU reference");
+                require(std::isfinite(actual[i].velocityInvMass[a]) && std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a])),("GPU sweep velocity differs from CPU reference fixture "+std::to_string(cases)+" slot "+std::to_string(i)+" axis "+std::to_string(a)+" actual "+std::to_string(actual[i].velocityInvMass[a])+" expected "+std::to_string(expected.state.velocity[a])).c_str());
                 const double v=actual[i].velocityInvMass[a];finalSpeed+=v*v;initialEnergy+=start.velocity[a]*start.velocity[a];
                 const double lo=a==1?0.0625:-7.9375,hi=a==1?15.9375:7.9375;
                 require(actual[i].positionRadius[a]>=lo && actual[i].positionRadius[a]<=hi,"GPU sweep escaped bounds");
             }
+            if(obstacle.radius>0){double distance=0;for(unsigned axis=0;axis<3;++axis){const double d=actual[i].positionRadius[axis]-obstacle.centre[axis];distance+=d*d;}
+                require(std::sqrt(distance)>=obstacle.radius+0.0625-1e-6,"Sphere sweep ended inside obstacle");}
             require(finalSpeed<=initialEnergy+1e-4*std::max(1.0,initialEnergy) && finalSpeed<=double(limit)*limit*1.00001,"Sweep grew energy/exceeded cap");
             require(std::memcmp(&actual[i].positionRadius[3],&p.positionRadius[3],4)==0 &&
                 std::memcmp(&actual[i].velocityInvMass[3],&p.velocityInvMass[3],sizeof(p)-28)==0,"Sweep changed persistent fields");
@@ -112,6 +123,35 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     check(fixture(1),0.1f,0,std::numeric_limits<float>::quiet_NaN(),1000,128,2);
     p=fixture(1);p[0].velocityInvMass[3]=-0.0f;p[0].positionRadius[0]=9;check(p,0.1f,0,0);
     GpuSweptBounds reused(assets,129);p=fixture(129);p[7].identity[3]=0;check(p,0.1f,0,0,1000,128,2,0,&reused);check(fixture(129),0.1f,0,0,1000,128,0,0,&reused);
+    const AnalyticSphere obstacle{{0,8,0},0.9375f};
+    auto sphereFixture=[&](unsigned count){auto values=fixture(count);for(auto& body:values){body.positionRadius[0]=-2;body.velocityInvMass[0]=10;body.velocityInvMass[1]=body.velocityInvMass[2]=0;}return values;};
+    for(unsigned count:{0u,1u,127u,128u,129u,255u,256u,257u})check(sphereFixture(count),0.2f,0.5f,0.5f,1000,128,0,0,nullptr,obstacle);
+    p=sphereFixture(257);for(unsigned i=0;i<p.size();++i)p[i].positionRadius[1]=8+(float(i%17)-8)*0.1f;
+    for(float restitution:{0.0f,0.5f,1.0f})for(float friction:{0.0f,0.5f,1.0f})check(p,0.2f,restitution,friction,1000,128,0,0,nullptr,obstacle);
+    for(unsigned axis=0;axis<3;++axis)for(float sign:{-1.0f,1.0f}){
+        p=sphereFixture(1);for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=obstacle.centre[a];p[0].velocityInvMass[a]=0;}
+        p[0].positionRadius[axis]+=2*sign;p[0].velocityInvMass[axis]=-10*sign;
+        check(p,0.2f,0.5f,0.25f,1000,128,0,0,nullptr,obstacle);
+        check(p,0.1f,0.5f,0.25f,1000,128,0,0,nullptr,obstacle);
+    }
+    p=sphereFixture(1);check(p,0.1f,0.5f,0,1000,128,0,0,nullptr,obstacle);
+    p[0].positionRadius[1]=9;check(p,0.4f,1,1,1000,128,0,0,nullptr,obstacle); // grazing
+    p[0].positionRadius[1]=9.01f;check(p,0.4f,1,1,1000,128,0,0,nullptr,obstacle); // miss
+    p=sphereFixture(1);p[0].positionRadius[0]=-1;p[0].velocityInvMass[0]=0.1f;check(p,0.1f,1,0,1000,128,0,0,nullptr,obstacle);
+    p=sphereFixture(1);p[0].positionRadius[0]=-4;p[0].velocityInvMass[0]=10000;check(p,0.01f,0,0,10000,128,0,0,nullptr,obstacle);
+    // Independent 1D path lengths: sphere then wall, and wall then sphere.
+    p=sphereFixture(1);p[0].positionRadius[0]=-4;
+    reference::SweepResult twoHits{{{-7.875,8,0},{10,0,0}},2,2};
+    check(p,1,1,0,1000,128,0,0,nullptr,obstacle,&twoHits);
+    check(p,1,1,0,1000,1,4,0,nullptr,obstacle);
+    p[0].positionRadius[0]=-7;p[0].velocityInvMass[0]=-10;
+    twoHits={{{-3.125,8,0},{-10,0,0}},2,2};check(p,1,1,0,1000,128,0,0,nullptr,obstacle,&twoHits);
+    p=sphereFixture(129);p[7].positionRadius[0]=0;check(p,0.2f,0,0,1000,128,2,0,&reused,obstacle);
+    check(sphereFixture(129),0.2f,0,0,1000,128,0,0,&reused,obstacle);
+    check(fixture(129),0.1f,0,0,1000,128,0,0,&reused); // disabled obstacle after reuse
+    p=sphereFixture(129);for(unsigned i=0;i<p.size();++i){if(i%4==0)p[i].velocityInvMass[3]=0;if(i%4==1)p[i].identity[0]=1;if(i%4==2)p[i].identity[0]=2;if(i%4==3)p[i].identity[1]=0;}
+    check(p,0.2f,0,0,1000,128,0,0,nullptr,obstacle);
+    check(sphereFixture(129),0.2f,0,0,1000,128,1,1,nullptr,obstacle);
     std::cout<<"GPU swept bounds passed: "<<cases<<" fixtures, CPU trajectories, speed caps, corner response, containment and whole-pass rollback\n";
 }
 }

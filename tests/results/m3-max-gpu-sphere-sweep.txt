@@ -1,0 +1,14 @@
+OPTIONAL GPU SPHERE SWEEP — METAL
+Development tree based on 816ab7a plus accompanying sphere component changes.
+M3 Max 48 GiB. Both full GPU suites pass at workgroup sizes 128 and 256.
+87 swept-boundary fixtures retain the prior 45 enclosure cases and add sphere
+trajectories, endpoint/grazing/fast shots, mixed event order, rollback and reuse.
+All 14 macOS CTests passed, including the bounded AnalyticSphere profile validation.
+A rounded endpoint root initially missed the collision; contained-endpoint proof
+fixes it without widening the existing trajectory tolerance.
+Default WG128 restored. The live coordinator keeps the sphere disabled.
+Windows execution and live terrain/constraint/support integration remain open.
+
+out/gpu-sphere128.log sha256=5b1df87e7d5fcedf001cf9dd9e4dc62056472f57b28004a67c7ea765e11805b5
+out/gpu-sphere256.log sha256=ec5152c1da0a13c312fec3fa50658ae823c51c837a6533d3f5ccd2168ea775bc
+out/gpu-sphere-tests128.log sha256=d5b26c561caedd8710f64cf0ff8dbf5683e25a8ef62edd21abb0549f7c5b8526

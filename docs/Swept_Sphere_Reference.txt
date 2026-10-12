@@ -1,8 +1,9 @@
 INTERIOR SPHERE SWEEP REFERENCE
 
 This is CPU reference preparation for S2-08 interior analytic terrain. It does
-not add an interior obstacle to the running application. The existing GPU sweep
-still handles only the six enclosing planes. No terrain or fluid gate is closed.
+not add an interior obstacle to the running application. GpuSweptBounds now supports an optional sphere, with Metal component tests;
+the live coordinator still uses only the six enclosing planes. No terrain or fluid
+gate is closed. See GPU_Swept_Bounds.txt.
 
 The oracle sweeps a moving sphere against one fixed sphere using their summed
 radii. Forces are already applied; the path is linear over dt in [0,1] seconds.
