@@ -1,0 +1,84 @@
+GPU EXACT-KEY CELL HASH - ISOLATED SPRINT 2 COMPONENT
+
+Scope
+GpuCellHash builds a sparse lookup from GpuCellRanges' fixed granular-grid
+triples (key, begin, end). Keys identify cells, not hashes: every insertion and
+query compares the complete key. Intervals are half-open offsets into the
+sorted key/slot array. Persistent particle state never moves. This component
+currently runs only in --gpu-test. Live neighbor queries, failure recovery,
+contacts and associated Sprint 2 completion gates remain open.
+
+Build and ownership contract
+Capacity is 0..1,048,576. The caller supplies compute-readable range storage
+of at least max(1,capacity)*3 uint32 words and four metadata words from the
+range builder. Source buffers must survive GPU execution and remain immutable
+through queries. All source ranges must already be validated by GpuCellRanges;
+the hash checks each key/span again, but does not independently prove coverage
+or ordering of the whole sorted array. Caller-owned query and result buffers
+hold count and count*4 uint32 words, respectively (count <=1,048,576).
+
+A table entry stores full key + range index (8 bytes). UINT32_MAX means empty;
+the fixed grid only accepts keys 0..2,097,151. The default table is the next
+power of two at or above 2*capacity+2, so even maximum occupancy has load <0.5.
+An optional power-of-two table size from 2 to 4,194,304 permits controlled
+failure tests. GPU validation rejects load >=0.5. The largest default table
+uses 32 MiB, plus two 16-byte metadata/metric buffers; source ranges and query
+buffers are separate. These isolated resources are not yet part of live memory
+reports because no live simulation allocates them.
+
+Each submit clears every table entry, metadata and metrics, including an empty
+rebuild. Separate ordered dispatches clear, insert and finalize. Insertion uses
+atomic compare-exchange on full keys and linear probing, with 1..256 probes
+(default 64). The key is claimed before its payload is written; no query runs
+until a subsequent dispatch, after the payload writes are visible. No CPU
+readback, GPU allocation or resizing occurs during submit/lookup.
+
+Use ascending bgfx view order, with Sequential mode as configured by the class.
+Queries must be scheduled at or after the build view. Finish the epoch's queries
+before scheduling another rebuild: this is one table, not double buffering.
+The caller must not remap views into an order that violates those dependencies.
+
+Failure gate
+Metadata words: ready, inserted, failed insertions, error bits.
+Error bits:
+  1 upstream range-builder error
+  2 invalid source counts or table load >=0.5
+  4 insertion probe limit exhausted
+  8 duplicate cell key
+ 16 malformed key or nonempty interval outside source record count
+ 32 incomplete insertion without another reported cause
+Only ready==1 permits lookup. Invalid upstream epochs and counts exceeding
+capacity skip insertion. An overfull test table may still run bounded diagnostic
+insertions, but remains failed and cannot supply neighbors. Counts/probe metrics
+are diagnostic even when ready is zero; they are never permission to consume.
+Metrics: total insertion probes, maximum insertion probes, zero, zero.
+Every build resets them. Maximum total is capacity*256, within uint32 range.
+
+Query results: begin, end, status, probes.
+Status 0 absent; 1 found; 2 failed index; 3 corrupt payload.
+Non-found spans are zero. Failed indexes return status 2 before reading table
+entries, including for out-of-domain query keys. Invalid query keys on a ready
+index return absent without probing. A found entry validates its payload index
+and matching range key/span before returning it.
+
+A missing query may exhaust the probe bound on a ready table. That is an exact
+absence result: every successfully inserted key must lie within that same
+bounded sequence from its own hash start, and entries are not deleted. A failed
+insertion prevents readiness, so it cannot silently remove a true neighbor.
+The future live owner must expose the error and rebuild/reset under an explicit
+policy. Treating status 2 as an empty cell would violate this contract.
+
+Validation
+--gpu-test compares exact intervals and statuses to CPU maps. Scale cases use
+0, 1, 127, 128, 129, 255, 256, 257, 16,384 and 1,048,576 occupied cells, with
+present/missing/out-of-grid keys, one-cell occupancy up to one million records,
+and populated-to-empty rebuilds. A combined
+GPU radix-sort/range/hash case checks reversed input, repeated cells and first/
+last grid keys across 257 records. Fault cases force collisions, missing queries
+that exhaust probes, insertion exhaustion, full tables, duplicates, bad keys,
+empty/out-of-bounds spans, upstream failure, excessive/overflow-sized source
+counts, inconsistent metadata and the exact 0.5 load boundary. Recovery reuses
+the same object after failure. Total/max probes are checked exactly where
+collision geometry makes them independent of parallel insertion order.
+Metal evidence is recorded in tests/results/m3-max-cell-hash.txt. D3D11 runtime
+validation and live physics use remain pending.

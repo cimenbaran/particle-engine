@@ -12,6 +12,8 @@ prefix-scan utility and stable radix sort passed Metal tests in both workgroup
 variants; see ../docs/GPU_Prefix_Scan.txt and ../docs/GPU_Radix_Sort.txt.
 GPU key emission and occupied-cell ranges are under isolated validation in
 ../docs/GPU_Spatial_Keys.txt and ../docs/GPU_Cell_Ranges.txt.
+Exact-key GPU hashing and failure-gated queries are covered by
+../docs/GPU_Cell_Hash.txt; live recovery and neighbor consumption remain open.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

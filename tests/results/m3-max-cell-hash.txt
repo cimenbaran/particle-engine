@@ -1,0 +1,32 @@
+GPU CELL HASH - LOCAL METAL EVIDENCE
+Date: 2026-10-12
+Host: Apple M3 Max, 48 GB; not the M1 Pro reference machine.
+
+Both PW_WORKGROUP_SIZE=128 and 256:
+- Complete --gpu-test process exited 0.
+- 55 hash build/query fixtures per variant passed exact CPU interval/status
+  comparisons, bounded probe assertions and metadata/failure checks.
+- Occupied range counts: 0,1,127,128,129,255,256,257,16384,1048576.
+- Every present key checked at maximum range count, plus missing/out-of-grid
+  keys, one cell containing all records, and clearing populated tables to empty.
+- GPU sort -> occupied ranges -> hash pipeline passed for 257 reversed records,
+  repeated cell keys, first/last valid grid keys and absent queries.
+- Forced collisions: three successful inserts require total 6/max 3 probes;
+  missing colliding key is absent after the same three-probe bound.
+- Probe limit one rejects two of three collisions; full two-slot table rejects
+  one insertion. Both return failed-index status to every query.
+- Duplicate keys, invalid keys/spans, upstream range error, excessive counts,
+  UINT32_MAX counts, inconsistent metadata and load exactly 0.5 are rejected.
+- Recovery after insertion failure reuses the same object successfully.
+- Existing ABI, pool, visibility/indirect, audit, scan, radix, spatial-key,
+  range, GUI, shader reload and physical/cosmetic isolation checks passed.
+- All nine CTests passed in each workgroup configuration.
+
+Ignored local logs:
+out/cell-hash-128-final-gpu.log
+out/cell-hash-256-final-gpu.log
+out/cell-hash-128-ctest.log
+out/cell-hash-256-ctest.log
+
+Limitations: isolated utility validation; no live neighbor/contact integration,
+no performance claim and no D3D11 runtime result for this component yet.
