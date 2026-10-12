@@ -52,3 +52,12 @@ the worktree dirty: the Ninja setup action extracted its executable into the
 checkout's untracked ninja-build directory. These artifacts are therefore not
 clean-checkout evidence. The workflow now installs Ninja under runner.temp and
 checks git status before configuration; validation of that change is pending.
+
+HLSL portability follow-up
+The Windows jobs in run 38295953059 passed the corrected recording C++ source
+but failed compiling cs_audit_state: HLSL rejected a single-scalar uint4
+constructor. The finite-state test now compares exponent bits per scalar
+component, and the same unsigned-vector broadcast pattern was removed from
+pool export and indirect-argument initialization. The full local Metal GPU
+suite, including injected NaN/Inf audits, ownership and indirect checks, passes
+after these changes. Windows compilation of the fix remains pending.

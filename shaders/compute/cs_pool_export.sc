@@ -9,7 +9,7 @@ NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint id=gl_GlobalInvocationID.x;
   if(id>uint(u_pool.x)) return;
-  uvec4 value=uvec4(0xffffffffu);
+  uvec4 value=uvec4(0xffffffffu,0xffffffffu,0xffffffffu,0xffffffffu);
   if(id==uint(u_pool.x)) value=uvec4(b_counts[0],b_counts[1],b_counts[2],b_counts[3]);
   else {
     if(id<b_counts[1]) value.x=b_free[id];

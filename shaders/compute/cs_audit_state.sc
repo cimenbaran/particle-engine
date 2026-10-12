@@ -5,7 +5,11 @@ BUFFER_RO(b_owners,uint,1);
 BUFFER_RW(b_result,uint,2);
 uniform vec4 u_audit;
 // Exponent bits detect NaN/Inf without depending on fast-math comparisons.
-bool finiteLane(vec4 value) {return all(notEqual(floatBitsToUint(value)&uvec4(0x7f800000u),uvec4(0x7f800000u)));}
+bool finiteComponent(float value) {return (floatBitsToUint(value)&0x7f800000u)!=0x7f800000u;}
+bool finiteLane(vec4 value) {
+  return finiteComponent(value.x) && finiteComponent(value.y) &&
+    finiteComponent(value.z) && finiteComponent(value.w);
+}
 NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint slot=gl_GlobalInvocationID.x;
