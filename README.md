@@ -83,3 +83,7 @@ audit on every tick and repeated spawn/remove/expiry stress. See
 The ten-minute gate, shader reload, scene/command recording and
 Windows device validation remain Sprint 1 work. See
 `docs/Sprint_01_Progress.txt` for verification evidence and open gates.
+
+Use `--capabilities out/device.json` to export advertised GPU support and the
+selected draw fallback without running the particle scene. See
+[capability reporting](docs/Capabilities.txt) for requirements and limitations.

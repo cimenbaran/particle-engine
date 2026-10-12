@@ -8,7 +8,7 @@ namespace pw {
 struct RunOptions {
     std::uint32_t capacity=16384,frames=0,warmup=120,soakSeconds=0;
     bool gpuTest=false,indirect=true;
-    std::string benchmark,report;
+    std::string benchmark,report,capabilities;
 };
 inline RunOptions parseOptions(int argc,char** argv) {
     RunOptions options;bool specifiedWarmup=false;
@@ -29,10 +29,13 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--benchmark") {options.benchmark=value(i);if(options.benchmark.empty()) throw std::runtime_error("Empty benchmark prefix");}
         else if(arg=="--soak") options.soakSeconds=number(value(i),1,3600);
         else if(arg=="--report") {options.report=value(i);if(options.report.empty()) throw std::runtime_error("Empty soak report path");}
+        else if(arg=="--capabilities") {options.capabilities=value(i);if(options.capabilities.empty()) throw std::runtime_error("Empty capability report path");}
         else if(arg=="--no-indirect") options.indirect=false;
         else if(arg=="--gpu-test") options.gpuTest=true;
-        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json]");
+        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--frames N] [--gpu-test] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json]");
     }
+    if(!options.capabilities.empty() && (options.soakSeconds || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup || !options.report.empty()))
+        throw std::runtime_error("--capabilities cannot combine with execution modes or timing/report options");
     if(options.soakSeconds && (options.report.empty() || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup))
         throw std::runtime_error("--soak requires --report and cannot combine with GPU-test, benchmark, frames or warmup modes");
     if(!options.report.empty() && !options.soakSeconds) throw std::runtime_error("--report requires --soak");

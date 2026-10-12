@@ -1,0 +1,35 @@
+GPU CAPABILITY REPORT
+
+Write the device's advertised capability report and exit:
+
+./out/macos-release/ParticleWorld.app/Contents/MacOS/ParticleWorld \
+  --capabilities out/device.json
+
+Add --no-indirect to report the selected fixed-capacity fallback. Capability
+mode creates the native window and initializes the platform backend, but does
+not create the particle scene or run GPU execution tests. It cannot combine
+with GPU-test, benchmark, soak, frame-count or warmup modes. Exit is 0 when
+required advertised capabilities are present, including a degraded fallback;
+missing required capabilities or report-write failures exit 1. Backend/window
+initialization failure is reported to the console before JSON can be produced.
+
+The version-1 JSON contains supported/degraded/unavailable status, can_run,
+individual checks with actual/required values and actionable failure reasons,
+GPU IDs, backend, selected draw path and coordinate conventions. Normal app
+startup applies the same required checks before running its GPU test suite.
+
+Required: compute, six compute bindings, two vec4 instance-data slots, 32-bit
+index buffers, image read/write, RGBA32U image writes and view IDs through 20.
+Indirect draws are optional: unsupported or explicitly disabled uses masked
+fixed-capacity instancing. No synchronous count readback is introduced.
+
+The pinned bgfx API has no separate compute-buffer read/write or workgroup-
+size capability query. The report explicitly states those limits: packaged
+shaders currently use 128 threads; a 256-thread variant is not implemented.
+Startup GPU tests validate actual shader execution, read/write buffer access,
+image export, blits, readback, particle ABI, pool ownership and visibility.
+An advertised-capability report alone does not prove execution support,
+resource allocation success, benchmark compatibility or performance.
+
+The coordinate convention is right-handed, Y-up, metres. NDC depth and texture
+origin come from the selected backend rather than platform assumptions.

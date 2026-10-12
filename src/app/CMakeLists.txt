@@ -57,3 +57,10 @@ add_custom_command(TARGET ParticleWorld POST_BUILD
     -DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID} -DCOMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
     -P ${PROJECT_SOURCE_DIR}/cmake/BuildManifest.cmake VERBATIM)
 install(FILES ${PW_RUNTIME_ASSETS}/build.json DESTINATION ${PW_ASSET_DEST})
+
+if(BUILD_TESTING)
+  add_executable(pw_capability_tests ../../tests/unit/capability_tests.cpp)
+  target_link_libraries(pw_capability_tests PRIVATE pw_core nlohmann_json::nlohmann_json)
+  target_include_directories(pw_capability_tests PRIVATE ${bgfx_cmake_SOURCE_DIR}/bgfx/include)
+  add_test(NAME capability_classification COMMAND pw_capability_tests)
+endif()

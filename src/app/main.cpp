@@ -7,6 +7,7 @@
 #include "assets/Materials.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include "render/Shaders.hpp"
+#include "render/Capabilities.hpp"
 #include "render/GpuLayoutTest.hpp"
 #include "render/ParticlePool.hpp"
 #include "render/PoolDiagnostics.hpp"
@@ -437,11 +438,19 @@ int main(int argc, char** argv) {
         pw::Window window;
         Graphics graphics(window,!benchmarking && !options.soakSeconds);
         const auto* caps=bgfx::getCaps();
-        const uint64_t required=BGFX_CAPS_COMPUTE;
-        std::cout << "Backend: " << bgfx::getRendererName(caps->rendererType) << '\n';
-        if((caps->supported&required)!=required || caps->limits.maxInstanceData < 2 || caps->limits.maxComputeBindings < 6) throw std::runtime_error("Required compute/instancing unavailable; cannot run GPU simulation");
-        std::cout << "Compute and instancing supported; indirect draws "
-            << ((caps->supported&BGFX_CAPS_DRAW_INDIRECT)?"available":"unavailable") << '\n';
+        auto capabilities=pw::capabilityReport(*caps,allowIndirect);
+        capabilities["backend"]=bgfx::getRendererName(caps->rendererType);
+        std::cout << "Backend: " << capabilities["backend"] << "; capability status: " << capabilities["status"] << '\n';
+        for(const auto& check:capabilities["checks"])
+            if(check["status"]!="supported") std::cout << check["feature"] << ": " << check["action"] << '\n';
+        if(!options.capabilities.empty()) {
+            const std::filesystem::path reportPath=options.capabilities;
+            if(reportPath.has_parent_path()) std::filesystem::create_directories(reportPath.parent_path());
+            std::ofstream report(reportPath);report << capabilities.dump(2) << '\n';report.close();
+            if(!report) throw std::runtime_error("Cannot write capability report: "+reportPath.string());
+            return capabilities["can_run"].get<bool>()?0:1;
+        }
+        if(!capabilities["can_run"].get<bool>()) throw std::runtime_error("Required GPU capabilities unavailable; see individual failures above");
         std::cout << "Submission: compact visible instances; workgroup: 128\n";
         const char* basePath=SDL_GetBasePath();
         if(!basePath) throw std::runtime_error("SDL cannot resolve application assets");
