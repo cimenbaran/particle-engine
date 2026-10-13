@@ -1,0 +1,31 @@
+SWEPT SPHERE / VOXEL REFERENCE
+
+The double CPU oracle in tests/reference/SweptVoxel.hpp computes the first
+closed-segment contact between a sphere and one axis-aligned0.125m voxel.
+It partitions the segment at crossings of the voxel's six planes. Within each
+interval, the closest-point feature is fixed and squared distance is quadratic.
+This handles rounded edge/corner contacts and avoids the false positives of
+simply expanding the voxel AABB by the sphere radius.
+
+Inputs are origin-relative start/end centres, voxel lower corner and radius.
+Coordinates (including the upper corner) must be finite and within +/-1024m;
+radius is constrained to1e-6..4m. These are reference-domain guards, not new live
+simulation limits. Invalid input throws. The default sphere radius is0.0625m.
+The result includes hit, normalized segment time, centre, closest voxel-boundary
+point, outward unit normal and an initial-overlap flag. Misses retain the exact
+supplied endpoint as centre. Endpoint interpolation preserves supplied endpoints.
+Touching at time0 counts as contact even while separating; callers must decide
+response behavior. Initial overlap is reported, not resolved. For a centre
+inside the voxel, the nearest face supplies the normal, with ties resolved in
+-X,+X,-Y,+Y,-Z,+Z order. No velocities, restitution or friction are applied.
+
+Tests include analytic face/edge/corner times and normals, high-speed crossing,
+stationary/overlap cases, exact endpoint contacts, adjacent-float misses, and
+translation checks.4096 seeded cases are compared with a separate convex
+minimum-distance search plus bisection;621 of those intersect. That comparator
+does not reuse plane intervals or analytic quadratic roots. New tests also
+validate the reported boundary point and unit normal. Core CTest15/15, native
+CTest20/20 and the standalone undefined-behavior sanitizer pass on macOS.
+Logs: out/swept-voxel-{build,tests,native-build,native-tests,ubsan}.log.
+This is a geometric oracle. Resident occupancy traversal, GPU collision,
+multiple-contact response and live terrain integration remain open.

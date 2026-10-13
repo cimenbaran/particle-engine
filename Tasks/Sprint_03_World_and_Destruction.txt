@@ -16,7 +16,10 @@ verify there are no partial occupancy edits. Particle/GPU transactions remain
 open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
-../docs/Voxel_Surface.txt. This has no live renderer, voxel collision,
+../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now
+covers faces, rounded edges/corners and closed-segment endpoints against an
+independent distance-search oracle; see ../docs/Swept_Voxel_Reference.txt.
+This has no live renderer, GPU voxel collision,
 thermal state, save files or CPU/GPU origin publication yet. All runtime and
 transaction gates below remain open. Development currently prioritizes macOS.
 

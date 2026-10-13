@@ -10,8 +10,9 @@ Focus implementation and validation on macOS / Metal, per user direction.
 Defer investigation of the Windows voxel-coordinate regression and Windows
 certification. Existing Windows CI may continue reporting failures; these do
 not block macOS development. Preserve cross-platform code where practical.
-Immediate macOS priority: reproduce and repair the long sphere-soak fault using
-the committed and six-stage captures from source620f087, then rerun Metal gates.
+Immediate macOS priority: validate the corrected sphere lifecycle at workgroup256
+and continue voxel terrain collision/rendering integration. Metal128 now passes
+the corrected ten-minute sphere soak; exact evidence appears below.
 
 Implementation status: GPU signed-grid keys, scan, radix sort, occupied ranges,
 exact-key hashing and support-aware traversal feed the live granular solver.
@@ -91,11 +92,15 @@ and all11 stability scenes; see ../tests/results/m3-max-sphere-tangent-precision
 The corrected Metal128 soak at sourceef26559 failed after494.36 seconds /
 26923 ticks. Exact committed and solver-stage captures are preserved in
 ../tests/results/m3-max-sphere-precision-soak-failure.json. The initial captured
-regression passes, but long-run sphere stability remains unresolved.
+regression passed, but that run did not establish long-run sphere stability.
 The second captured state now has an endpoint-rounding correction and precise
 compensated arithmetic. Both captures,191 sweep fixtures,48 coordinator fixtures,
 18 native tests and11 stability scenes pass on Metal128/256. See
-../tests/results/m3-max-sphere-endpoint-precision.txt. A fresh long soak is pending.
+../tests/results/m3-max-sphere-endpoint-precision.txt. Clean source141175e now
+passes the Metal128 sphere lifecycle soak:600.0925 seconds,32650 ticks,127 cycles,
+8391050 slot checks and1350 samples with no faults. See
+../tests/results/m3-max-sphere-endpoint-soak600.json. Metal256 long-soak coverage
+is the next validation step; this is not a performance certification.
 See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
 must be repaired and rerun; earlier enclosure results do not establish it.
 
