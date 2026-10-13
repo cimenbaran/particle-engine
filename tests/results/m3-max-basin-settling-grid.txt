@@ -1,0 +1,30 @@
+BASIN SETTLING GRID VALIDATION
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Change: GpuSettling propagates optional GranularGridProfile to spatial keys,
+ranges, hash and support traversal. Default remains Legacy. Basin support
+uses the complete x/z=[-16,16), y=[0,16) domain.
+
+Workgroup 128: full --gpu-test exit 0; native CTest 21/21 pass.
+Workgroup 256: full --gpu-test exit 0; native CTest 21/21 pass.
+Each configuration:
+  Legacy settling: 88 fixtures.
+  Basin settling: 124 fixtures.
+  Exact per-slot histories compared against independent CPU support/state logic.
+  Particle records compared byte-for-byte before/after tracking.
+  Outer-basin floor fixtures cover sizes through 1024, dwell, hysteresis,
+  reset, recycling, exclusions, invalid input, upstream failures and latching.
+  32 elevated static/dynamic pairs cover outer boundaries, former +/-8 m
+  boundaries and signed zero. Four invalid half-open x/z bounds reject.
+  Analytic sphere fixtures and legacy live settling regression tests pass.
+
+Logs (ignored local artifacts):
+  out/settling-basin-gpu128.log
+  out/settling-basin-gpu256.log
+  out/settling-basin-ctest128.log
+  out/settling-basin-ctest256.log
+
+This validates indexing and existing support modes. Voxel support, terrain
+static traction, live basin history integration and deposition remain open.
+No performance acceptance is claimed.

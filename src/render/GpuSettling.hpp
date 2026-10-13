@@ -7,9 +7,10 @@
 #include "core/AnalyticSphere.hpp"
 namespace pw {
 // A read-only particle consumer. One submit is one completed fixed tick.
+// Grid selects index bounds; support remains floor, particles and optional sphere.
 class GpuSettling {
 public:
-    GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile={},bool latchFailures=false,AnalyticSphere obstacle={});
+    GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile={},bool latchFailures=false,AnalyticSphere obstacle={},GranularGridProfile grid=GranularGridProfile::Legacy);
     ~GpuSettling();
     GpuSettling(const GpuSettling&)=delete;
     GpuSettling& operator=(const GpuSettling&)=delete;

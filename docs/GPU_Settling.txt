@@ -10,6 +10,13 @@ and immutable through execution. Different source objects require reset even if
 their slot generations happen to match. Construction resets on first submission;
 explicit reset also clears counts and works for zero-capacity trackers.
 
+The optional GranularGridProfile constructor argument defaults to Legacy. Basin
+uses x/z=[-16,16), y=[0,16), with the same 0.125 m cells. Keys, ranges,
+hash and support traversal all select that profile; history advancement is
+independent of spatial indexing. This enables pair/floor/sphere support tracking
+throughout the basin domain. Voxel support and live basin integration remain
+pending; selecting Basin alone does not enable voxel support.
+
 History is one bit-preserving uint4 per physical slot: generation, quiet ticks,
 missing-support ticks, candidate. See Settling_Candidates.txt for the state machine
 and geometry. Defaults are 30 acquisition ticks, three missing-contact grace ticks,

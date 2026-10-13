@@ -14,8 +14,8 @@ std::uint32_t validate(std::uint32_t n,const SettlingProfile& p,const AnalyticSp
     return n;
 }
 }
-GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile,bool latchFailures,AnalyticSphere obstacle)
-    :capacity_(validate(capacity,profile,obstacle)),profile_(profile),obstacle_(obstacle),latchFailures_(latchFailures),keys_(assets,capacity_),sort_(assets,capacity_),ranges_(assets,capacity_),hash_(assets,capacity_) {
+GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile,bool latchFailures,AnalyticSphere obstacle,GranularGridProfile grid)
+    :capacity_(validate(capacity,profile,obstacle)),profile_(profile),obstacle_(obstacle),latchFailures_(latchFailures),keys_(assets,capacity_,grid),sort_(assets,capacity_),ranges_(assets,capacity_,grid),hash_(assets,capacity_,0,64,grid) {
     try {
         bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         history_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity_),layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
@@ -24,7 +24,7 @@ GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capac
         latched_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         latch_=loadCompute(assets,"cs_granular_latch");
         reset_=loadCompute(assets,"cs_settling_reset");clear_=loadCompute(assets,"cs_settling_clear");
-        supportProgram_=loadCompute(assets,"cs_settling_support");reduce_=loadCompute(assets,"cs_settling_reduce");advance_=loadCompute(assets,"cs_settling_advance");
+        supportProgram_=loadCompute(assets,gridShader("cs_settling_support",grid));reduce_=loadCompute(assets,"cs_settling_reduce");advance_=loadCompute(assets,"cs_settling_advance");
         params_=bgfx::createUniform("u_settling",bgfx::UniformType::Vec4);ticks_=bgfx::createUniform("u_settling_ticks",bgfx::UniformType::Vec4);
         sphere_=bgfx::createUniform("u_settling_sphere",bgfx::UniformType::Vec4);
         neighbors_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);

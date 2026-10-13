@@ -8,9 +8,9 @@ changing the default profile or allocating a dense cell table.
 
 Implementation
 A shared granular_grid.sh defines key bounds, axis dimensions, signed offsets
-and support saturation. Ten _basin shader variants reuse the existing source
+and support saturation. The _basin shader variants reuse the existing source
 files. GpuSpatialKeys, GpuCellRanges, GpuCellHash, GpuJacobiContacts and
-GpuContactVelocity select matching binaries at construction. Jacobi's optional
+GpuContactVelocity and GpuSettling select matching binaries at construction. Jacobi's optional
 box constraint uses basin walls, and its immutable friction baseline validation
 uses the same domain. Sparse range validation still rejects invalid keys.
 Shader loading checks exact grid/workgroup defines, source name and binary hash.
@@ -24,7 +24,11 @@ iterations against the CPU reference at both basin walls and x=+/-11.5 m,
 including immutable friction baselines. Velocity tests check outer-basin
 collisions and the correction/reconstruction/response chain. Shader reload
 tests swap valid binaries and manifests between profiles and require rejection.
-Existing legacy fixtures remain in the full suite.
+Settling runs the complete history/fault suite in both profiles, moving its floor
+fixtures to the outer basin and testing elevated static/dynamic support pairs at
+both outer walls, signed zero and the former +/-8 m boundaries. Half-open basin
+bounds reject invalid positions. Histories match an independent CPU oracle and
+particle bytes remain unchanged. Existing legacy fixtures remain in the full suite.
 
 Limits
 These primitives now feed the live basin tick (GPU_Basin_Tick.txt). Voxel-constrained position corrections are
