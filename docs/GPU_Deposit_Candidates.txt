@@ -1,0 +1,51 @@
+PRIVATE GPU DEPOSITION CANDIDATES — macOS / Metal
+
+GpuDepositCandidates is the first GPU stage of deposition. It reads immutable
+particle state, settling history and a current zero-origin resident occupancy
+snapshot. It owns a density-derived mass profile table and separate output and
+status buffers. It cannot write terrain, particle state or history. Capacity is
+0..4096 slots, material count 1..256, and tolerance 0..5%.
+
+The host precomputes each material's exact encoded inverse mass and whether two
+grains can fund one voxel at that tolerance. This avoids a second, differently
+rounded GPU mass calculation. The source epoch must match those profiles; a
+future coordinator must freeze/validate the owner, material encoding and tick.
+No production full-particle readback is introduced.
+
+One parallel dispatch produces two uvec4 lanes per slot:
+- signed voxel cell x/y/z, material ID;
+- stable slot, generation, kind (0 ignored, 1 solid blocker, 2 eligible owner),
+  and a flag for a supported empty target at that cell.
+Eligible partners may have an unavailable target of their own. Repeated cells
+are intentional at this stage; these are candidates, not exclusive claims.
+
+Live identities require flags=1, matching slot, nonzero generation and a known
+material. Nonsolids and dead slots are ignored. Solid numeric state is checked;
+nonfinite values, invalid radius or negative inverse mass reject the operation.
+Positive subnormal radii also reject because Metal float clearance cannot safely
+handle them. Signed subnormal positions are preserved when forming grid cells,
+including negative values immediately below zero.
+
+Owners require the common .0625 m radius, exact inverse-mass bits, admissible
+pair mass, matching default settling generation, 30 quiet ticks, candidate=1 and
+no unsupported grace. A rounded-up squared-speed bound checks the .1 m/s hold
+limit. It conservatively defers a narrow floating-point band near the limit,
+including exact .1 m/s. Settling grains well below the threshold are unaffected;
+it cannot admit an above-limit grain through dot-product rounding. This is a
+specified conservative difference from the double-precision CPU reference.
+
+A ready target must be inside the basin and resident, empty, and either at y=0
+or above existing solid terrain. Occupied cells, missing residency, unsupported
+cells and nonsolid support do not become ready. Occupancy is never changed.
+The four status words contain error bits (1 identity, 2 numeric), eligible-owner
+count, ready-target count and valid-solid count. Any error invalidates the entire
+candidate set; counts alone cannot authorize a partial deposit.
+
+The pass validates views, storage aliases and source/origin/revision identity.
+Particle/history storage must cover capacity records of 64/16 bytes respectively.
+Inputs must remain alive and unchanged until execution completes. Re-submission
+overwrites only private output/status. It uses at most six storage bindings.
+
+Remaining work: deterministic partner/target arbitration, remaining-sphere
+clearance, compact claim acknowledgement, candidate terrain publication and
+acknowledged retirement. This stage is not connected to live deposition.

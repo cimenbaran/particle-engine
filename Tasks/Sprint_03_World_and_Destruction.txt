@@ -47,7 +47,10 @@ nearest product counts with explicit signed per-material quantization capped at
 are tracked per material. A bounded read-only deposition reference now pairs settled grains into supported
 empty-voxel claims, validates per-material mass tolerance and remaining-grain
 clearance, and resolves owners deterministically (../docs/Terrain_Deposit_Reference.txt).
-GPU claims, acknowledged retirement and whole-world mass inventory remain open. CPU exposed-face
+The first private GPU pass now validates settled owners and supported empty
+targets without changing live buffers (../docs/GPU_Deposit_Candidates.txt).
+GPU claim arbitration, acknowledged retirement and whole-world mass inventory
+remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 ../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now

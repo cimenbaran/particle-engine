@@ -43,3 +43,7 @@ validate terrain and particle acknowledgements, then publish occupancy before
 retiring exactly acknowledged generation-qualified owners. Failure must retain
 dynamic grains. Deposit mass ledgers, wake handling, thermal transfer and live
 controls remain open. CPU reference tests do not prove any of those GPU gates.
+
+The initial GPU owner/target preflight is documented in GPU_Deposit_Candidates.txt.
+Its conservative speed-threshold band is explicit; arbitration and retirement
+are still pending.

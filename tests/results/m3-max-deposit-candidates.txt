@@ -1,0 +1,28 @@
+PRIVATE GPU DEPOSITION CANDIDATES — APPLE M3 MAX / METAL
+
+AppleClang 21.0.0.21000099; workgroups 128 and 256.
+Complete --gpu-test and all 27 native CTests pass on both configurations.
+
+45 candidate batches cover 25104 particle slots across capacities
+0,1,2,127,128,129,255,256,257,1024,4096. Scenarios include empty/dead/nonsolid
+slots, stale settling generations, unsupported grace, excessive speed, static
+mass, occupied cells, supported empty cells, nonsolid support, unsupported
+cells and incomplete quiet history. Every valid output owner/target flag and
+count is checked against independent fixture expectations. Signed cell and
+identity fields are checked, and full source/history buffers remain byte-identical.
+
+Faulted generation and nonfinite solid position set errors that invalidate the
+whole private proposal. A 1% mass tolerance produces no eligible owners. Explicit
+cases check negative/positive subnormal positions around zero, conservative
+speed-threshold deferral, invalid views/capacities/tolerance, aliased storage and
+different terrain-source identity. Terrain occupancy and revisions are unchanged.
+
+The GPU eligibility bound deliberately defers a narrow speed band near .1 m/s
+rather than relying on rounded float dot products to authorize deposition.
+Subnormal solid radii reject as unsupported numeric input. These conservative
+limits are documented in GPU_Deposit_Candidates.txt.
+
+This is an owner/target preparation pass only. Multiple owners may still propose
+the same target; no partner or voxel is exclusively claimed. GPU arbitration,
+remaining-grain clearance, compact acknowledgement, terrain publication and
+retirement remain unimplemented. No live deposition is enabled or claimed.
