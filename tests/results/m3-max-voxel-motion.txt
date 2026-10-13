@@ -1,0 +1,32 @@
+VOXEL MOTION AND LIVE BASIN PROBES — MACOS / METAL
+
+Workgroup sizes 128 and 256 both passed:
+- Complete --gpu-test suite, including existing sphere, granular, geometry,
+  rendering, pool and shader lifecycle checks.
+- 22 voxel motion fixtures / 1,748 particle records: CPU response agreement,
+  material combinations, energy, containment, metadata/input immutability,
+  walls, rounded contacts, speed caps, event exhaustion and whole-pass rollback.
+- An analytic opposing-edge wedge fixture verifies that the contact constraint
+  solve retains nonzero velocity and travel along the unconstrained Z direction.
+- 256 basin probes for 600 ticks / 2,400 substeps (10 simulated seconds), including
+  ledge and rough sand slope, gravity/drag, identity, age and final separation.
+- Stale-world rejection before mutation and injected overlap with exact whole-tick
+  rollback, including age.
+- Native CTest: 21/21 on both configurations.
+
+Native Metal128 UI inspection confirmed Drop collision probes, visible landed
+probes, Pause probes holding tick 957, and Rebuild basin removing/resetting the
+probe set. Escape closed the test application normally. UI inspection preceded
+final numeric refinements, which were verified by both complete GPU suites.
+
+The seeded slope originally revealed skin offsets crossing neighboring voxels
+and repeated narrow-gap/convex contacts exhausting the event budget. Checked
+separation, contact-cone projection, correct retreat time and convex event
+eligibility fix these without raising the event budget or penetration allowance.
+
+Local ignored logs: out/voxel-motion-{gpu128,gpu256,ctest128,ctest256,preview}.log.
+
+Limits: these are diagnostic probes, without grain-to-grain interaction, settling
+tracking, command-pool ownership or terrain conversion. This is not a long terrain
+edit soak, performance certification or Windows validation. Full granular solver
+integration remains open.

@@ -1,6 +1,9 @@
 #include "TerrainPreview.hpp"
 #include "platform/Window.hpp"
 #include "core/BasinWorld.hpp"
+#include "core/FixedStep.hpp"
+#include "render/VoxelProbes.hpp"
+#include <chrono>
 #include "render/VoxelTerrain.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include <imgui.h>
@@ -36,8 +39,11 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
     PreviewGui gui(window.get());ImGuiRenderer renderer(assets);
     float yaw=.65f,distance=43,elevation=30;bool running=true;std::uint32_t frames=0;
     int width=0,height=0;std::string message;
-    std::cout<<"Resident basin: "<<basin->store->occupiedVoxelCount()<<" voxels, "<<basin->mesh->faceCount()<<" exposed faces, seed "<<seed<<"; static inspection only\n";
+    std::unique_ptr<VoxelProbes> probes;FixedStep clock;auto previous=std::chrono::steady_clock::now();std::uint32_t completed=0;bool paused=false;
+    std::cout<<"Resident basin: "<<basin->store->occupiedVoxelCount()<<" voxels, "<<basin->mesh->faceCount()<<" exposed faces, seed "<<seed<<"; terrain inspection with optional collision probes\n";
     while(running) {
+        if(probes)probes->poll(completed);
+        auto now=std::chrono::steady_clock::now();double elapsed=std::chrono::duration<double>(now-previous).count();previous=now;
         SDL_Event event;
         while(SDL_PollEvent(&event)) {
             if((event.type==SDL_EVENT_MOUSE_BUTTON_DOWN || event.type==SDL_EVENT_MOUSE_BUTTON_UP) && event.button.windowID==SDL_GetWindowID(window.get()))
@@ -53,29 +59,34 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
             width=w;height=h;bgfx::SwapChain swap;swap.nwh=window.nativeHandle();swap.width=std::uint32_t(w);swap.height=std::uint32_t(h);bgfx::reset(BGFX_RESET_VSYNC,&swap);
         }
         ImGui_ImplSDL3_NewFrame();ImGui::NewFrame();
-        ImGui::SetNextWindowPos({16,16},ImGuiCond_FirstUseEver);ImGui::SetNextWindowSize({330,330},ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos({16,16},ImGuiCond_FirstUseEver);ImGui::SetNextWindowSize({360,420},ImGuiCond_FirstUseEver);
         ImGui::Begin("Resident basin");
         ImGui::TextUnformatted("32 x 16 x 32 metres | 0.125 m voxels");
-        ImGui::TextWrapped("Static terrain inspection. Particle collision response, water and burning are not enabled here.");
+        ImGui::TextWrapped("Terrain inspection with optional collision probes. Water, burning and grain-to-grain contacts are not enabled here.");
         ImGui::TextWrapped("Stone ledge, sand slope, dry pool recess and wood fuel patch.");
         ImGui::Separator();
         ImGui::SliderAngle("Orbit",&yaw,-180,180);ImGui::SliderFloat("Distance",&distance,18,65,"%.1f m");ImGui::SliderFloat("Height",&elevation,5,50,"%.1f m");
         ImGui::InputInt("Seed",&seed);seed=std::max(0,seed);
         if(ImGui::Button("Rebuild basin")) {
-            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));basin=std::move(candidate);message="Basin rebuilt";}
+            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
             catch(const std::exception& error){message=error.what();}
         }
+        if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
+        if(probes){ImGui::Checkbox("Pause probes",&paused);ImGui::Text("Probe tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->fault())ImGui::TextWrapped("Probe response fault: motion rolled back. Drop probes to reset.");}
         ImGui::Text("%llu occupied voxels | %u faces",static_cast<unsigned long long>(basin->store->occupiedVoxelCount()),basin->mesh->faceCount());
-        ImGui::Text("GPU payload: %.1f MiB",double(basin->occupancy->payloadBytes()+basin->mesh->payloadBytes())/1048576);
+        ImGui::Text("Terrain GPU payload: %.1f MiB",double(basin->occupancy->payloadBytes()+basin->mesh->payloadBytes())/1048576);
         if(!message.empty())ImGui::TextWrapped("%s",message.c_str());
         ImGui::End();
+        const auto batch=clock.advance(elapsed,!probes || paused || probes->fault(),false);
+        if(probes){for(unsigned tick=0;tick<batch.count;++tick)probes->tick(std::uint16_t(tick+1),*basin->occupancy,*basin->store);probes->prepare(5);if(probes->ticks()%8==0)probes->request(6);}
         float view[16],projection[16];
         bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,1,0});
         bx::mtxProj(projection,50.0f,float(width)/float(height),.1f,200.0f,bgfx::getCaps()->homogeneousDepth);
         bgfx::setViewRect(10,0,0,std::uint16_t(width),std::uint16_t(height));
         bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x182333ff,1.0f,0);bgfx::setViewTransform(10,view,projection);bgfx::touch(10);
         basin->mesh->render(10,*basin->store,*basin->occupancy,{});
-        ImGui::Render();renderer.render(ImGui::GetDrawData(),20);bgfx::frame();
+        if(probes)probes->render(10);
+        ImGui::Render();renderer.render(ImGui::GetDrawData(),20);completed=bgfx::frame();
         if(frameLimit && ++frames>=frameLimit)break;
     }
     return 0;

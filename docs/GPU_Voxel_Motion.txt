@@ -1,0 +1,87 @@
+GPU VOXEL MOTION AND BASIN COLLISION PROBES
+
+GpuVoxelMotion predicts and responds to solid particles against GpuVoxelWorld
+occupancy. It consumes the standard 64-byte particle records after forces have
+been applied. Each successful pass changes only position and velocity xyz.
+Inactive particles, non-solid phases and static bodies are preserved. The source
+store, world revision and shared origin must match before dispatch.
+
+The bounded profile is dt in (0,.01] seconds, a speed cap in [.001,12] m/s, a
+nonnegative bounce threshold, and 1..64 impact events (default 16). Subnormal dt
+is rejected. The maximum capped displacement is .12 m, within the shared short
+sweep's .125 m per-axis range. The pass allocates three 64-byte-per-slot state
+buffers and 16 bytes of status; capacity zero uses one slot of storage. Submit
+allocates nothing and does not read back. Caller buffers must contain capacity
+complete records. Output alternates when fed back as the input.
+
+The finite resident box acts as a closed boundary, inset by particle radius.
+Each event clips the candidate segment to the next boundary plane, then tests
+all candidate occupied voxels before that plane. Earliest voxel contact is
+resolved first. Non-entering contacts/tangencies are excluded only in the motion
+query; the public geometric query retains its closed-contact semantics. After
+a response, that convex voxel is excluded from further entry events until a
+different collider changes velocity. An outgoing straight ray cannot re-enter
+it; initial-overlap and final-containment checks are still performed.
+Terrain restitution is the minimum of the particle and terrain coefficients;
+friction is their geometric mean. A single impact uses the normal velocity change
+to bound tangential friction. Resident boundary planes retain the particle's
+coefficients. Speeds below the bounce threshold have no restitution response.
+
+A 2 micrometre normal separation is preferred after impact, but is checked
+against all nearby occupancy. In a tight gap that offset may enter another
+voxel. The fallback retreats along the already swept path, doubling from 2 to
+256 micrometres; failure to find a contained point is an arithmetic error.
+A retreated impact consumes only the corresponding fraction of travel time,
+preserving motion along an unconstrained tangent for the rest of the substep.
+No unchecked normal offset or unbounded retreat is published. Small rounded
+endpoint penetrations (at most 2 micrometres) use the same checked repair without
+an extra velocity impulse. Larger penetration fails the pass.
+
+Earlier contacted voxels remain active while within a 4 micrometre separation
+shell at the new geometric contact point. Up to eight active contacts are retained, with overflow treated as an
+error rather than silently dropping constraints. For multiple active normals,
+velocity is projected into their non-entering cone: test the input, projections
+onto each plane, intersections of each pair of planes, and zero, choosing the
+closest feasible vector. This prevents repeated restitution events from failing
+in nearly closed wedges. The numerical velocity feasibility tolerance is
+5e-7 * max(speed,.001). This is contact response, not sleeping or a speed cutoff.
+
+Status words: error mask, proposed speed caps, completed collision events and
+incident normals. Error bits are 1 upstream, 2 invalid particle/material or initial
+overlap, 4 event/contact budget exhaustion, 8 arithmetic or containment failure.
+Any slot error causes every output slot to copy the immutable input. Counters
+on failed passes describe partial proposals, not committed motion.
+
+The basin inspection panel now has Drop collision probes and Pause probes.
+VoxelProbes owns 256 Sand records, seeded over the ledge and slope. Four 1/240 s
+substeps per 60 Hz tick apply existing GPU gravity/drag and the voxel response.
+A latched error rolls back the entire tick, including age. Asynchronous status
+readback pauses the diagnostic run and reports a fault. Re-dropping resets the
+probes; rebuilding the basin clears them. Probe rendering uses existing particle
+impostors. The normal particle sandbox still uses its original granular solver.
+
+These probes do not interact with one another and are not the physical command
+pool. They provide runtime terrain-response validation, not deposition, debris,
+settling certification, mass-accounted editing or full granular integration.
+The next integration must constrain pair-solver position corrections against
+terrain, finish velocities against terrain contacts, and extend the grid and
+support/settling diagnostics to the full resident region.
+
+Validation: 22 motion fixtures / 1,748 particles use an independent double
+response reference plus an analytic narrow-wedge free-axis check. They check input immutability, unchanged metadata,
+energy non-increase, separation, material combinations, walls, corner events,
+speed caps, zero capacity, and whole-pass rollback. The wedge case requires
+nonzero velocity and correct displacement along its unconstrained Z direction. The live basin test advances
+256 probes for 600 ticks / 2,400 substeps (10 simulated seconds), checks identity,
+age and final occupancy separation including probes below the ledge, rejects a
+stale world before mutation, then injects an overlapping edit and verifies exact
+whole-tick rollback. Existing geometry and renderer tests remain in the suite.
+
+The seeded slope test initially exposed two failures: at about tick 49 a skin
+crossed a neighboring voxel; after a first offset fix, about tick 72 repeated
+wedge contacts exhausted the event budget. The checked separation and contact
+cone resolve those cases with the same event limit and penetration tolerance.
+A later free-axis fixture caught lost tangential travel during backoff, and
+restoring that time exposed impossible repeated entries on the same convex
+voxel. Time accounting and event eligibility now have regression coverage.
+This short correctness run does not replace the planned long terrain/edit soak.

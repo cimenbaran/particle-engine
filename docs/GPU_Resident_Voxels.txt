@@ -60,6 +60,7 @@ origin rebasing, INT32_MIN/MAX chunk coordinates, immutable input and malformed
 queries. CPU reference tests also cover an exact endpoint edge tangent discovered
 by the seam test. Geometry tolerances remain time/centre 2e-5, normal 5e-4.
 
-This component is not enabled in live scenes yet. Particle collision response,
-consistent rendering publication, origin changes at tick boundaries, destruction,
-deposition and mass-accounted acknowledgements remain required before world editing.
+The basin preview publishes rendering with these snapshots and runs optional
+collision probes through GpuVoxelMotion. Full granular pair-solver integration,
+origin changes at tick boundaries, destruction, deposition and mass-accounted
+acknowledgements remain required before world editing.
