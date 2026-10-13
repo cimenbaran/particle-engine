@@ -10,9 +10,9 @@ Focus implementation and validation on macOS / Metal, per user direction.
 Defer investigation of the Windows voxel-coordinate regression and Windows
 certification. Existing Windows CI may continue reporting failures; these do
 not block macOS development. Preserve cross-platform code where practical.
-Immediate macOS priority: validate the corrected sphere lifecycle at workgroup256
-and continue voxel terrain collision/rendering integration. Metal128 now passes
-the corrected ten-minute sphere soak; exact evidence appears below.
+Immediate macOS priority: continue voxel terrain collision/rendering integration.
+Metal128 and256 now pass the corrected ten-minute sphere lifecycle soak; exact
+evidence appears below. Physical reference-machine performance remains open.
 
 Implementation status: GPU signed-grid keys, scan, radix sort, occupied ranges,
 exact-key hashing and support-aware traversal feed the live granular solver.
@@ -99,10 +99,12 @@ compensated arithmetic. Both captures,191 sweep fixtures,48 coordinator fixtures
 ../tests/results/m3-max-sphere-endpoint-precision.txt. Clean source141175e now
 passes the Metal128 sphere lifecycle soak:600.0925 seconds,32650 ticks,127 cycles,
 8391050 slot checks and1350 samples with no faults. See
-../tests/results/m3-max-sphere-endpoint-soak600.json. Metal256 long-soak coverage
-is the next validation step; this is not a performance certification.
-See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
-must be repaired and rerun; earlier enclosure results do not establish it.
+../tests/results/m3-max-sphere-endpoint-soak600.json. Clean source4c4cc82 also passes Metal256:600.0985 seconds,31675 ticks,123 cycles,
+8140475 slot checks and1322 samples with no faults. See
+../tests/results/m3-max-sphere-endpoint-soak600-wg256.json. These are correctness
+gates, not performance certification.
+The earlier failure is retained in
+../tests/results/m3-max-sphere-soak-600-failure.json for regression history.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

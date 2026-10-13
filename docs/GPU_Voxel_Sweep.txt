@@ -1,0 +1,45 @@
+GPU SINGLE-VOXEL SWEEP QUERY
+
+GpuVoxelSweep and voxel_contact.sh evaluate closed segment/sphere contact with
+one axis-aligned 0.125m voxel. This is a geometric query component, not live
+resident-terrain collision or a particle velocity response. The shared shader
+helper is ready for occupancy traversal to call without CPU readback.
+
+A query input contains two vec4 lanes per slot: start xyz/radius 0.0625 and end
+xyz/reserved 0. The uniform supplies one voxel lower corner for the whole batch.
+Start/end coordinates must be finite and within +/-64m of a shared origin. The
+voxel lower and upper corners must also be inside that domain. Host code
+validates the lower corner and rejects an invalid input handle or output alias;
+individual invalid segments produce kind 3. The caller supplies at least capacity
+complete input records. Capacity is 0..1048576; zero dispatches nothing.
+
+Output uses two vec4 lanes: outward normal xyz/normalized time, then centre
+xyz/kind encoded as uint32 bits. Kinds are 0 miss, 1 contact, 2 initial overlap,
+3 invalid input or numeric failure. Misses retain the supplied endpoint, with
+zero normal and time 1. Invalid results contain finite zero geometry and time 1.
+Touching at time 0 is a contact even while separating. An interior centre uses
+the nearest boundary normal, ties in -X,+X,-Y,+Y,-Z,+Z order. Consumers must
+handle these classifications before applying a response.
+
+The shader partitions the segment at voxel-plane crossings and solves the
+closest-feature quadratic on each interval. Rounded edges and corners therefore
+avoid the false positives of an expanded AABB test. Compensated products and
+precise qualifiers retain near-contact classification; the exact supplied end
+position is checked before accepting a time 1 contact. The helper shares the
+compensated dot implementation with sphere intersection code.
+
+The owner allocates one output buffer of 32*max(1,capacity) bytes, plus program
+and uniform handles. submit allocates nothing, performs no readback and never
+writes its input. A subsequent submission replaces every output slot. There are
+no occupancy, material, chunk revision or GPU publication bindings yet. No
+rendering or active simulation mode enables this component automatically.
+
+Validation uses 12 batches and 9881 queries per Metal workgroup configuration.
+Valid segments compare classification, time, centre and normal against the
+independent double CPU voxel reference. Coverage includes all six faces, edges,
+corners, expanded-AABB false positives, tangent and adjacent-float rays, endpoint
+contacts, initial overlap, zero motion, a 128m crossing, seeded random segments,
+translated voxels, partial workgroups and owner reuse. Invalid segments test NaN,
+radius, reserved data and coordinate bounds; readback proves input immutability.
+Time/centre tolerances are 2e-5, normal-component tolerance 5e-4. These are geometry
+comparison tolerances, not live penetration allowances or performance budgets.

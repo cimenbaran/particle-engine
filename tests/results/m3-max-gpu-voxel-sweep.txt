@@ -1,0 +1,13 @@
+GPU SINGLE-VOXEL SWEEP — MACOS / METAL
+
+Machine: Apple M3 Max. Correctness validation, not performance certification.
+Workgroup sizes 128 and 256 both passed:
+- 12 batches / 9,881 queries against the double CPU geometry reference.
+- Invalid inputs, reused buffers, partial workgroups and immutable inputs.
+- Complete --gpu-test suite.
+- Native CTest: 20/20.
+
+This validates the isolated geometry query. Resident occupancy traversal,
+particle response and live terrain rendering are not integrated by this change.
+Logs: out/gpu-voxel-test128.log, out/gpu-voxel-test256.log,
+out/gpu-voxel-ctest128.log, out/gpu-voxel-ctest256.log (local, ignored).

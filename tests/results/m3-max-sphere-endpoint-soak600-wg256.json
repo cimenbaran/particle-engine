@@ -1,0 +1,96 @@
+{
+  "build": {
+    "binary_sha256": "d810ad3b419492227508c27b8442b6e07a269cc3b437dec95cfd1af40945e0bb",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "4c4cc82439feb0173c19d3412131c666c2c6c349",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "backend": "Metal",
+  "workgroup_size": 256,
+  "capacity": 257,
+  "workload": "granular_scene_256_tick_pool_cycle_v1",
+  "requested_seconds": 600,
+  "elapsed_seconds": 600.098489958,
+  "ticks": 31675,
+  "completed_cycles": 123,
+  "slot_checks": 8140475,
+  "passed": true,
+  "failure": "",
+  "granular": {
+    "final_acquiring": 0,
+    "final_candidates": 0,
+    "final_contact_grace": 0,
+    "initial_scene": {
+      "count": 256,
+      "materials": [
+        "Sand"
+      ],
+      "maximum": [
+        0.75,
+        5.5,
+        0.75
+      ],
+      "minimum": [
+        -0.75,
+        4.0,
+        -0.75
+      ],
+      "name": "Sand over sphere"
+    },
+    "iterations": 4,
+    "position_friction": "static_traction_approach_v3",
+    "radius": 0.0625,
+    "saw_settling_candidates": true,
+    "solver_error": 0,
+    "speed_limit": 12,
+    "substeps": 4,
+    "tracking_error": 0
+  },
+  "final_snapshot": {
+    "active": 257,
+    "checked_slots": 257,
+    "free": 0,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 200293021,
+    "state_error": false,
+    "tick": 31675
+  },
+  "scene": {
+    "count": 256,
+    "materials": [
+      "Sand"
+    ],
+    "maximum": [
+      0.75,
+      5.5,
+      0.75
+    ],
+    "minimum": [
+      -0.75,
+      4.0,
+      -0.75
+    ],
+    "name": "Sand over sphere",
+    "schema_version": 2,
+    "seed": 42,
+    "sphere": {
+      "centre": [
+        0.0,
+        2.0,
+        0.0
+      ],
+      "radius": 1.25
+    }
+  },
+  "saw_empty": true,
+  "saw_full": true,
+  "saw_overflow": true,
+  "sphere_containment_audited_every_tick": true,
+  "sample_count": 1322,
+  "all_recorded_samples_checked": true,
+  "source_report_sha256": "26011c0140bba446f94d77a691fc6d56e8d8547cb7570da6c383f6e21d20b9f1",
+  "scope": "Metal correctness soak; not a performance or general stability certification"
+}
