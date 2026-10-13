@@ -3,6 +3,7 @@
 #include "core/ParticleTypes.hpp"
 #include "core/ComputeDispatch.hpp"
 #include "core/TerrainExcavation.hpp"
+#include "core/TerrainExplosion.hpp"
 #include "core/BasinWorld.hpp"
 #include <SDL3/SDL.h>
 #include <cstring>
@@ -170,6 +171,27 @@ void runPendingDebrisTransactionTest(const std::filesystem::path& assets) {
         require(secondActive==31 && particles.poolSnapshot().active==31 && !particles.fault(),"Second excavation lost particles during physics");
         require(particles.debrisMassTotals()[0].removedVoxels==48 && particles.debrisMassTotals()[0].activatedGrains==92,"Second excavation mass history changed");
         ++cases;std::cout<<"GPU basin excavation passed: 32/61 then 16/31 voxels/grains, overlap rejection, immediate transaction destruction, 480 healthy batched ticks and 48/92 conversion totals\n";
+    }
+    {
+        auto source=terrain::buildBasin(1337,unsigned(materials.entries.size()),0,1,3);
+        VoxelPublicationPtr live=std::make_shared<VoxelPublication>(assets,std::move(source),terrain::Chunk{},materials);
+        const auto original=live->source().occupiedVoxelCount();VoxelProbes particles(assets,materials,true,true);
+        std::vector<terrain::ExplosionMaterial> profiles;
+        for(const auto& m:materials.entries)profiles.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,1000,m.gpu.thermal[3]>0?1.f:0.f});
+        terrain::ExplosionRequest request;request.centre={-8,3.875f,-4};request.radius=.5f;request.impulse=2;request.energyJoules=100000;
+        const auto plan=terrain::planExplosion(live->source(),request,0,profiles);
+        require(plan.state==terrain::ExplosionPlan::State::Ready && plan.removals.size()==32 && plan.seeds.size()==61,"Basin explosion proposal failed");
+        auto transaction=std::make_unique<PendingDebrisTransaction>(assets,particles,live,plan.removals,plan.seeds,materials);
+        transaction->submit(8,particles);particles.prepare(5);particles.request(6);wait(*transaction);
+        require(transaction->publish(0,particles,live),"Radial explosion debris failed GPU gate");transaction.reset();
+        auto initial=read(particles);double kinetic=0;unsigned active=0;
+        for(const auto& p:initial)if(p.identity[1]){++active;double squared=0;for(unsigned a=0;a<3;++a)squared+=double(p.velocityInvMass[a])*p.velocityInvMass[a];kinetic+=.5*squared/p.velocityInvMass[3];}
+        require(active==61 && kinetic<=plan.kineticJoules && plan.reservedJoules<=request.energyJoules && live->source().occupiedVoxelCount()==original-32,"Explosion exceeded energy/count bounds");
+        for(unsigned frame=0;frame<60;++frame){for(unsigned v=1;v<=4;++v)particles.tick(v,live->occupancy(),live->source());particles.prepare(5);particles.request(6);particles.poll(bgfx::frame());SDL_PumpEvents();}
+        particles.request(6);auto final=read(particles);particles.poll(bgfx::frame());active=0;
+        for(const auto& p:final)if(p.identity[1]){++active;for(unsigned a=0;a<3;++a)require(std::isfinite(p.positionRadius[a]) && std::isfinite(p.velocityInvMass[a]),"Explosion produced nonfinite state");}
+        require(active==61 && particles.poolSnapshot().active==61 && !particles.fault() && particles.debrisMassTotals()[0].removedVoxels==32,"Radial explosion failed continued physics");
+        ++cases;std::cout<<"GPU radial explosion passed: 32 voxels / 61 grains, bounded initial kinetic energy, 240 healthy ticks\n";
     }
     std::cout<<"GPU joint debris transaction passed: "<<cases<<" scenarios; frozen ticks, dual acknowledgement, atomic terrain/particle/mass publication, failures, stale owners, generations and abandonment\n";
 }

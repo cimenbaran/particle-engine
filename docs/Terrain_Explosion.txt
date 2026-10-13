@@ -1,0 +1,76 @@
+BOUNDED TERRAIN EXPLOSION PLANNING — macOS development
+
+TerrainExplosion.hpp provides a read-only, typed ExplosionRequest and a plan
+that can be passed to PendingDebrisTransaction. This is the planning/transaction
+foundation; the preview still exposes excavation only. Interactive blast controls,
+automatic scheduling, existing-particle impulses and cosmetic quotas remain open.
+
+Request and bounds
+The request contains tick, stable sequence, centre, radius, maximum debris speed
+(impulse), energy in joules, voxel quota and product grain quota. Validation
+requires the current tick, a basin centre, radius (0,4] metres, speed [0,12] m/s,
+energy [0,1e9] J, 1..512 voxels and at most 4096 product grains. CPU material
+profiles supply density, solid phase, fuel and positive calibrated fracture
+resistance in J/m^3 (at most 1e12). Resistance is an explicit planner input; it
+is not yet persisted in the material JSON/GPU ABI. The GPU fixture uses 1000
+J/m^3 for every material; CPU fixtures exercise different strengths.
+
+Selection and energy model
+Enumerate voxel centres in the blast's clipped basin bounding box, at most 65^3
+checks. Sparse store lookups exclude nonresident/empty cells. Select centres
+strictly inside the sphere; boundary falloff is zero. Order by distance, then
+higher Y, lower Z, lower X for deterministic ties. The attenuation is
+
+    f = (1 - distance / radius)^2
+    fracture charge = resistance * voxel volume / f
+
+This is a calibrated work model, not a pressure-wave/fracture solver. A resistant
+voxel that cannot fit the energy budget remains intact; cheaper later candidates
+may still be selected. Recompute each material's mass-quantized grain count as
+voxels are added. Never exceed either batch quota. Every additional grain reserves
+0.5 * encoded grain mass * maximum speed^2 of kinetic energy. Positive arithmetic
+is rounded upward for the charged budget, including accumulation. The returned
+reservedJoules is the authoritative conservative charge; the fracture/kinetic
+components are explanatory diagnostics. A boundary-sized budget may need the
+small rounding guard, not just a hand-computed mathematical value.
+
+All products use the shared TerrainDebrisPlacement.hpp lattice placement from
+excavation: one grain per removal plus nearby free sites within .5 m per axis,
+complete per-material mass accounting and no duplicate sites. A local placement
+failure returns NoSpace, no removals or grains and zero reserved energy. It does
+not remove a smaller arbitrary subset or silently discard required products.
+The planner's deterministic placement is not an exhaustive packing solver.
+
+Give each placed grain an outward radial velocity at its own attenuated distance.
+The exact centre uses the upward direction. A site outside the blast has zero
+initial velocity. Component rounding is reduced toward zero when necessary so
+the encoded vector never exceeds its allocated speed. This remains below the
+conservative kinetic reservation even when placement moves extra grains away
+from source voxel centres. Temperature is 293.15 K and fuel follows the profile.
+The planner does not read current particle state; the GPU clearance gate remains
+mandatory for both existing-particle and candidate-terrain validation.
+
+Commit and continuation contract
+A proposal does not mutate terrain or consume energy. Submit its removals and
+seeds through PendingDebrisTransaction using the matching source revision/tick.
+Only after successful joint publication may a caller subtract reservedJoules
+from the remaining command budget. Use explosionEnergyRemainder for downward-
+rounded subtraction so repeated batches cannot create rounding energy. This
+math helper does not authorize publication. A rejected, cancelled or stale batch must
+leave that budget unchanged. Replan against the newly published terrain and
+remaining energy for the next bounded batch; unconverted voxels stay intact.
+Do not fund existing-particle impulses or other physical effects from the same
+already reserved energy. A future coordinator must explicitly partition those
+budgets and schedule at most its configured batch work per tick.
+
+Validation
+150 deterministic CPU plans check radial membership, resistance, capacity,
+energy boundaries, encoded mass, outward velocity, immutable retries, sparse
+residency, malformed input, buried placement failure and the actual basin.
+A 49-voxel fixture applies seven acknowledged-model batches of seven voxels,
+keeping all other terrain intact and charging only accepted batches. This is a
+CPU staging fixture, not proof of a live automatic explosion scheduler.
+The real Metal transaction fixture converts 32 basin voxels to 61 radial grains,
+measures initial kinetic energy from complete GPU records, then checks all
+61 grains through 240 physics ticks. Existing excavation regressions retain
+138 planner cases and the live-compatible repeated transaction tests.

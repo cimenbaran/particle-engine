@@ -12,7 +12,9 @@ A [terrain/debris transaction API](docs/GPU_Debris_Transaction.txt) now commits
 validated removals, particles and per-material conversion totals together.
 Use [Excavate brush](docs/Terrain_Excavation.txt) to turn up to 32 terrain voxels
 into physical debris per click, with conversion mass totals shown in the panel.
-Explosion planning, deposition and save/load remain open.
+A [bounded explosion planner](docs/Terrain_Explosion.txt) now supplies radial
+debris and conservative energy budgets to the transaction API. Live explosion
+controls, automatic staging, deposition and save/load remain open.
 Development currently prioritizes macOS.
 
 ## Build

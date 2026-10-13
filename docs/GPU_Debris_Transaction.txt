@@ -90,7 +90,7 @@ are not a capability/security boundary. The material table in VoxelProbes has no
 reload path. This first coordinator supports the basin's zero shared origin;
 origin rebasing is still pending.
 
-GPU integration tests cover eleven scenarios with real command pools and terrain
+GPU integration tests cover twelve scenarios with real command pools and terrain
 publications: mixed-material commit, a second conversion with generation reuse,
 pre-ACK/repeated/invalid-view attempts, frozen ticks and queued commands,
 post-commit pool membership/settling reset and continued healthy physics,
@@ -106,3 +106,8 @@ impulse/removal, and a second 16-voxel / 31-grain edit over 240 further ticks.
 Transactions are destroyed immediately after adoption; four ticks per frame
 exercise catch-up execution. The first transaction follows an early diagnostic
 blit without an initial frame flush (see Metal_Compute_Encoder.txt).
+
+A radial explosion plan also passes the real publication gate: 32 voxels become
+61 grains with measured initial GPU kinetic energy below the reserved bound,
+followed by 240 healthy ticks. See Terrain_Explosion.txt for the remaining
+interactive scheduling and command-energy ownership work.

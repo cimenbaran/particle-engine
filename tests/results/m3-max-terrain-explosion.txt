@@ -1,0 +1,37 @@
+TERRAIN EXPLOSION PLANNING — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+150 deterministic explosion plans and all 20 core CTests pass.
+All 25 native CTests pass at workgroups 128 and 256.
+Both full --gpu-test profiles pass; default restored to 128.
+
+CPU evidence:
+- independent radial membership, fracture cost and encoded-mass kinetic checks;
+- exact returned-charge boundary accepts; the next smaller double rejects;
+- resistant centre can remain while a weaker outer voxel fits the budget;
+- deterministic distance order, source immutability and retry equality;
+- zero/limited grain capacity retains all unconverted terrain;
+- 128 random mixed-material worlds with varied radius, speed, energy and quotas;
+- seven complete proposals convert 49 voxels in seven-voxel batches;
+- downward-rounded remaining energy and invalid committed-charge rejection;
+- strict sphere boundary, sparse residency, basin-edge clipping and input limits;
+- radial velocities stay within the per-site attenuated speed and kinetic budget;
+- a buried batch with no product space returns no edits, seeds or energy charge;
+- actual seed-1337 basin proposal returns 32 voxels / 61 grains.
+
+Metal evidence (twelfth joint-transaction scenario):
+The seed-1337 basin radial proposal passes reservation, activation, clearance and
+joint publication. Complete GPU records contain 61 particles with measured
+initial kinetic energy below the plan's conservative kinetic allowance. All 61
+remain finite and active through 240 ticks, four per frame. Terrain count falls
+by exactly 32 and the mass history reports 32 converted voxels. The full suite
+retains first-frame compute/blit/compute and repeated excavation regressions.
+
+The extracted shared placement routine retains all 138 excavation plan cases
+and the existing first/second conversion integration tests.
+
+Scope: typed CPU blast planning and its real GPU transaction/physics integration.
+No live blast button, automatic runtime scheduler, persisted resistance schema,
+existing-particle blast impulse or cosmetic blast allocation is claimed here.
+These remain open alongside deposition and the rest of Sprint 3. Windows is
+still deferred.
