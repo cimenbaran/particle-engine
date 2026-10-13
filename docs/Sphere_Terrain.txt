@@ -39,3 +39,19 @@ Sustained lifecycle validation can now use the same preset with --granular
 --scene assets/scenes/sphere_drop.json --capacity 257 --soak 600 --report FILE.
 See Granular_Soak.txt for the command schedule, independent containment audit
 and report identity. Smoke runs do not certify the ten-minute gate.
+
+Near-tangent precision (Metal)
+The long lifecycle soak exposed a sweep whose closest approach is only about
+5.88e-8 m inside the expanded sphere. Rounding the perpendicular distance to
+one float classified that real intersection as a miss. The resulting endpoint
+was 1.24e-7 m inside, causing the following strict position solve to reject it.
+Within 1e-5 m of tangency, sphereImpact now evaluates the quadratic using
+compensated dot products and product residuals, then uses the stable entry root.
+This is an arithmetic selection threshold, not a larger collision radius or
+containment allowance. Other rays retain the existing geometric formulation.
+The shader's mad intrinsic generates float fused multiply-add in Metal; fma in
+the shader compiler's HLSL input instead selects double and is unsuitable here.
+A captured 257-particle state reproduces the original failure in one tick;
+the regression also advances it for 60 ticks. A single captured ray and six
+adjacent representable positions compare against the double CPU sweep oracle.
+Long-run validation remains a separate gate; these fixtures do not prove it.

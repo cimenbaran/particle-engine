@@ -200,6 +200,18 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     p=sphereFixture(129);for(unsigned i=0;i<p.size();++i){if(i%4==0)p[i].velocityInvMass[3]=0;if(i%4==1)p[i].identity[0]=1;if(i%4==2)p[i].identity[0]=2;if(i%4==3)p[i].identity[1]=0;}
     check(p,0.2f,0,0,1000,128,0,0,nullptr,obstacle);
     check(sphereFixture(129),0.2f,0,0,1000,128,1,1,nullptr,obstacle);
+    // Captured second substep of the Metal sphere lifecycle soak: a true
+    // near-tangent hit whose perpendicular distance rounds to the radius.
+    p=sphereFixture(1);
+    p[0].positionRadius[0]=0.7359286546707153f;p[0].positionRadius[1]=3.033996820449829f;p[0].positionRadius[2]=-0.3346726894378662f;
+    p[0].velocityInvMass[0]=1.868677020072937f;p[0].velocityInvMass[1]=-1.2424639463424683f;p[0].velocityInvMass[2]=0.33479949831962585f;
+    check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f});
+    const auto grazingCapture=p;
+    for(unsigned axis=0;axis<3;++axis)for(float direction:{-INFINITY,INFINITY}) {
+        p=grazingCapture;p[0].positionRadius[axis]=std::nextafter(p[0].positionRadius[axis],direction);
+        check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f});
+    }
+
     std::cout<<"GPU swept bounds passed: "<<cases<<" fixtures, CPU trajectories, speed caps, corner response, containment and whole-pass rollback\n";
 }
 }

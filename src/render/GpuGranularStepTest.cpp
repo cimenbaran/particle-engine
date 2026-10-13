@@ -1,4 +1,5 @@
 #include "GpuGranularStep.hpp"
+#include "../../tests/fixtures/SphereSoakState.hpp"
 #include "Shaders.hpp"
 #include "core/ParticleTypes.hpp"
 #include "core/ComputeDispatch.hpp"
@@ -192,6 +193,14 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     p[0].positionRadius[1]=4;check(p,1,0,false,true,&sphereLatch,sphere);
     p[0].positionRadius[1]=6;check(p,1,0,false,true,&sphereLatch,sphere);
     sphereLatch.resetFailures(0);check(p,1,0,false,false,&sphereLatch,sphere);
+    std::vector<ParticleGpu> captured(257);
+    for(unsigned i=0;i<captured.size();++i) {
+        std::memcpy(&captured[i],fixture::sphereSoakCommitted[i].data(),sizeof(ParticleGpu));
+        captured[i].identity[0]=0;
+    }
+    materials[0].mechanical[2]=0.12f;materials[0].mechanical[3]=0.05f;
+    bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));
+    for(unsigned ticks:{1u,60u})check(captured,ticks,9.81f,false,false,nullptr,{{0,2,0},1.25f});
     std::cout<<"GPU granular step passed: "<<cases<<" fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback\n";
 }
 }

@@ -1,0 +1,29 @@
+Metal near-tangent sphere precision regression
+
+Source failure: clean620f087 instrumented soak failed at 359.062924625 seconds,
+19007 ticks. Exact committed state is preserved in tests/fixtures/SphereSoakState.hpp.
+Replaying that state with sand restitution0.12, friction0.5 and drag0.05 failed
+in a single tick before the fix. Temporary phase tracing located the first
+fault at the first position iteration of substep2 (contact error16). The sweep
+had accepted a near-tangent ray as a miss and published an interior endpoint.
+Temporary tracing was removed before final verification.
+
+Reduced ray (sphere centre0,2,0; terrain radius1.25; particle radius0.0625):
+p=(0.7359286546707153,3.033996820449829,-0.3346726894378662)
+v=(1.868677020072937,-1.2424639463424683,0.33479949831962585)
+dt=1/240 seconds. Double closest approach is approximately1.312499941215251 m.
+Original Metal endpoint gap: -1.2407472405051578e-7 m.
+
+Fix: compensated dot products and quadratic evaluation in the near-tangent
+branch. No containment tolerance, collider radius or audit gate was widened.
+The existing outward skin and event eligibility rules are unchanged.
+
+Final validation: Metal workgroups128 and256 each pass the complete GPU suite
+(160 sweep fixtures,46 granular fixtures), CTest16/16 and all11 stability scenes.
+New tests cover the captured ray, six adjacent representable positions, and
+257 captured particles advanced for1 and60 ticks. Other physics oracles remain
+unchanged. No performance or Windows certification is implied.
+
+Logs: out/sphere-precision-final-gpu128.log, out/sphere-precision-gpu256.log,
+out/sphere-precision-ctest{128,256}.log, out/sphere-precision-stability{128,256}.json.
+The ten-minute lifecycle soak must still be rerun on the committed fix.

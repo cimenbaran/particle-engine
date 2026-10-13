@@ -84,6 +84,11 @@ Custom sphere-scene lifecycle soaks pass short Metal smoke coverage, but the
 600-second Metal128 gate at source9b0c970 FAILED after 593.21 seconds / 32313 ticks.
 The independent state/ownership/identity audit remained clean; contact geometry
 faults and subsequent solver/index faults latched. Root cause remains open.
+The instrumented rerun reproduced a near-tangent sweep rounding defect and
+provided a single-tick regression. A compensated intersection calculation now
+passes that regression, adjacent-ray cases, the full Metal128/256 GPU suites
+and all11 stability scenes; see ../tests/results/m3-max-sphere-tangent-precision.txt.
+The corrected ten-minute sphere soak is still pending.
 See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
 must be repaired and rerun; earlier enclosure results do not establish it.
 
