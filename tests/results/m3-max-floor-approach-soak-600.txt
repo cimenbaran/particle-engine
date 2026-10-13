@@ -1,0 +1,67 @@
+APPROACH-SPEED FRICTION TEN-MINUTE SOAK
+Clean installed3aed7bc, Metal128, capacity129, M3 Max48 GiB.
+Other development GPU validation ran concurrently; no performance claim.
+This binary predates contact-total diagnostics.
+Report out/floor-approach-soak-600-metal128.json sha256=3734d367d98b8a6b9f28837206c74712e9996f72177d35cd815bccef52da412b
+{
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "08ed44cd092b4ea8fc32c69d396411ac2772e517bd36ac7d69e25792ef65276a",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "3aed7bce55fb0f862301a12543bee2a59e55796b",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "completed_cycles": 153,
+  "discarded_samples": 0,
+  "elapsed_seconds": 600.068942,
+  "failure": "",
+  "final_snapshot": {
+    "active": 129,
+    "checked_slots": 129,
+    "free": 0,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 248194000,
+    "state_error": false,
+    "tick": 39266
+  },
+  "granular": {
+    "final_acquiring": 53,
+    "final_candidates": 40,
+    "final_contact_grace": 0,
+    "initial_scene": {
+      "count": 129,
+      "materials": [
+        "Sand"
+      ],
+      "maximum": [
+        0.75,
+        2.5,
+        0.75
+      ],
+      "minimum": [
+        -0.75,
+        1.0,
+        -0.75
+      ],
+      "name": "Granular sand drop"
+    },
+    "iterations": 4,
+    "position_friction": "static_traction_approach_v3",
+    "radius": 0.0625,
+    "saw_settling_candidates": true,
+    "solver_error": 0,
+    "speed_limit": 12,
+    "substeps": 4,
+    "tracking_error": 0
+  },
+  "passed": true,
+  "saw_empty": true,
+  "saw_full": true,
+  "saw_overflow": true,
+  "slot_checks": 5065314,
+  "ticks": 39266,
+  "workgroup_size": 128
+}

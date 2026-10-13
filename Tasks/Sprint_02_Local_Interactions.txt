@@ -124,3 +124,8 @@ traction v3 uses max(0,g*dt-oldVy), with existing drag/cap and spent-friction
 accounting. The suite now includes eleven scenes and 4650 ticks; current results
 are recorded in ../tests/results/m3-max-floor-approach.txt. Windows and a fresh
 long soak remain required before closing stability coverage.
+
+Clean approach-v3 source3aed7bc passed a600-second Metal128 lifecycle soak:
+39266 ticks,153 cycles,5065314 slot checks, no solver/tracker/audit errors.
+This predates the contact-total diagnostic addition. Windows remains pending.
+See ../tests/results/m3-max-floor-approach-soak-600.txt.

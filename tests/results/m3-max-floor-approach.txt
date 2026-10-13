@@ -31,3 +31,6 @@ Previous response supplied upward vy about0.000544. The exact-zero baseline
 condition withheld unspent floor support despite the actual inward approach.
 V3 uses the post-force approach while retaining spent-friction accounting.
 Raw baseline reports: out/floor-cluster128.json, out/floor-stage128.json.
+
+Follow-up: clean3aed7bc ten-minute Metal128 soak passed; see
+m3-max-floor-approach-soak-600.txt. Windows remains pending.
