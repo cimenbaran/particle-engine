@@ -12,8 +12,11 @@ round-trip tests; see ../docs/Voxel_Coordinates.txt. Sparse CPU material occupan
 now allocates nonempty chunks and tracks monotonic content/surface revisions,
 including face-neighbor invalidation and stale-edit rejection. Atomic CPU batches
 now stage all changes before a single revision commit; allocation failure tests
-verify there are no partial occupancy edits. Particle/GPU transactions remain
-open. CPU exposed-face
+verify there are no partial occupancy edits. Immutable terrain publications now stage an independent CPU copy, occupancy
+and mesh, then require an asynchronous GPU upload acknowledgement before
+replacement; obsolete competing edits cannot overwrite newer publications.
+See ../docs/GPU_Terrain_Publication.txt. Physical debris/deposition transactions
+remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 ../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now

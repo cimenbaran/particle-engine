@@ -1,0 +1,65 @@
+STAGED TERRAIN PUBLICATION — macOS / Metal
+
+VoxelPublication owns an immutable CPU store, GPU occupancy and rendered surface
+mesh with one origin and revision. It validates every occupied voxel as a solid
+material, including hidden interior voxels, before creating GPU resources. The
+resident limit is 256 chunks. The basin preview now uses this owned bundle for
+initial construction and scene rebuilds.
+
+PendingVoxelPublication prepares a changed copy without mutating the live source.
+SparseVoxelStore::clone preserves layout, material count, all voxels, occupancy
+counts and content/surface revisions, including empty revision records. Existing
+batch validation then applies unique edits and one revision increment to that
+copy. Invalid batches, stale expected revisions, unsupported terrain materials
+and resource-construction failures leave the base publication untouched. No-op
+batches reuse their base publication without inventing a new revision.
+
+The pending edit holds shared ownership of both base and candidate. It submits
+cs_voxel_ack against the candidate's immutable occupancy buffer, followed by a
+16-byte asynchronous readback. The acknowledgement contains both revision words,
+chunk count and voxel count. Completed readback proves execution after the ordered
+resource upload; this is not a checksum of all occupancy or an acknowledgement
+of any particle conversion. Preparing or submitting is never sufficient to publish.
+
+State sequence:
+  Prepared -> Waiting -> Ready -> Published
+A mismatched acknowledgement is terminal InvalidAcknowledgement. Attempting to
+publish against any different live base is terminal Stale, even when its numeric
+revision happens to match. Holding the original base prevents pointer-reuse ABA.
+Repeated submission throws, repeated publication returns false, and premature
+publication leaves the current bundle unchanged. Invalid view IDs reject before
+submission. The caller polls completed frames and invokes publish only at a tick
+boundary after all other transaction prerequisites have succeeded. Publication
+replaces a single shared pointer without allocations or partial member swaps.
+
+Old snapshots remain internally consistent and queryable while retained. A mesh
+or collision snapshot from one publication rejects another publication's source.
+Abandoning a pending edit never changes the live publication. Teardown drains any
+outstanding acknowledgement before releasing its readback storage and sources;
+this follows the existing diagnostic readback lifetime contract.
+
+Scope and remaining integration
+This is the terrain-resource publication prerequisite, not an exposed terrain
+editing tool or a completed physical transaction. Initial scene creation/rebuild
+still uses the existing reset path. Explosion removal must first reserve and
+validate physical debris, coordinate GPU activation and mass accounting, and
+then adopt its acknowledged terrain publication. Deposition must validate claims,
+commit occupancy, and retire only acknowledged source particles. Added voxels
+also need active-particle clearance before adoption. Those gates, origin rebasing,
+dirty-mesh reuse and persistent saves remain open. No live conversion may use
+this publication helper alone to delete or create physical mass.
+
+Copies currently duplicate CPU occupancy, upload the full resident GPU snapshot
+and rebuild the full mesh. Old and new resource payloads coexist during staging.
+This prioritizes transaction isolation; incremental preparation and performance
+acceptance remain pending. Materials must remain stable during a transaction;
+material reload is not exposed in the basin.
+
+Validation
+CPU voxel_batch tests compare every voxel/revision in copied chunks, preserve
+tombstones, modify both copies independently and inject allocation failure at
+every clone-and-edit preparation allocation while checking the original store.
+The GPU publication test checks pre-ack rejection, before/after collision results
+and revision stamps, mesh face counts, retained old snapshots, cross-publication
+rejection, stale competing proposals, invalid/duplicate batches, visible/hidden
+non-solid materials, no-ops and destruction with an acknowledgement in flight.

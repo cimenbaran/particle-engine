@@ -83,6 +83,32 @@ int main() {
         }
     }
     CHECK(completed && failures>=6 && sawMetadataResidue);
+    // Publication preparation copies the whole revision history, including
+    // tombstones, with independent storage and no mutation even on allocation
+    // failures. Compare every voxel, not just the edit destinations.
+    Store snapshotSource(region,3);snapshotSource.setMaterials(first,0);snapshotSource.setMaterials(remove,1);
+    auto snapshot=snapshotSource.clone();
+    CHECK(snapshot->revision()==snapshotSource.revision() && snapshot->revisionRecordCount()==snapshotSource.revisionRecordCount());
+    CHECK(snapshot->occupiedVoxelCount()==snapshotSource.occupiedVoxelCount() && snapshot->allocatedChunkCount()==snapshotSource.allocatedChunkCount());
+    std::array<std::uint32_t,voxelsPerChunk> a{},b{};
+    for(unsigned slot=0;slot<region.chunkCount();++slot) {
+        auto chunk=*region.decode(slot);CHECK(snapshot->copyChunk(chunk,a)==snapshotSource.copyChunk(chunk,b) && a==b);
+    }
+    CHECK(snapshot->setMaterials(first,2)==Edit::Changed);
+    CHECK(snapshotSource.revision()==2 && snapshotSource.materialAt(left)==Store::empty && snapshotSource.materialAt(inside)==Store::empty);
+    snapshotSource.setMaterial(right,2,2);CHECK(snapshot->materialAt(right)==1);
+    unsigned snapshotFailures=0;bool snapshotCompleted=false;
+    for(std::int64_t failAt=0;failAt<128;++failAt) {
+        const auto beforeRecords=forward.revisionRecordCount();
+        allocationsBeforeFailure=failAt;bool failed=false;std::unique_ptr<Store> prepared;
+        try{prepared=forward.clone();prepared->setMaterials(change,1);}catch(const std::bad_alloc&){failed=true;}
+        allocationsBeforeFailure=-1;
+        CHECK(forward.revision()==1 && forward.revisionRecordCount()==beforeRecords && forward.occupiedVoxelCount()==3);
+        for(unsigned slot=0;slot<region.chunkCount();++slot){const auto chunk=*region.decode(slot);CHECK(forward.copyChunk(chunk,a)==reversed.copyChunk(chunk,b) && a==b);}
+        if(failed)++snapshotFailures;
+        else{snapshotCompleted=true;CHECK(prepared->revision()==2 && prepared->occupiedVoxelCount()==2);break;}
+    }
+    CHECK(snapshotCompleted && snapshotFailures>=6);
     // Independent map oracle over mixed batches; global revision advances once
     // for each batch with any changed destination, regardless of edit count.
     Store randomStore(region,3);std::map<GlobalVoxel,std::uint32_t> oracle;std::mt19937 random(41236);std::uint64_t revision=0;

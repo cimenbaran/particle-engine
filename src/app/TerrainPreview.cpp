@@ -4,7 +4,7 @@
 #include "core/FixedStep.hpp"
 #include "render/VoxelProbes.hpp"
 #include <chrono>
-#include "render/VoxelTerrain.hpp"
+#include "render/VoxelPublication.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
@@ -21,14 +21,15 @@ struct PreviewGui {
     ~PreviewGui(){ImGui_ImplSDL3_Shutdown();ImGui::DestroyContext();}
 };
 struct BasinPublication {
-    std::unique_ptr<terrain::SparseVoxelStore> store;
-    std::unique_ptr<GpuVoxelWorld> occupancy;
-    std::unique_ptr<VoxelTerrain> mesh;
+    VoxelPublicationPtr publication;
+    const terrain::SparseVoxelStore* store;
+    const GpuVoxelWorld* occupancy;
+    const VoxelTerrain* mesh;
     BasinPublication(const std::filesystem::path& assets,const MaterialLibrary& materials,std::uint32_t seed) {
         const auto id=[&](const char* name){for(unsigned i=0;i<materials.entries.size();++i)if(materials.entries[i].name==name)return i;throw std::runtime_error("Basin material missing");};
-        store=terrain::buildBasin(seed,std::uint32_t(materials.entries.size()),id("Stone"),id("Sand"),id("Wood"));
-        occupancy=std::make_unique<GpuVoxelWorld>(*store,terrain::Chunk{});
-        mesh=std::make_unique<VoxelTerrain>(assets,*store,*occupancy,terrain::Chunk{},materials);
+        auto source=terrain::buildBasin(seed,std::uint32_t(materials.entries.size()),id("Stone"),id("Sand"),id("Wood"));
+        publication=std::make_shared<VoxelPublication>(assets,std::move(source),terrain::Chunk{},materials);
+        store=&publication->source();occupancy=&publication->occupancy();mesh=&publication->mesh();
     }
 };
 }

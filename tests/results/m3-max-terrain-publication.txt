@@ -1,0 +1,36 @@
+STAGED TERRAIN PUBLICATION — APPLE M3 MAX / METAL
+
+Environment: Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+PW_WORKGROUP_SIZE=128 and 256: full --gpu-test suite passes.
+Both configurations: 22/22 native CTest tests pass.
+The installed default is workgroup 128.
+
+CPU preparation coverage extends voxel_batch:
+- Every voxel and content/surface revision is compared across snapshot copies.
+- Empty revision records, occupancy counts and allocated-chunk counts survive.
+- Mutating either copy leaves the other unchanged.
+- Each clone-and-edit allocation is failed in turn until a complete run succeeds;
+  the original's entire occupancy/revision state and record count stay unchanged.
+
+GPU publication coverage:
+- Adjacent two-voxel base has ten exposed faces and a confirmed sweep contact.
+- Candidate removal has six faces and revision 2; preparation/submission cannot
+  replace the live revision-1 publication before acknowledgement.
+- GPU readback acknowledges revision/shape metadata; adoption is single-use.
+- A subsequent sweep misses the removed voxel and reports revision 2.
+- Retained base still returns the original contact, revision and face count.
+- Foreign-source collision and render use reject before submission.
+- Competing obsolete proposals cannot replace newer terrain; a different base
+  with the same numeric revision also rejects.
+- Stale revisions, duplicate writes, visible liquid and fully enclosed liquid
+  fail preparation while current collision remains usable.
+- No-op retains the same publication and revision.
+- In-flight acknowledgement teardown completes without changing live authority.
+
+Raw ignored logs: out/terrain-publication-{gpu128,gpu256,ctest128,ctest256}.log.
+The terrain preview smoke run uses --terrain-preview --frames 180.
+
+This verifies terrain-resource isolation and upload acknowledgement. It does not
+claim debris reservation, particle activation/retirement acknowledgement, mass
+conservation, live terrain editing, persistence or performance acceptance.
+Windows remains deferred.

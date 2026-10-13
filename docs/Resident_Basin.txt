@@ -39,6 +39,10 @@ particle edit transaction or GPU acknowledgement. Mesh and occupancy GPU payload
 for seed 1337 is about 46.3 MiB, excluding allocator overhead and temporary CPU /
 upload buffers. Rebuilds temporarily hold old and new publications concurrently.
 
+The owned resource bundle is now VoxelPublication. An independent staged-edit
+helper waits for GPU upload acknowledgement and rejects obsolete competing edits
+(GPU_Terrain_Publication.txt); physical conversion and live edit tools remain open.
+
 Material hot reload is not enabled in inspection mode.
 The panel offers orbit, distance, height and a nonnegative integer seed. Rebuild
 regenerates the basin and clears live particles. Add sand appends guarded lattice

@@ -25,6 +25,17 @@ public:
     }
     SparseVoxelStore(const SparseVoxelStore&)=delete;
     SparseVoxelStore& operator=(const SparseVoxelStore&)=delete;
+    // Independent preparation copy. Preserve empty revision records so edits
+    // cannot resurrect an old cache stamp. The source is untouched on failure.
+    std::unique_ptr<SparseVoxelStore> clone() const {
+        auto copy=std::make_unique<SparseVoxelStore>(layout_,materials_);
+        for(const auto& [slot,entry]:chunks_) {
+            auto& out=copy->chunks_[slot];out.revisions=entry.revisions;out.occupied=entry.occupied;
+            if(entry.voxels)out.voxels=std::make_unique<Voxels>(*entry.voxels);
+        }
+        copy->revision_=revision_;copy->occupied_=occupied_;copy->allocated_=allocated_;
+        return copy;
+    }
     const ResidentChunkLayout& layout() const{return layout_;}
     std::uint64_t revision() const{return revision_;}
     std::uint64_t occupiedVoxelCount() const{return occupied_;}
