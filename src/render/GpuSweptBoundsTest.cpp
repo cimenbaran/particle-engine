@@ -80,7 +80,7 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
             double finalSpeed=0,initialEnergy=0;
             for(unsigned a=0;a<3;++a) {
                 require(std::isfinite(actual[i].positionRadius[a]) && std::abs(actual[i].positionRadius[a]-expected.state.position[a])<2e-4,"GPU sweep position differs from CPU reference");
-                require(std::isfinite(actual[i].velocityInvMass[a]) && std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a])),("GPU sweep velocity differs from CPU reference fixture "+std::to_string(cases)+" slot "+std::to_string(i)+" axis "+std::to_string(a)+" actual "+std::to_string(actual[i].velocityInvMass[a])+" expected "+std::to_string(expected.state.velocity[a])).c_str());
+                require(std::isfinite(actual[i].velocityInvMass[a]) && std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a])),("GPU sweep velocity differs from CPU reference fixture "+std::to_string(cases)+" slot "+std::to_string(i)+" axis "+std::to_string(a)+" actual "+std::to_string(actual[i].velocityInvMass[a])+" expected "+std::to_string(expected.state.velocity[a])+" fixture GPU events "+std::to_string(stats[2])+" incident normals "+std::to_string(stats[3])).c_str());
                 const double v=actual[i].velocityInvMass[a];finalSpeed+=v*v;initialEnergy+=start.velocity[a]*start.velocity[a];
                 const double lo=a==1?0.0625:-7.9375,hi=a==1?15.9375:7.9375;
                 require(actual[i].positionRadius[a]>=lo && actual[i].positionRadius[a]<=hi,"GPU sweep escaped bounds");
@@ -133,6 +133,20 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
         p[0].positionRadius[axis]+=2*sign;p[0].velocityInvMass[axis]=-10*sign;
         check(p,0.2f,0.5f,0.25f,1000,128,0,0,nullptr,obstacle);
         check(p,0.1f,0.5f,0.25f,1000,128,0,0,nullptr,obstacle);
+    }
+    // Oblique friction is sensitive to a non-unit contact normal. Rotate the
+    // failing half-radius miss across axes and octants; keep the original oracle tolerances.
+    for(unsigned axis=0;axis<3;++axis)for(float sign:{-1.0f,1.0f})for(float friction:{0.49f,0.5f,0.57f}) {
+        p=sphereFixture(1);for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=obstacle.centre[a];p[0].velocityInvMass[a]=0;}
+        p[0].positionRadius[axis]-=2*sign;p[0].positionRadius[(axis+1)%3]+=0.5f;p[0].velocityInvMass[axis]=10*sign;
+        check(p,0.2f,0,friction,1000,128,0,0,nullptr,obstacle);
+    }
+    for(unsigned signs=0;signs<8;++signs)for(float friction:{0.49f,0.5f,0.57f}) {
+        p=sphereFixture(1);const float sx=(signs&1)?1.0f:-1.0f,sy=(signs&2)?1.0f:-1.0f,sz=(signs&4)?1.0f:-1.0f;
+        const std::array<float,3> direction{sx/std::sqrt(3.0f),sy/std::sqrt(3.0f),sz/std::sqrt(3.0f)};
+        const std::array<float,3> miss{sx/std::sqrt(2.0f),-sy/std::sqrt(2.0f),0};
+        for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=obstacle.centre[a]-2*direction[a]+0.5f*miss[a];p[0].velocityInvMass[a]=10*direction[a];}
+        check(p,0.2f,0,friction,1000,128,0,0,nullptr,obstacle);
     }
     p=sphereFixture(1);check(p,0.1f,0.5f,0,1000,128,0,0,nullptr,obstacle);
     p[0].positionRadius[1]=9;check(p,0.4f,1,1,1000,128,0,0,nullptr,obstacle); // grazing

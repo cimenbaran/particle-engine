@@ -118,3 +118,12 @@ Enabling a scene still requires coordinator configuration, settling support, col
 scene configuration, reset/recording contracts and stability tests. A swept
 prediction alone is insufficient because particle corrections could push a body
 back into the obstacle. See Swept_Sphere_Reference.txt for the remaining work.
+
+Sphere normalization refinement
+The shared sphere entry helper refines reciprocal-square-root estimates with one
+Newton step before constructing the ray direction and contact normal. This is a
+candidate for the D3D11 WARP oblique-friction discrepancy recorded in
+../tests/results/ci-38326929216-sphere-sweep.txt; new Windows execution is required.
+The GPU sweep suite now has 129 fixtures. Forty-two added cases rotate a half-radius
+miss across signed axes and all eight octants, with friction 0.49, 0.5 and 0.57.
+Position and velocity tolerances are unchanged; the double CPU sweep is the oracle.

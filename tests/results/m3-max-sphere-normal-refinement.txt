@@ -1,0 +1,16 @@
+SPHERE NORMALIZATION REFINEMENT CANDIDATE
+M3 Max 48 GiB, Metal; development worktree based on 42645d5.
+Full GPU suites pass at workgroups 128/256, including 129 swept fixtures.
+All eleven stability scenes and 14/14 CTests pass at both sizes.
+The CPU suite additionally checks the failing velocity against its closed-form
+Coulomb result 2.5*(1-sqrt(3)/2), independent of the sweep root calculation.
+No position/velocity tolerances were widened. D3D11 success remains unproven;
+see ci-38326929216-sphere-sweep.txt for the reproducible WARP failure.
+WG128 sphere-drop tail max speed=0.0012605809015088186
+out/sphere-normal-stability128.json sha256=df3e0f052ea51bc628e152feecd3e4a073fa765add6c6e6ba5c8b1e80e4e8452
+out/sphere-normal-final128.log sha256=d5a54471b6bdae3546a313b8fe22436e68734f843895953e86a8f96b3e5a368b
+out/sphere-normal-ctest128.log sha256=fa94bf6e9628ebdde67700c229671472d4d763391c31a66384e93d23c0be5eee
+WG256 sphere-drop tail max speed=0.0012605809015088186
+out/sphere-normal-stability256.json sha256=bf5dd15dc0eef8a0d2245db883d0cbd9a78e0cf5be6e3dc31d3e78f8f4fb8190
+out/sphere-normal256.log sha256=725f80a197e1178210a5322b2e530e22c0769ee3ba85a5815d77316aafeb01da
+out/sphere-normal-ctest256.log sha256=9f76da1d05ad75a5527665e81725d52206a9e7012db6f3fed79f06292c48df69

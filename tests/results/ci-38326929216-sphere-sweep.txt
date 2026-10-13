@@ -1,0 +1,18 @@
+D3D11 WARP SPHERE SWEEP NUMERIC FAILURE
+Source 16b5dd0, run 38326929216, workgroups 128/256.
+Jobs 115067652480/115067652411 both compiled all shaders, passed 14 CPU tests,
+then failed the same GPU sweep fixture 54, slot 3, axis 0:
+actual velocity 0.334679 versus double reference 0.334936.
+Existing tolerance is 2e-4*max(1,abs(expected)), unchanged.
+The preceding GPU Jacobi 132, reconstruction 64 and contact-response 74 suites pass.
+This confirms the earlier partial typed-UAV-store compile blocker was resolved.
+The failure prevents coordinator/settling/app tests and later stability/soak jobs
+from establishing Windows validation for these sources.
+
+Candidate refinement: Newton-correct reciprocal square roots for sphere ray and
+contact-normal construction. Normalization error can be amplified by oblique
+friction subtraction, but this mechanism is not yet confirmed by a new WARP run.
+Forty-two rotated oblique fixtures preserve the original CPU oracle and tolerances.
+Failure messages now include aggregate event counts to distinguish repeated-hit
+behavior if the numeric discrepancy persists. No Windows fix is claimed yet.
+Logs: out/ci-38326929216-wg128.log, out/ci-38326929216-wg256.log.

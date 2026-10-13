@@ -33,6 +33,11 @@ int main(){
     CHECK(r.hit && near(r.state.velocity[0],-1) && near(r.state.velocity[1],2.25));
     r=sweepSphere({{-1,0,0},{2,1,0}},0.1,radius,sphere,0,1,0);
     CHECK(r.state.velocity==SweepVector({0,0,0}));
+    // Closed-form value for the WARP oblique-friction regression: tangent speed
+    // 5, normal impulse 5*sqrt(3), Coulomb scale 1-sqrt(3)/2.
+    r=sweepSphere({{-2,-0.5,0},{10,0,0}},0.2,radius,sphere,0,0.5);
+    CHECK(r.hit && near(r.state.velocity[0],2.5*(1-std::sqrt(3.0)/2)));
+    CHECK(near(r.state.velocity[1],-2.5*std::sqrt(3.0)*(1-std::sqrt(3.0)/2)));
     // Fast shot crosses the entire obstacle within one tick; endpoint overlap
     // alone would miss it. Near-surface shot exercises the stable small root.
     r=sweepSphere({{-4,0,0},{10000,0,0}},0.01,radius,sphere,0,0);
