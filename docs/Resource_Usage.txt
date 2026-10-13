@@ -101,3 +101,9 @@ rings plus neighborhood, occupancy and contact-total rings add 320 GPU payload
 bytes and 240 host readback bytes. These totals retain
 the exclusions and deferred-allocation caveats above; they are not measured
 resident-memory peaks. See Interactive_Granular.txt and GPU_Settling.txt.
+
+Contact normal debug: allocated lazily when selected in granular mode. Its
+80*N+64+2*S+8*H payload is tracked separately as contact_normal_debug and included
+in particle/persistent totals. It remains allocated across view switches and
+scene resets, and is released on granular teardown. Shader/color-pass binding
+changes add no other particle-sized allocation. See GPU_Contact_Normals.txt.

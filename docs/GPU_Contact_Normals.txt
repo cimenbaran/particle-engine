@@ -1,10 +1,9 @@
 GPU GEOMETRIC CONTACT NORMALS
 
-GpuContactNormals is a diagnostic component for the remaining collision-normal
-view. It rebuilds a read-only spatial index from one frozen particle state and
+GpuContactNormals supplies the live collision-normal diagnostic view. It rebuilds a read-only spatial index from one frozen particle state and
 selects each dynamic solid's closest surface within 0.002 m. It does not alter
 particle state, settling history, material data or solver decisions. It currently
-runs in --gpu-test; live menu/render integration remains open.
+runs in --gpu-test and the live Contact normal particle view.
 
 The component uses the standard exact-key grid, radix sort, cell ranges and hash,
 then visits every candidate in the support neighborhood without a neighbor cap.
@@ -29,14 +28,18 @@ logical records. Six compute buffer bindings are used. Owned payload is
 80*N + 64 + 2*S + 8*H bytes, where N=max(1,capacity), S is one hierarchical
 prefix-scan allocation and H is the hash table's slot count. Shader/uniform
 objects and driver allocation overhead are excluded, as in Resource_Usage.txt.
-The component is not allocated by the live app yet; this is not an increase to
-normal interactive resource totals. Rebuilding every displayed frame has a cost
-that must be measured when integrating the UI.
+The live app allocates it on first selection and retains it until granular mode
+is disabled or the app closes. Allocations reports it separately as Contact normal
+debug, and JSON uses contact_normal_debug. It rebuilds only while selected,
+including paused frames and resets. Other particle views reuse their existing
+pass. The rebuild cost still requires performance measurement.
 
 Fifty GPU fixtures compare source, feature, direction and gap to the independent
 all-pairs CPU oracle, and compare original particle bytes unchanged. They cover
 zero/workgroup-edge capacities, six planes, contact/no-contact band, signed sphere
 axes/octants, exact ties, 257 coincident particles, exclusions/static neighbors,
 invalid radius/mass/index, bad-then-valid reuse and moving away without a stale
-normal. Full live render records, paused reset/mode switching, upstream solver
-failure presentation and D3D11 validation remain separate required checks.
+normal. The render suite checks 63 mode changes, full records and diagnostic/solver
+failure colors. An app-path fixture checks sphere +Y color, paused material
+restore, unchanged state/history/tick, empty reset, scene reset and teardown.
+D3D11 validation remains a separate required check.

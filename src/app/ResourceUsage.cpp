@@ -9,7 +9,7 @@ namespace pw {
 ResourceUsage& ResourceUsage::operator+=(const ResourceUsage& r) {
     state+=r.state;instances+=r.instances;lists+=r.lists;counters+=r.counters;indirect+=r.indirect;
     materials+=r.materials;geometry+=r.geometry;terrainGeometry+=r.terrainGeometry;diagnosticTextures+=r.diagnosticTextures;
-    diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;granular+=r.granular;return *this;
+    diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;granular+=r.granular;contactNormals+=r.contactNormals;return *this;
 }
 
 ResourceUsage resourceUsage(std::uint32_t capacity,std::uint32_t materialCount,bool indirectAllocated,bool audit) {
@@ -38,11 +38,15 @@ std::uint64_t settlingPayloadBytes(std::uint32_t capacity) {
     for(;;){const auto groups=std::max(1u,dispatchGroups(count));scan+=4ull*(std::max(1u,count)+groups);if(groups==1)break;count=groups;}
     return 80ull*std::max(1u,capacity)+96+2*scan+8ull*std::bit_ceil(capacity*2+2);
 }
+std::uint64_t contactNormalPayloadBytes(std::uint32_t capacity) {
+    // Same index and 32-byte per-slot payload as settling, without two status buffers.
+    return settlingPayloadBytes(capacity)-32;
+}
 nlohmann::json resourceReport(const ResourceUsage& u,const bgfx::Stats& s) {
     using Json=nlohmann::json;
     auto available=[](std::int64_t bytes)->Json {return bytes<0?Json(nullptr):Json(bytes);};
     return {{"schema_version",1},{"requested_payload_bytes",{
-        {"particle_state",u.state},{"granular_solver",u.granular},{"render_instances",u.instances},{"active_free_lists",u.lists},
+        {"particle_state",u.state},{"granular_solver",u.granular},{"contact_normal_debug",u.contactNormals},{"render_instances",u.instances},{"active_free_lists",u.lists},
         {"pool_visibility_counters",u.counters},{"indirect_arguments",u.indirect},{"material_table",u.materials},
         {"billboard_geometry",u.geometry},{"terrain_geometry",u.terrainGeometry},{"diagnostic_textures",u.diagnosticTextures},{"audit_buffers",u.auditBuffers},
         {"persistent_total",u.persistentPayload()},{"particle_buffers",u.particleBuffers()}}},
@@ -84,6 +88,7 @@ void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s,ReportedMemor
             ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextUnformatted(name);
             ImGui::TableNextColumn();ImGui::Text("%.6f",double(bytes)/1000000.0);
         };
+        if(u.contactNormals)row("Contact normal debug",u.contactNormals);
         if(u.granular) row("Granular solver",u.granular);
         row("State ping-pong",u.state);row("Render + visible instances",u.instances);
         row("Active/free slot lists",u.lists);row("Pool/visibility counters",u.counters);

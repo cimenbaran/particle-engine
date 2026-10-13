@@ -47,8 +47,9 @@ correctly. Run 38319532572 passes 45 tracker fixtures and live integration check
 at both workgroup sizes; its separate pile-stability gate still fails.
 
 Material, speed, velocity-direction, spatial-cell and settling debug views are available in the live
-granular UI; see ../docs/Particle_Debug_Views.txt. Collision normals and detailed
-per-pass timing instrumentation remain open. Exact 64-bit candidate-visit and
+granular UI; see ../docs/Particle_Debug_Views.txt. Contact-normal visualization is now integrated and tested locally; see
+../docs/GPU_Contact_Normals.txt. Detailed per-pass timing and Windows validation
+remain open. Exact 64-bit candidate-visit and
 directed-contact totals are now available; repeated passes are counted, so these
 are not unique pairs. See ../docs/Contact_Totals.txt. The UI now reports per-tick
 maximum candidates/query and probes/query, contact-solve counts and partial-error

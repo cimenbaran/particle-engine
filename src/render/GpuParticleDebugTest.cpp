@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -70,6 +71,9 @@ void runGpuParticleDebugTest(const std::filesystem::path& assets) {
                 case 31:p.velocityInvMass[0]=-0.5f;p.velocityInvMass[1]=0.5f;p.velocityInvMass[2]=-0.5f;break;
             }
         }
+        std::vector<std::array<std::uint32_t,8>> normalData(count);
+        for(unsigned i=0;i<count;++i){normalData[i][i%3]=std::bit_cast<std::uint32_t>(i%2?1.0f:-1.0f);normalData[i][4]=i%7==6?0u:3u;normalData[i][6]=i%11==10?1u:0u;}
+        Handle normals(bgfx::createDynamicVertexBuffer(bgfx::copy(normalData.data(),count*32),lanes,BGFX_BUFFER_COMPUTE_READ));
         Handle state(bgfx::createDynamicVertexBuffer(bgfx::copy(particles.data(),count*sizeof(ParticleGpu)),lanes,BGFX_BUFFER_COMPUTE_READ));
         Handle histories(bgfx::createDynamicVertexBuffer(bgfx::copy(history.data(),count*sizeof(SettlingState)),lanes,BGFX_BUFFER_COMPUTE_READ));
         Handle instances(bgfx::createDynamicVertexBuffer(count*2,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE));
@@ -77,10 +81,12 @@ void runGpuParticleDebugTest(const std::filesystem::path& assets) {
         Handle staging(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         // Reuse output without a simulation tick: every mode must restore all
         // presentation fields, including returning to material colors while paused.
-        for(unsigned mode:{0u,1u,2u,3u,4u,0u,3u}) {
-            const bool fault=cases%7==6;const std::array<std::uint32_t,4> stats{fault?1u:0u,17,23,11};
+        for(unsigned mode:{0u,1u,2u,3u,4u,5u,0u,3u,5u}) {
+            const bool fault=cases%9==7;const bool solverFault=cases%9==8;const std::array<std::uint32_t,4> stats{fault?1u:0u,17,23,11};
             Handle status(bgfx::createDynamicIndexBuffer(bgfx::copy(stats.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ));
-            debug.submit(0,count,ParticleDebugMode(mode),state.value,materialBuffer.value,2,histories.value,status.value,instances.value);
+            const std::array<std::uint32_t,4> solverStats{solverFault?1u:0u,0,0,0};
+            Handle solver(bgfx::createDynamicIndexBuffer(bgfx::copy(solverStats.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ));
+            debug.submit(0,count,ParticleDebugMode(mode),state.value,materialBuffer.value,2,histories.value,status.value,instances.value,normals.value,solver.value);
             const float params[]{0,float(count),0,2};bgfx::setUniform(uniform.value,params);bgfx::setBuffer(0,instances.value,bgfx::Access::Read);bgfx::setImage(1,image.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,exporter.value,dispatchGroups(count));
             std::vector<std::array<std::uint32_t,16>> pixels(count);bgfx::TextureRegion src,dst;src.handle=image.value;dst.handle=staging.value;bgfx::blit(2,dst,src);auto ready=bgfx::read(dst,pixels.data());while(bgfx::frame()<ready)SDL_PumpEvents();
             for(unsigned i=0;i<count;++i){const auto& p=particles[i];RenderInstance expected{};
@@ -101,6 +107,12 @@ void runGpuParticleDebugTest(const std::filesystem::path& assets) {
                             expected.visual[0]=0xff000000u;
                             for(unsigned axis=0;axis<3;++axis)expected.visual[0]|=std::uint32_t(std::floor(color[axis]+0.5))<<(8*axis);
                         }
+                    }
+                    if(mode==5){
+                        expected.visual[0]=0xff808080u;
+                        if(fault || solverFault || normalData[i][6])expected.visual[0]=0xffff00ffu;
+                        else if(normalData[i][4]){expected.visual[0]=0xff000000u;for(unsigned a=0;a<3;++a)
+                            expected.visual[0]|=std::uint32_t(std::floor((std::bit_cast<float>(normalData[i][a])*0.5+0.5)*255+0.5))<<(8*a);}
                     }
                     if(mode==2){auto key=grid.keyAt({p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]});
                         if(!key)expected.visual[0]=0xffff00ffu;else {auto h=*key*1664525u+1013904223u;expected.visual[0]=(64u+(h&127u))|((64u+((h>>8)&127u))<<8)|((64u+((h>>16)&127u))<<16)|0xff000000u;}}

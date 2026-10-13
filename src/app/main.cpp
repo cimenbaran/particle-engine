@@ -109,6 +109,7 @@ struct Particles {
     std::unique_ptr<pw::GpuSettling> settling;
     std::unique_ptr<pw::SphereTerrain> terrain;
     std::unique_ptr<pw::GpuParticleDebug> debugView;
+    std::unique_ptr<pw::GpuContactNormals> contactNormals;
     int debugMode=0;
     std::unique_ptr<pw::PoolDiagnostics> settlingDiagnostics;
     bool granularFault=false;
@@ -186,7 +187,7 @@ struct Particles {
             totalDiagnostics=std::move(totalDiagnostic);occupancyDiagnostics=std::move(occupancyDiagnostic);
             debugView=std::move(debug);neighborhoodDiagnostics=std::move(neighborhoodDiagnostic);
             settling=std::move(tracker);settlingDiagnostics=std::move(trackingDiagnostic);
-        } else {terrain.reset();debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();totalDiagnostics.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();}
+        } else {terrain.reset();debugView.reset();contactNormals.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();totalDiagnostics.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();}
         granularFault=false;reloadPending=false;reset();solverMessage.clear();
     }
     void stageShaders(pw::ShaderReload& reload) {
@@ -218,7 +219,7 @@ struct Particles {
         } catch(const std::exception& error) {materialMessage=std::string("Reload rejected: ")+error.what();}
     }
     void release() {
-        debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();totalDiagnostics.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();
+        debugView.reset();contactNormals.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();totalDiagnostics.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();
         visibleDiagnostics.reset();
         diagnostics.reset();
         visibility.reset();
@@ -372,6 +373,16 @@ struct Particles {
         pool->rebuild(view,state[current]);
         session.observed(batch,commands.nextTick());
     }
+    void prepareDebug(uint16_t view) {
+        if(!debugView)return;
+        if(debugMode==int(pw::ParticleDebugMode::ContactNormal)) {
+            if(!contactNormals)contactNormals=std::make_unique<pw::GpuContactNormals>(assetsPath,particleCount);
+            contactNormals->submit(view,state[current],materialBuffer,uint32_t(materials.entries.size()),scene.obstacle);
+        }
+        debugView->submit(view,particleCount,pw::ParticleDebugMode(debugMode),state[current],materialBuffer,
+            uint32_t(materials.entries.size()),settling->history(),settling->status(),instances,
+            contactNormals?contactNormals->output():bgfx::DynamicVertexBufferHandle BGFX_INVALID_HANDLE,granular->status());
+    }
     void render(uint16_t view,bool indirect) {
         if(terrain)terrain->render(view,scene.obstacle);
         bgfx::setVertexBuffer(0,vertices); bgfx::setIndexBuffer(indices);
@@ -387,7 +398,7 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
     pw::ParticleAudit physicalAudit(assets,129),cosmeticAudit(assets,127);
     bgfx::frame();
     auto require=[](bool condition,const char* message) {if(!condition) throw std::runtime_error(message);};
-    auto snapshot=[&](Particles& particles) {
+    auto snapshot=[&](Particles& particles,bgfx::DynamicVertexBufferHandle buffer=BGFX_INVALID_HANDLE,unsigned lanes=4) {
         struct Export {
             bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;
             bgfx::TextureHandle output=BGFX_INVALID_HANDLE,staging=BGFX_INVALID_HANDLE;
@@ -397,8 +408,8 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         resources.output=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE);
         resources.staging=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
         require(bgfx::isValid(resources.output) && bgfx::isValid(resources.staging),"Isolation readback allocation failed");
-        const float params[]{0,float(particles.particleCount),0,0};
-        bgfx::setUniform(particles.uniform,params);bgfx::setBuffer(0,particles.state[particles.current],bgfx::Access::Read);
+        const float params[]{0,float(particles.particleCount),0,float(lanes)};
+        bgfx::setUniform(particles.uniform,params);bgfx::setBuffer(0,bgfx::isValid(buffer)?buffer:particles.state[particles.current],bgfx::Access::Read);
         bgfx::setImage(1,resources.output,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
         bgfx::dispatch(6,resources.program,pw::dispatchGroups(particles.particleCount));
         bgfx::TextureRegion dst;dst.handle=resources.staging;bgfx::TextureRegion src;src.handle=resources.output;
@@ -493,6 +504,29 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         for(unsigned i=0;i<60;++i){sandbox.tick(1);bgfx::frame();}
         readSettling();require(sandbox.terrain && sandbox.settlingDiagnostics->latest().free==1,"Live sphere failed to acquire settling support");
         const auto sphereState=snapshot(sandbox);require(std::abs(sphereState[0].positionRadius[1]-5)<5e-6,"Live sphere resting pose mismatch");
+        const auto materialInstances=snapshot(sandbox,sandbox.instances,2);
+        const auto historyBefore=snapshot(sandbox,sandbox.settling->history(),1);
+        const auto tickBefore=sandbox.commands.nextTick();
+        sandbox.debugMode=int(pw::ParticleDebugMode::ContactNormal);sandbox.prepareDebug(5);
+        const auto normalInstances=snapshot(sandbox,sandbox.instances,2);
+        pw::RenderInstance normalInstance;std::memcpy(&normalInstance,&normalInstances[0],sizeof(normalInstance));
+        require(normalInstance.visual[0]==0xff80ff80u,"Live sphere normal did not render +Y color");
+        require(std::memcmp(&normalInstances[0],&materialInstances[0],16)==0 &&
+            std::memcmp(reinterpret_cast<const char*>(&normalInstances[0])+20,reinterpret_cast<const char*>(&materialInstances[0])+20,12)==0,"Normal color changed render pose/identity");
+        sandbox.debugMode=0;sandbox.prepareDebug(5);
+        const auto restored=snapshot(sandbox,sandbox.instances,2);
+        const auto afterDebug=snapshot(sandbox),historyAfter=snapshot(sandbox,sandbox.settling->history(),1);
+        for(unsigned i=0;i<sandbox.particleCount;++i){
+            require(std::memcmp(&restored[i],&materialInstances[i],32)==0,"Returning to material failed while paused");
+            require(std::memcmp(&historyBefore[i],&historyAfter[i],16)==0,"Normal view advanced settling history");
+        }
+        require(std::memcmp(sphereState.data(),afterDebug.data(),sphereState.size()*sizeof(pw::ParticleGpu))==0 && sandbox.commands.nextTick()==tickBefore,"Normal view changed simulation or tick");
+        sandbox.debugMode=5;sandbox.reset(0);sandbox.prepareDebug(5);
+        const auto emptyNormal=snapshot(sandbox,sandbox.instances,2);const pw::RenderInstance emptyInstance{};
+        for(const auto& record:emptyNormal)require(std::memcmp(&record,&emptyInstance,32)==0,"Empty reset retained normal instances");
+        sandbox.reset(1);sandbox.prepareDebug(5);const auto resetNormal=snapshot(sandbox,sandbox.instances,2);
+        std::memcpy(&normalInstance,&resetNormal[0],sizeof(normalInstance));
+        require(normalInstance.visual[0]==0xff80ff80u,"Paused sphere reset retained stale normals");
         pw::BrushBox sphereBrush;sphereBrush.minimum={-0.1f,3.9f,-0.1f};sphereBrush.maximum={0.1f,4.1f,0.1f};
         sandbox.queueBrush(pw::CommandType::SpawnBrush,0,1,0,&sphereBrush);
         require(sandbox.commandMessage.find("intersects sphere")!=std::string::npos,"Sphere-intersecting spawn was accepted");
@@ -500,7 +534,8 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         require(rejectedMode && sandbox.granular && sandbox.terrain,"Sphere allowed unsupported ballistic mode");
         require(sandbox.loadPreset(assets/"scenes/empty.json") && !sandbox.terrain,"Loading non-terrain scene retained sphere renderer");
         sandbox.setGranular(false);sandbox.reset(0);bgfx::frame();
-        require(!sandbox.settling && !sandbox.settlingDiagnostics,"Ballistic mode retained settling resources");
+        require(!sandbox.settling && !sandbox.settlingDiagnostics && !sandbox.contactNormals,"Ballistic mode retained settling resources");
+        std::cout<<"GPU live contact-normal view passed: sphere color, paused restore, immutable state/history, reset and teardown\n";
         std::cout<<"GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown\n";
         std::cout<<"GPU interactive granular path passed: radius, spawn, impulse caps, state ownership, removal and mode reset\n";
     }
@@ -1079,11 +1114,12 @@ int main(int argc, char** argv) {
                 if(tracking.valid) ImGui::Text("Settling candidates: %u | Acquiring: %u | Contact grace: %u",tracking.free,tracking.reserved,tracking.rejected);
                 else ImGui::TextDisabled("Waiting for settling snapshot...");
                 ImGui::TextDisabled("Candidates remain active particles");
-                ImGui::Combo("Particle view",&particles.debugMode,"Material\0Speed\0Spatial cells\0Settling\0Velocity direction\0");
+                ImGui::Combo("Particle view",&particles.debugMode,"Material\0Speed\0Spatial cells\0Settling\0Velocity direction\0Contact normal\0");
                 if(particles.debugMode==1) ImGui::TextDisabled("Speed: blue = 0, red = 12+ m/s");
                 if(particles.debugMode==2) ImGui::TextDisabled("Color by 0.125 m cell; magenta = outside grid");
                 if(particles.debugMode==3) ImGui::TextWrapped("Gray: active | Yellow: acquiring | Green: candidate | Orange: contact grace | Magenta: tracking fault");
                 if(particles.debugMode==4) ImGui::TextWrapped("Direction: RGB = XYZ, dark = negative, bright = positive. Gray: zero | Magenta: invalid velocity");
+                if(particles.debugMode==5) ImGui::TextWrapped("Closest contact normal: RGB = XYZ, dark = negative, bright = positive. Gray: no contact | Magenta: diagnostic/solver fault. Rebuilds contacts while paused.");
                 if(particles.granularFault) ImGui::TextWrapped("Solver error 0x%x / tracking error 0x%x: paused. Reset or load a valid scene to resume.",g.active,tracking.active);
             }
             if(!particles.solverMessage.empty()) ImGui::TextWrapped("%s",particles.solverMessage.c_str());
@@ -1236,6 +1272,7 @@ int main(int argc, char** argv) {
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
             if(particles.terrain)resources.terrainGeometry=pw::SphereTerrain::payloadBytes;
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
+            if(particles.contactNormals)resources.contactNormals=pw::contactNormalPayloadBytes(particles.particleCount);
             if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=320;resources.diagnosticHost+=240;}
             memoryPeaks.observe(pw::reportedMemory(*stats));
             pw::drawResourceUsage(resources,*stats,memoryPeaks);
@@ -1326,9 +1363,7 @@ int main(int argc, char** argv) {
                 particles.diagnostics->request(6,particles.pool->counts(),ticks);
             if(frames%8==0 || step || !particles.visibleDiagnostics->latest().valid)
                 particles.visibleDiagnostics->request(6,particles.visibility->counts(),ticks);
-            if(particles.debugView) particles.debugView->submit(5,particles.particleCount,pw::ParticleDebugMode(particles.debugMode),
-                particles.state[particles.current],particles.materialBuffer,uint32_t(particles.materials.entries.size()),
-                particles.settling->history(),particles.settling->status(),particles.instances);
+            particles.prepareDebug(5);
             particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);
             if(cosmetics) {
                 cosmetics->visibility->prepare(5,cosmetics->instances,cosmetics->pool->activeSlots(),cosmetics->pool->counts(),pw::extractFrustum(viewProjection,caps->homogeneousDepth),cull);

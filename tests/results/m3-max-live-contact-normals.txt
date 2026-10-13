@@ -1,0 +1,21 @@
+LIVE CONTACT NORMAL VIEW
+Development source based on 71a8d95; Apple M3 Max, Metal.
+
+Full GPU suite and 15/15 CTests pass at workgroups128 and256.
+63 render-mode changes cover full instances, normal colors and diagnostic/solver
+fault colors without changing physics/history. 50 geometric normal fixtures pass.
+App-path test checks sphere +Y color, paused material restore, unchanged tick,
+state/history, empty reset, sphere reset and teardown.
+
+Native UI (workgroup256, capacity256, sphere_drop scene): paused at tick1186,
+selected Contact normal, observed colored terrain/grain contacts without a
+displayed solver fault. Allocation panel reported 0.030792 MB contact-normal
+payload. Reset while paused returned tick0 and rebuilt normals for the seeded
+cloud; switching to Material restored sand colors at the same tick0. Closed
+the native window; process exited0. UI observations were made through CUA.
+Windows runtime validation and detailed per-pass timing remain open.
+
+out/live-normal-gpu128.log sha256=a6478f7c05b887f94969b3c6ec9c0059fa7ec9268533a2636364268640e390c0
+out/live-normal-gpu256.log sha256=fa5754d3f278515df5f524d34db54227b48fad2be27ed1bf247ea5f907f6464e
+out/live-normal-ctest128.log sha256=98722c8c4596a978ece9bbf0fb0d073f9f67d69ef14dd788fbbc50ce1bf3e051
+out/live-normal-ctest256.log sha256=830a122209973acf7b2e116d9b703a47c6f099fa2bd1c0dfad481206474c26a8

@@ -2,8 +2,8 @@ CONTACT NORMAL DEBUG ORACLE
 
 The independent all-pairs CPU oracle in tests/reference/ContactNormal.hpp is
 preparation for the remaining S2-10 collision-normal view. GPU_Contact_Normals.txt
-describes the new diagnostic compute component tested against it. The live UI
-mode and full render-path checks remain to be implemented.
+describes the new diagnostic compute component tested against it. The live Contact normal mode uses that component, with full render-record and
+paused-reset checks described in GPU_Contact_Normals.txt.
 
 For a live dynamic solid with radius 0.0625 m, select the smallest signed surface
 gap among the six enclosure planes, optional analytic sphere and other live solid

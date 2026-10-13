@@ -5,6 +5,8 @@ BUFFER_RO(b_state,vec4,0);
 BUFFER_RO(b_history,vec4,1);
 BUFFER_RO(b_tracking,uint,2);
 BUFFER_RW(b_instances,vec4,4);
+BUFFER_RO(b_normals,vec4,5);
+BUFFER_RO(b_solver,uint,6);
 uniform vec4 u_particle_debug; // capacity, materials, mode, speed scale
 bool finiteValue(float v){return (floatBitsToUint(v)&0x7f800000u)!=0x7f800000u;}
 int signedDebugCell(float v) {
@@ -27,6 +29,14 @@ void main() {
       float largest=max(abs(v.x),max(abs(v.y),abs(v.z)));
       float t=largest>=u_particle_debug.w?1.0:min(length(v)/u_particle_debug.w,1.0);
       uvec3 c=uvec3(vec3(32.0+223.0*t,96.0*(1.0-t),255.0*(1.0-t))+vec3_splat(0.5));
+      color=c.x|(c.y<<8u)|(c.z<<16u)|0xff000000u;
+    }
+  } else if(mode==5u) {
+    uvec4 meta=floatBitsToUint(b_normals[id*2u+1u]);color=0xff808080u;
+    if(meta.z!=0u || b_solver[0]!=0u || b_tracking[0]!=0u)color=0xffff00ffu;
+    else if(meta.x!=0u) {
+      vec3 normal=b_normals[id*2u].xyz;
+      uvec3 c=uvec3(clamp(normal*0.5+vec3_splat(0.5),vec3_splat(0.0),vec3_splat(1.0))*255.0+vec3_splat(0.5));
       color=c.x|(c.y<<8u)|(c.z<<16u)|0xff000000u;
     }
   } else if(mode==4u) {
