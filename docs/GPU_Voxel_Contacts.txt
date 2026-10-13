@@ -44,8 +44,9 @@ Both Legacy and Basin shader variants are compiled. Optional analytic box
 bounds intersect the resident box. An analytic sphere or analytic floor-traction
 budget cannot be combined with voxel constraints in one submission. The stage
 handles geometric position constraints only; it adds no restitution or duplicate
-kinetic-friction impulse. Terrain-specific static traction, final velocity
-constraints, support/settling and full basin tick integration remain open.
+kinetic-friction impulse. GPU_Voxel_Finish.txt describes the separate velocity constraint pass.
+Terrain-specific static traction, support/settling and full basin tick
+integration remain open.
 The terrain-preview probes still do not interact with each other.
 
 Validation

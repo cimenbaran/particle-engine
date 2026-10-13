@@ -1,0 +1,56 @@
+RESIDENT VOXEL VELOCITY FINISH
+
+GpuVoxelMotion::finish is a post-pair-solve constraint pass. It uses the same
+immutable world revision/owner/origin contract and ping-pong storage as swept
+prediction. A caller supplies the corrected/reconstructed particle state and
+an external upstream status. The object's own status cannot be upstream.
+Any error copies the complete input, preserving whole-pass rollback.
+
+Positions, radius, inverse mass, identity and thermal state stay bitwise fixed.
+Dead, non-solid and infinite-mass slots retain the existing exclusion policy.
+Dynamic solids must be contained and strictly nonpenetrating. A 4-micrometre
+contact shell collects nearby occupied voxels and resident boundary planes.
+The shell spans at most three voxel cells per axis: 27 candidates plus at most
+three resident planes fit in 32 entries, with explicit overflow failure. Every
+nearby occupied material must be a valid solid with friction in [0,1].
+
+The solve projects velocity into the feasible contact cone. Nonzero solutions
+in 3D need at most two independent active normals; candidates are tested against
+all collected normals. The retained tangent is selected by its speed, avoiding
+cancellation when a large normal impulse dwarfs a small valid sliding velocity.
+Single-plane projections use cross products to keep residual error proportional
+to the retained tangent. Nonnegative normal impulse multipliers determine the
+friction budget: sum(mu_i * lambda_i). Each voxel coefficient is the geometric
+mean of particle and terrain friction; a resident plane uses particle friction.
+Exact ties retain deterministic traversal order. Zero velocity is a feasible
+fallback when no nonzero candidate satisfies all constraints.
+
+Friction scales the common tangent without reversing it. Separating velocities
+receive no new impulse or friction. No restitution is added here: prediction
+already resolved impacts. The speed limit is applied after contact response,
+so a large inward component does not first scale away legitimate free sliding.
+Power-of-two preconditioning keeps arithmetic finite for huge finite inputs.
+Numerical feasibility permits residual inward speed up to 1e-5 m/s at the final
+check; exceeding it rolls back the pass. This is an inelastic finishing stage,
+not a new impact prediction or a static-traction budget.
+
+Status words
+[0] 1 upstream failure, 2 invalid state/material/overlap, 4 contact capacity,
+    8 arithmetic/constraint failure.
+[1] Bodies capped after contact response.
+[2] Bodies whose velocity changed, including speed caps.
+[3] Collected contact-shell normals. Other words are provisional on failure.
+The buffers remain GPU-resident; synchronous exports occur only in tests.
+
+Tests compare an independent double active-set/Gram solve and analytic cases,
+including six faces, rounded corners, perpendicular surfaces, a narrow wedge,
+mixed voxel/wall friction, tiny free tangents, huge normal velocities, zero
+friction, shell exclusion, speed limits, energy, repeated finishing, exact
+position preservation, stale context rejection and mixed-pool rollback.
+A seeded 256-body corner batch runs with friction and without it.
+See ../tests/results/m3-max-voxel-finish.txt for execution results.
+
+Remaining integration
+The live basin still needs its full force/prediction/pair/correction/response/
+finish coordinator, terrain static traction, and support/settling tracking.
+This pass does not enable grain-to-grain interaction in the probe UI yet.

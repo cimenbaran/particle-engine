@@ -29,8 +29,9 @@ Existing legacy fixtures remain in the full suite.
 Limits
 This expands reusable primitives. It does not yet connect grain-to-grain
 collisions to the terrain preview. Voxel-constrained position corrections are
-available separately (see GPU_Voxel_Contacts.txt); terrain-compatible velocity finishing,
-support/settling and the full basin tick coordinator remain to be implemented.
+available separately (see GPU_Voxel_Contacts.txt), along with a post-contact
+velocity constraint pass (GPU_Voxel_Finish.txt). Static traction, support/settling
+and the full basin tick coordinator remain to be implemented.
 No terrain mass conversion, destruction, deposition, rebasing or performance acceptance is claimed.
 
 Local execution results: ../tests/results/m3-max-basin-grid.txt.

@@ -1,0 +1,37 @@
+VOXEL VELOCITY FINISH — MACOS / METAL
+
+Apple M3 Max; workgroup sizes 128 and 256.
+Both complete --gpu-test suites passed. Native CTest passed 21/21 in each.
+
+78 finish fixtures / 592 particle records include:
+- Six faces at negative, central and positive basin coordinates, with friction,
+  zero friction and separating velocities.
+- Independent double active-set/Gram-solve comparison for contact projection
+  and material friction, including a seeded 256-body corner batch run twice.
+- Two perpendicular voxel contacts, a narrow opposing-edge wedge, resident
+  planes and mixed voxel/plane friction.
+- Retained free tangents, including 1e-6 m/s sliding beside a normal impulse,
+  and 1 m/s sliding beside a 1e30 m/s normal component with zero friction.
+- Speed limiting after projection, huge finite values, energy nonincrease,
+  contact-shell exclusion and exact tangential motion.
+- Repeated finishing without repeated friction, output-to-input ping-pong,
+  zero capacity, bitwise unchanged positions/radius/mass/thermal/identity.
+- Dead/non-solid/static preservation, upstream and mixed-pool rollback,
+  overlapping positions, bad friction (including negative subnormal), invalid
+  state/identity, nonsolid terrain and stale/foreign/origin rejection.
+
+The corner batch exposed loss of a valid tangent when single-plane subtraction
+left a residual proportional to a large removed normal component. Cross-product
+projection keeps the error proportional to the retained tangent. Selecting by
+retained speed avoids cancellation in nearly equal squared-error comparisons.
+
+Existing voxel prediction, 600-tick live probes, 32 terrain Jacobi fixtures,
+spatial index, sphere/granular, settling, rendering, pool and shader lifecycle
+checks also passed in both complete suites.
+
+Ignored local logs: out/voxel-finish-{gpu128,gpu256,ctest128,ctest256}.log.
+Default installed app uses 128-thread workgroups.
+
+Scope: a reusable post-contact velocity constraint pass. Live basin tick
+integration, static traction and support/settling remain open. No new long soak,
+performance acceptance or Windows certification is claimed.
