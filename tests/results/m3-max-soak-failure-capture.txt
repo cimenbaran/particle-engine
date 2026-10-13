@@ -1,0 +1,11 @@
+Metal128 failure snapshot validation
+
+Native build succeeded; CTest 16/16 passed. Full GPU correctness suite passed,
+including immutable-input and live-app readbacks through the shared helper.
+A deliberately short one-second sphere soak failed its lifecycle coverage gate
+at tick 51 (expected exit 1). The report preserved the coverage failure and
+exported all seven state buffers with 257 slots each. All rows contain exactly
+16 uint32 words and preserve slot identities. No capture error occurred.
+This verifies diagnostic capture, not the unresolved long-soak sphere defect.
+Logs: out/soak-forensics-{build,gpu,ctest,short}.log
+Report: out/soak-forensics-short.json

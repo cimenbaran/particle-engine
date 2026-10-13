@@ -392,6 +392,30 @@ struct Particles {
         else bgfx::submit(view,draw);
     }
 };
+// Explicit diagnostic readback only. Normal simulation and successful soaks do
+// not allocate or synchronize through this path. The export captures a prefix.
+std::vector<pw::ParticleGpu> snapshotParticles(Particles& particles,const std::filesystem::path& assets,
+    bgfx::DynamicVertexBufferHandle buffer=BGFX_INVALID_HANDLE,unsigned lanes=4) {
+    const auto count=std::min(particles.particleCount,uint32_t(4096));
+    if(!count)return {};
+    struct Export {
+        bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle output=BGFX_INVALID_HANDLE,staging=BGFX_INVALID_HANDLE;
+        ~Export() {if(bgfx::isValid(program)) bgfx::destroy(program);if(bgfx::isValid(output)) bgfx::destroy(output);if(bgfx::isValid(staging)) bgfx::destroy(staging);}
+    } resources;
+    resources.program=pw::loadCompute(assets,"cs_export");
+    resources.output=bgfx::createTexture2D(4,uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE);
+    resources.staging=bgfx::createTexture2D(4,uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
+    if(!bgfx::isValid(resources.output) || !bgfx::isValid(resources.staging)) throw std::runtime_error("Particle snapshot readback allocation failed");
+    const float params[]{0,float(count),0,float(lanes)};
+    bgfx::setUniform(particles.uniform,params);bgfx::setBuffer(0,bgfx::isValid(buffer)?buffer:particles.state[particles.current],bgfx::Access::Read);
+    bgfx::setImage(1,resources.output,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
+    bgfx::dispatch(6,resources.program,pw::dispatchGroups(count));
+    bgfx::TextureRegion dst;dst.handle=resources.staging;bgfx::TextureRegion src;src.handle=resources.output;
+    bgfx::blit(7,dst,src);std::vector<pw::ParticleGpu> result(count);
+    const auto ready=bgfx::read(dst,result.data());while(bgfx::frame()<ready) SDL_PumpEvents();
+    return result;
+}
 void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
     pw::ScenePreset effectScene;effectScene.name="Cosmetic isolation test";effectScene.count=0;effectScene.materials={"Wood"};
     Particles physical(assets,129),cosmetic(assets,127,{},&effectScene);
@@ -399,23 +423,7 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
     bgfx::frame();
     auto require=[](bool condition,const char* message) {if(!condition) throw std::runtime_error(message);};
     auto snapshot=[&](Particles& particles,bgfx::DynamicVertexBufferHandle buffer=BGFX_INVALID_HANDLE,unsigned lanes=4) {
-        struct Export {
-            bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;
-            bgfx::TextureHandle output=BGFX_INVALID_HANDLE,staging=BGFX_INVALID_HANDLE;
-            ~Export() {if(bgfx::isValid(program)) bgfx::destroy(program);if(bgfx::isValid(output)) bgfx::destroy(output);if(bgfx::isValid(staging)) bgfx::destroy(staging);}
-        } resources;
-        resources.program=pw::loadCompute(assets,"cs_export");
-        resources.output=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE);
-        resources.staging=bgfx::createTexture2D(4,uint16_t(particles.particleCount),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST);
-        require(bgfx::isValid(resources.output) && bgfx::isValid(resources.staging),"Isolation readback allocation failed");
-        const float params[]{0,float(particles.particleCount),0,float(lanes)};
-        bgfx::setUniform(particles.uniform,params);bgfx::setBuffer(0,bgfx::isValid(buffer)?buffer:particles.state[particles.current],bgfx::Access::Read);
-        bgfx::setImage(1,resources.output,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);
-        bgfx::dispatch(6,resources.program,pw::dispatchGroups(particles.particleCount));
-        bgfx::TextureRegion dst;dst.handle=resources.staging;bgfx::TextureRegion src;src.handle=resources.output;
-        bgfx::blit(7,dst,src);std::vector<pw::ParticleGpu> result(particles.particleCount);
-        const auto ready=bgfx::read(dst,result.data());while(bgfx::frame()<ready) SDL_PumpEvents();
-        return result;
+        return snapshotParticles(particles,assets,buffer,lanes);
     };
     const auto original=snapshot(physical);
     auto check=[&](uint32_t physicalAlive,uint32_t cosmeticAlive,uint32_t dropped) {
@@ -903,6 +911,31 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         if(particles.scene.obstacle.radius>0)report["notes"].push_back("Every live slot independently checks sphere separation with 1e-6 m float allowance; scene spawn bounds remain outside the expanded collider.");
         report["notes"].push_back("All five granular diagnostic rings are sampled at the ownership-audit tick; occupancy describes the last position-solve input. Contact totals count repeated directed visits, not unique pairs.");
         report["notes"].push_back("Granular solver and settling faults latch every tick; synchronized samples check candidates remain bounded by active matter.");
+    }
+    if(!failure.empty() && particles.granular) {
+        // These are the final submitted tick's buffers, not necessarily the first
+        // fault tick (diagnostic readbacks are asynchronous). Keep raw words so
+        // signed zero, nonfinite floats and identity lanes survive JSON exactly.
+        Json captured={{"tick",ticks},{"maximum_slots",4096},{"capacity",particles.particleCount},
+            {"scope","final submitted tick; may follow the first fault; first 4096 slots"},
+            {"layout","four vec4 lanes per slot: position/radius, velocity/inverse mass, thermal, identity; uint32 bit patterns"}};
+        try {
+            const auto save=[&](const char* name,bgfx::DynamicVertexBufferHandle buffer) {
+                const auto state=snapshotParticles(particles,assets,buffer);
+                Json rows=Json::array();
+                for(const auto& particle:state) {
+                    std::array<uint32_t,16> words{};
+                    static_assert(sizeof(words)==sizeof(particle));
+                    std::memcpy(words.data(),&particle,sizeof(particle));rows.push_back(words);
+                }
+                captured[name]=std::move(rows);
+            };
+            save("committed",particles.state[particles.current]);
+            const auto stages=particles.granular->diagnosticStates();
+            constexpr std::array names{"force","sweep","position","reconstruction","response","finish"};
+            for(unsigned i=0;i<stages.size();++i)save(names[i],stages[i]);
+        } catch(const std::exception& e) {captured["capture_error"]=e.what();}
+        report["failure_state"]=std::move(captured);
     }
     std::filesystem::path path=options.report;if(!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());
     std::ofstream output(path);output<<report.dump(2)<<'\n';output.close();if(!output) throw std::runtime_error("Cannot write soak report");

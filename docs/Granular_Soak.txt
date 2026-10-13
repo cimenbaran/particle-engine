@@ -87,3 +87,14 @@ allowance, disabled collider, dead-slot exclusion and reset/latching fixtures
 validate this audit independently from the production contact stages. Existing
 solver/tracker errors and all synchronized diagnostic checks remain required.
 This is sustained sphere-scene lifecycle coverage, not general terrain proof.
+
+Failure snapshots
+A failed granular soak exports up to the first 4096 slots of the committed
+state and the final force, sweep, position, reconstruction, response and finish
+buffers into failure_state. Each slot is 16 uint32 words preserving the exact
+bits of the four ParticleGpu lanes, including nonfinite values and identities.
+The capture runs only after submissions stop and diagnostic rings drain. It
+records the final submitted tick, which can follow the first fault because
+readbacks are asynchronous; it is not a first-fault trace. Large capacities are
+explicitly truncated. Capture errors are recorded without replacing the original
+failure. Successful soaks perform none of these state exports.
