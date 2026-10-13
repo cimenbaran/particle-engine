@@ -71,3 +71,7 @@ Live seed-1337 check, workgroup 128:
 - terrain count is 404462; the last batch leaves 38 active grains;
 - a separate cancellation check retains an accepted batch and its remaining
   energy without later commits. Rebuild restores the 404546-voxel initial basin.
+
+GPU_Blast_Impulse.txt now documents a tested private existing-grain impulse
+primitive. Its owner freeze, acknowledgement, live adoption and budget split
+are still pending; it is not invoked by these preview controls yet.

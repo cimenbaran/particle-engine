@@ -31,8 +31,10 @@ A typed explosion planner now computes radial falloff, calibrated resistance,
 conservative fracture/kinetic budgets and complete locally placed debris batches
 (../docs/Terrain_Explosion.txt). Live controls now schedule acknowledged batches,
 charge only successful commits and defer under capacity/clearance pressure
-(../docs/Staged_Explosion.txt). Existing-particle blast impulse budgeting,
-cosmetic blast quotas and persisted material resistance remain open.
+(../docs/Staged_Explosion.txt). A private GPU existing-particle impulse pass now bounds positive kinetic work
+with overflow-safe integer allocation (../docs/GPU_Blast_Impulse.txt). Its frozen
+acknowledgement/publication and live budget partition remain open, along with
+cosmetic blast quotas and persisted material resistance.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals

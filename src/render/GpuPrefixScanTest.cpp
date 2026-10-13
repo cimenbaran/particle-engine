@@ -22,8 +22,10 @@ void runGpuPrefixScanTest(const std::filesystem::path& assets) {
     bool rejected=false;
     try {GpuPrefixScan invalid(assets,1048577);} catch(const std::invalid_argument&) {rejected=true;}
     if(!rejected) throw std::runtime_error("Oversized scan was accepted");
+    for(auto arithmetic:{GpuPrefixScan::Arithmetic::Wrapping,GpuPrefixScan::Arithmetic::Saturating})
     for(std::uint32_t count:{0u,1u,127u,128u,129u,255u,256u,257u,16383u,16384u,16385u,65535u,65536u,65537u,1048576u}) {
-        GpuPrefixScan scan(assets,count);
+        GpuPrefixScan scan(assets,count,arithmetic);
+        const auto add=[&](std::uint32_t a,std::uint32_t b){return arithmetic==GpuPrefixScan::Arithmetic::Saturating?std::uint32_t(std::min(std::uint64_t(a)+b,std::uint64_t(UINT32_MAX))):a+b;};
         rejected=false;
         try {scan.submit(0,scan.output());} catch(const std::invalid_argument&) {rejected=true;}
         if(!rejected) throw std::runtime_error("Aliased scan input was accepted");
@@ -44,16 +46,16 @@ void runGpuPrefixScanTest(const std::filesystem::path& assets) {
             bgfx::TextureRegion source;source.handle=image.value;bgfx::TextureRegion destination;destination.handle=staging.value;
             bgfx::blit(2,destination,source);const auto ready=bgfx::read(destination,actual.data());
             while(bgfx::frame()<ready) SDL_PumpEvents();
-            std::uint32_t total=0;for(std::uint32_t i=0;i<count;++i) total+=input[i];
+            std::uint32_t total=0;for(std::uint32_t i=0;i<count;++i) total=add(total,input[i]);
             std::uint32_t prefix=0;
             for(std::uint32_t i=0;i<std::max(1u,count);++i) {
                 const std::array<std::uint32_t,4> expected{prefix,total,input[i],i};
                 if(actual[i]!=expected) throw std::runtime_error("GPU prefix scan mismatch at count "+std::to_string(count)+
                     " pattern "+std::to_string(pattern)+" index "+std::to_string(i));
-                prefix+=input[i];
+                prefix=add(prefix,input[i]);
             }
         }
-        std::cout<<"GPU exclusive prefix scan passed: "<<count<<" elements, zero/one/mixed/wrapping sums\n";
+        std::cout<<"GPU exclusive prefix scan passed: "<<count<<" elements, zero/one/mixed sums; "<<(arithmetic==GpuPrefixScan::Arithmetic::Saturating?"saturating":"wrapping")<<"\n";
     }
 }
 }

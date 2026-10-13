@@ -5,7 +5,7 @@ in the optional interactive granular mode, as well as --gpu-test. The ballistic
 command-recording profile does not use it.
 
 For input a[0..N), output[i] is the sum of a[0..i), and total[0] is the sum of
-all N values. Arithmetic is explicitly uint32 modulo 2^32. Radix predicates
+all N values. The default Arithmetic::Wrapping is uint32 modulo 2^32. Radix predicates
 will be 0/1, so their sums cannot overflow with the supported maximum N of
 1,048,576. Callers using arbitrary integers must account for modular arithmetic;
 this utility does not label an overflowing integer sum as an exact wide sum.
@@ -43,3 +43,11 @@ Local validation on Apple M3 Max/Metal passed all 60 scan cases in each of the
 The development source was based on 4c4e28a with the scan changes uncommitted.
 Captured scan results are retained in tests/results/m3-max-prefix-scan.txt.
 These are local correctness results, not cross-platform or performance gates.
+
+Arithmetic::Saturating instead clamps every addition to UINT32_MAX. This
+associative operation uses the same hierarchical scan and offset propagation,
+with separate compile-time shader variants. It prevents budget allocation from
+resuming after an integer overflow; see GPU_Blast_Impulse.txt. The shader loader
+validates the exact source names and PW_SCAN_SATURATE=1 manifest definition.
+Both arithmetic modes run all 15 sizes and four data patterns against independent
+CPU sums, including every prefix and recursive-level overflow at 1,048,576 slots.

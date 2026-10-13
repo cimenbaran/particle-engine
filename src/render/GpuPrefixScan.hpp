@@ -3,11 +3,13 @@
 #include <filesystem>
 #include <vector>
 namespace pw {
-// Exclusive uint32 scan; addition is modulo 2^32. Radix flags are 0/1,
+// Exclusive uint32 scan; wrapping by default, optionally saturating at UINT32_MAX.
+// Radix flags are 0/1,
 // so their total is bounded by capacity. No synchronous CPU count readback.
 class GpuPrefixScan {
 public:
-    GpuPrefixScan(const std::filesystem::path& assets,std::uint32_t count);
+    enum class Arithmetic {Wrapping,Saturating};
+    GpuPrefixScan(const std::filesystem::path& assets,std::uint32_t count,Arithmetic arithmetic=Arithmetic::Wrapping);
     ~GpuPrefixScan();
     GpuPrefixScan(const GpuPrefixScan&)=delete;
     GpuPrefixScan& operator=(const GpuPrefixScan&)=delete;

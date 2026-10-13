@@ -44,8 +44,9 @@ static bgfx::ShaderHandle shader(const std::filesystem::path& assets, std::strin
     const std::string profile=backend==bgfx::RendererType::Metal?"metal":"s_5_0";
     const std::string type=stage=='C'?"compute":stage=='V'?"vertex":"fragment";
     const bool basin=stage=='C' && name.ends_with("_basin");
-    const auto sourceName=basin?name.substr(0,name.size()-6):name;
-    const auto expectedDefines="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize)+(basin?";PW_BASIN_GRID=1":"");
+    const bool saturating=stage=='C' && (name=="cs_scan_blocks_saturating" || name=="cs_scan_add_saturating");
+    const auto sourceName=basin?name.substr(0,name.size()-6):saturating?name.substr(0,name.size()-11):name;
+    const auto expectedDefines="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize)+(basin?";PW_BASIN_GRID=1":saturating?";PW_SCAN_SATURATE=1":"");
     if((manifest.at("schema")!=1 && manifest.at("schema")!=2) || manifest.at("platform")!=platform ||
        manifest.at("profile")!=profile || manifest.at("type")!=type ||
        manifest.at("shader")!=std::string(sourceName)+".sc" || manifest.at("binary_sha256")!=digest(data))

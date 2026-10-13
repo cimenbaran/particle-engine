@@ -1,0 +1,81 @@
+PRIVATE GPU BLAST IMPULSES — macOS / Metal
+
+GpuBlastImpulse prepares velocity changes for existing solid particles without
+modifying the source. It is not yet connected to the live StagedExplosion command.
+That integration still needs a frozen-owner acknowledgement/publication step,
+settling invalidation and an explicit allocation between existing-particle work
+and the terrain/debris budget. The current preview continues to fund new debris
+only. Do not adopt this private output or charge its diagnostic before those
+transaction gates are satisfied.
+
+Supported profile
+Capacity is 0..1,048,576 slots. Request centre lies in the basin, radius is
+.0625..4 metres, radial velocity increment is 0..12 m/s and energy is either zero
+or 1e-6..1e9 joules. The request is immutable and submit is single-use. Materials
+must have stable IDs and known phases. Dead particles, nonsolids, static particles
+with zero inverse mass, and centres outside/on the radius remain unchanged.
+Solid input position/radius/velocity lanes must be finite; radius is (0,1], each
+position coordinate is within one million metres, inverse mass is zero or
+[1e-6,1e6], and squared input speed is at most 144.001. This tolerance admits
+rounding around the existing 12 m/s profile. Bad live ownership/generation,
+material identity or numeric data rejects the entire candidate.
+
+Velocity proposal
+Use quadratic radial falloff at the current centre position. Within one micrometre
+of the blast centre, use a deterministic upward direction. Add the radial vector
+to the old velocity and cap the result to 11.99998 m/s, leaving a binary32 margin
+below the 12 m/s physical limit. A zero requested speed is an exact no-op.
+Only the velocity xyz components may change. Position/radius, inverse mass,
+thermal state, material, flags, stable slot and generation are copied unchanged.
+
+Energy allocation
+Let d be the magnitude of the actual encoded velocity change, v the old speed,
+and m the mass from the particle's actual inverse mass. A conservative bound on
+positive kinetic-energy increase is m * (v*d + .5*d*d). This accounts for existing
+motion; using only .5*m*d*d would underestimate work on an already moving grain.
+Inflate the binary32 bound by 1.00001 and add 1e-12 J to cover arithmetic rounding
+and small-vector underflow in the validated domain. Braking never credits energy
+to other recipients: its positive-work bound is still charged conservatively.
+
+The host converts the supplied budget into at most 16,777,215 integer tickets.
+A binary32 joules-per-ticket value is rounded down so its double-precision product
+with that ticket count cannot exceed the original budget. Each candidate costs
+ceil(bound / joulesPerTicket) + 1 tickets. A candidate too expensive for the
+whole budget uses the budget-plus-one sentinel. Integer prefix sums saturate at
+UINT32_MAX, never wrap. Apply only a contiguous affordable prefix of candidate
+costs in ascending stable-slot order; unaffected zero-cost slots are skipped.
+An unaffordable candidate stops allocation to later candidates, even if a later
+one is cheaper. This deterministic prefix policy is not a fairness optimizer.
+
+The accepted ticket sum is bounded by the ticket budget. Multiplying the returned
+uint24 ticket count by the binary32 quantum is exact in binary64. It is a reserved
+upper bound on positive work, not a measurement of exact energy added. Quantized
+reservation may leave energy unused or conservatively overcharge small effects,
+especially with very large budgets. It must come from a separate existing-grain
+allocation; never reuse an amount already reserved for debris or fracture.
+
+GPU graph and status
+Clear four status words, propose immutable candidates and costs, scan costs with
+saturating arithmetic, then apply accepted velocities to a private full-state
+output. A global error makes output byte-equivalent to the original and leaves
+accepted count and ticket charge zero. All allocations occur during construction;
+submit uses ordered dispatches and at most six storage bindings. Production code
+has no particle readback in this primitive.
+
+Status words are: error bits (1 identity, 2 numeric, 4 material), eligible count,
+accepted count and tickets charged. Source storage must cover capacity particle records; material storage must cover
+the supplied material count. The caller retains source/material buffers
+through execution and must not mutate them between proposal and acceptance.
+The output/status handles are owned by the one-shot operation.
+
+Validation
+235 real Metal batches inspect 1,553,038 full particle slots. Cases cover workgroup
+boundaries and a million-slot allocation whose integer sum would overflow a
+wrapping scan. A double-precision radial oracle checks accepted velocities. The
+sum of positive before/after kinetic-energy changes must not exceed the charged
+energy or original request. All non-velocity lanes and the full source are checked
+byte-for-byte. 208 random batches span every combination of 16 energy magnitudes
+and 13 speed settings, varied masses, old velocities, dead/static/nonsolid slots.
+Explicit cases cover centre/near-centre directions, exact/adjacent radius bounds,
+braking, the speed cap, mass endpoints, generation UINT32_MAX, zero/tiny/large
+budgets, malformed state rollback, invalid host input and repeated submission.

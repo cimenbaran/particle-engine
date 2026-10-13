@@ -1,0 +1,39 @@
+PRIVATE EXISTING-PARTICLE BLAST IMPULSE — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+Workgroups 128 and 256: complete --gpu-test and all 25 native CTests pass.
+Default workgroup restored to 128 for installation.
+
+235 impulse batches inspect 1,553,038 particle slots per profile:
+- capacities 0,1,127,128,129,255,256,257,1024,4096,65537 and 1048576;
+- a uniform fixture accepts exactly the first 12 affordable slots from an 8 J
+  budget, including arrays large enough to overflow a wrapping cost sum;
+- zero/tiny budgets preserve every velocity; a large budget admits all recipients;
+- zero requested speed is a no-op;
+- 208 random batches cover every pair of 16 energy magnitudes and 13 speeds,
+  varied inverse mass, pre-existing motion and dead/static/nonsolid exclusions;
+- explicit centre, near-centre, exact and adjacent radius boundaries, braking,
+  capped speed, mass endpoints and maximum slot generation;
+- malformed ownership/generation/material/numeric inputs reject the whole batch,
+  preserve private output as a copy of the source, and charge zero;
+- invalid host input, aliases and repeat submission reject.
+
+An independent double-precision radial oracle checks accepted velocities. Actual
+positive kinetic-energy changes are summed without crediting braking and must
+not exceed the returned ticket charge or supplied energy. Non-velocity fields
+and the original source are checked byte-for-byte. Outputs stay within 12 m/s.
+Production uses private GPU buffers; full-state readbacks are test-only.
+
+The scan fixture now tests both wrapping and saturating arithmetic at all 15
+sizes and four patterns, comparing every prefix, total and unchanged input to
+independent CPU sums through 1,048,576 elements. Existing radix/physics/rendering
+fixtures retain the default wrapping variant and pass in the complete suite.
+
+Initial loading correctly rejected the new scan variant until its exact source
+name and PW_SCAN_SATURATE=1 definition were added to shader-manifest validation.
+Manifest validation remains enabled for both new variants.
+
+This verifies a private impulse primitive, not live adoption. The remaining work
+is owner/tick freezing, acknowledgement, publication, settling invalidation and
+an explicit shared-command split between existing-particle and terrain energy.
+Current preview blasts still create new debris only. Windows remains deferred.

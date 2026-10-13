@@ -4,10 +4,11 @@
 #include <algorithm>
 #include <stdexcept>
 namespace pw {
-GpuPrefixScan::GpuPrefixScan(const std::filesystem::path& assets,std::uint32_t count) {
+GpuPrefixScan::GpuPrefixScan(const std::filesystem::path& assets,std::uint32_t count,Arithmetic arithmetic) {
+    if(arithmetic!=Arithmetic::Wrapping && arithmetic!=Arithmetic::Saturating)throw std::invalid_argument("Invalid scan arithmetic");
     if(count>1048576) throw std::invalid_argument("Prefix scan supports at most 1048576 elements");
     try {
-        scan_=loadCompute(assets,"cs_scan_blocks");add_=loadCompute(assets,"cs_scan_add");
+        scan_=loadCompute(assets,arithmetic==Arithmetic::Saturating?"cs_scan_blocks_saturating":"cs_scan_blocks");add_=loadCompute(assets,arithmetic==Arithmetic::Saturating?"cs_scan_add_saturating":"cs_scan_add");
         params_=bgfx::createUniform("u_scan",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(params_)) throw std::runtime_error("Prefix scan uniform unavailable");
         for(;;) {
