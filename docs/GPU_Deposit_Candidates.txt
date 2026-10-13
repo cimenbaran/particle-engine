@@ -46,6 +46,7 @@ Particle/history storage must cover capacity records of 64/16 bytes respectively
 Inputs must remain alive and unchanged until execution completes. Re-submission
 overwrites only private output/status. It uses at most six storage bindings.
 
-Remaining work: deterministic partner/target arbitration, remaining-sphere
-clearance, compact claim acknowledgement, candidate terrain publication and
-acknowledged retirement. This stage is not connected to live deposition.
+GpuDepositClaims now adds deterministic partner/target arbitration and
+remaining-sphere clearance; see GPU_Deposit_Claims.txt. Compact acknowledgement,
+candidate terrain publication and acknowledged retirement remain open. This
+stage is not connected to live deposition.

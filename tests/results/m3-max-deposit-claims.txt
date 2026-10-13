@@ -1,0 +1,36 @@
+PRIVATE GPU DEPOSIT ARBITRATION — APPLE M3 MAX / METAL
+
+AppleClang 21.0.0.21000099. Complete --gpu-test and all 27 native CTests pass
+with workgroups 128 and 256. The final 128 run includes every identity fix.
+
+91 batches produce 2605 claims per profile. Capacities span
+0,1,2,127,128,129,255,256,257,1024,4096. Fixtures exercise quotas 0..512,
+material-specific mass rejection, global identity faults, blockers, exact face
+tangency, one-ULP penetration, nearest-partner ties, repeated submission and
+cleared unused output. 32 randomized layouts test mixed materials and blockers.
+The designated near-corner fixture verifies conservative deferral rather than
+requiring equality with the less conservative CPU reference.
+
+Exact fixtures compare every target/material/owner/generation against the CPU
+planner. Independent checks validate unique owners/targets, empty residency,
+long-double mass tolerance and no intersection with any remaining solid sphere.
+The complete private ownership map must match claims. Full source and history
+bytes are unchanged. Terrain remains empty at its original revision.
+
+Regression found during implementation: vector equal on uint coordinates rounded
+negative keys through bgfx's float overload. A 127-slot fixture yielded only 17
+claims instead of 42. Scalar integer comparisons restore all 42. The test retains
+signed coordinates across rows and chunk seams to prevent recurrence.
+
+The same float-vector helper pattern was removed from friction-history packing,
+velocity reconstruction and contact-response packing. Each has matching and
+adjacent-stale generation cases at 2^24, 2^31 and UINT32_MAX-1. Final totals are
+152 Jacobi, 70 velocity-reconstruction and 84 contact-response fixtures, all passed
+on both profiles. Matching large generations remain valid; stale histories roll
+back through the existing error paths. See Shader_Integer_Identity.txt.
+
+This validates private claims only. Latched base-health/epoch gating, compact
+readback acknowledgement, terrain publication, actual retirement, ledgers and
+live deposition remain open. The single-invocation bounded resolver has no final
+throughput/soak certification. Live-window presentation remains separately
+unverified as recorded with the cosmetic integration; this work adds no UI.

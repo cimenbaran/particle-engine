@@ -1,0 +1,19 @@
+EXACT SHADER IDENTITY COMPARISONS — METAL REGRESSION
+
+The pinned bgfx_shader.sh compatibility functions equal/notEqual accept float
+vectors. Passing uint vectors through them can round adjacent large integers to
+the same value. Integer keys and identity fields must use scalar integer ==/!=.
+Floating-point comparisons in blast velocity and voxel-finish output remain
+intentional float comparisons.
+
+The deposit claim regression exposed this directly: 127 slots expected 42 claims
+but produced 17. Negative voxel keys are stored as two's-complement uint values;
+distinct keys near UINT_MAX collapsed after float conversion. Explicit integer
+component comparisons restore independent targets and all 42 expected claims.
+
+The same pattern existed in friction-history packing, velocity reconstruction
+and contact-response packing. All three now compare material, flags, slot and
+generation as integers. Their GPU tests check both identical and adjacent stale
+generations at 16777216, 2147483648 and UINT32_MAX-1. A stale generation must cause
+the existing pass-specific error and rollback rather than borrowing history
+from a recycled slot. Identical large generations must remain valid.

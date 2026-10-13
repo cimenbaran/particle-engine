@@ -19,7 +19,7 @@ void main() {
   if(floatBitsToUint(b_materials[identity.x*4u+3u]).y!=0u)return;
   uvec4 old=floatBitsToUint(b_start[id*4u+3u]);vec4 p=b_start[id*4u];
   float mu=b_materials[identity.x*4u].y;uint bits=floatBitsToUint(mu),magnitude=bits&0x7fffffffu;
-  bool valid=all(equal(identity,old)) && contactFinite3(p.xyz) &&
+  bool valid=(identity.x==old.x && identity.y==old.y && identity.z==old.z && identity.w==old.w) && contactFinite3(p.xyz) &&
     all(greaterThanEqual(p.xyz,vec3(-PW_GRID_EXTENT,0.0,-PW_GRID_EXTENT))) && all(lessThan(p.xyz,vec3(PW_GRID_EXTENT,16.0,PW_GRID_EXTENT))) &&
     p.w==b_current[id*4u].w && floatBitsToUint(b_start[id*4u+1u].w)==floatBitsToUint(b_current[id*4u+1u].w) &&
     magnitude<=0x3f800000u && ((bits&0x80000000u)==0u || magnitude==0u);

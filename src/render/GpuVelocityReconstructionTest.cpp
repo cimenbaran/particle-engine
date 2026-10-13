@@ -130,6 +130,10 @@ void runGpuVelocityReconstructionTest(const std::filesystem::path& assets) {
     for(auto& p:b) {p.positionRadius[0]+=0.015625f;p.thermalState[3]=0.125f;}
     check(a,b,0.125f,0,0,nullptr,true);
     check(a,b,0.125f,0,0,nullptr,true,true);
+    for(std::uint32_t generation:{16777216u,2147483648u,UINT32_MAX-1}) {
+        auto previous=fixture(2);previous[0].identity[3]=generation;auto current=previous;
+        check(previous,current,.125f);++current[0].identity[3];check(previous,current,.125f,0,2);
+    }
     auto good=fixture(3),bad=good;bad[0].identity[3]++;check(good,bad,0.125f,0,2);
     bad=good;bad[0].identity[0]=3;check(good,bad,0.125f,0,2);
     bad=good;bad[0].positionRadius[3]=0.05f;check(good,bad,0.125f,0,2);

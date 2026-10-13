@@ -38,7 +38,7 @@ void main() {
   if(phase>2u) {fail(4u);return;}
   if(phase!=0u) {atomicAdd(b_status[2],1u);return;}
   uvec4 oldIdentity=floatBitsToUint(b_previous[base+3u]);
-  if(any(notEqual(identity,oldIdentity)) || identity.z!=id || identity.w==0u ||
+  if((identity.x!=oldIdentity.x || identity.y!=oldIdentity.y || identity.z!=oldIdentity.z || identity.w!=oldIdentity.w) || identity.z!=id || identity.w==0u ||
      floatBitsToUint(b_previous[base].w)!=floatBitsToUint(b_corrected[base].w) ||
      floatBitsToUint(b_previous[base+1u].w)!=floatBitsToUint(b_corrected[base+1u].w)) {fail(2u);return;}
   vec3 before=b_previous[base].xyz,after=b_corrected[base].xyz;

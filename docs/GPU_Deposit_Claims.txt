@@ -1,0 +1,51 @@
+PRIVATE GPU DEPOSITION CLAIMS — macOS / Metal
+
+GpuDepositClaims runs the owner/target preflight, then resolves a bounded private
+claim set. It never changes terrain, source particles, settling history or mass
+ledgers. Capacity is 0..4096 slots and quota 0..512 voxels (default 32). All inputs
+must remain immutable/alive through execution; a later transaction must freeze
+and validate their owner, material encoding, terrain revision and source tick,
+and reject latched base-physics faults before publication.
+
+Arbitration visits candidate owners in ascending stable-slot order. A ready,
+unclaimed target chooses the nearest unclaimed same-material eligible partner
+within .1875 m per axis of its cell centre. Equal float distances use the lower
+slot. Previously rejected owners may become partners of later targets. A voxel
+or source grain can appear in at most one accepted claim. New terrain is not
+used as support until a later acknowledged transaction.
+
+The proposed voxel must clear every remaining solid sphere. Owners selected by
+previous accepted claims are excluded. Exact common-radius face tangency is
+preserved by comparisons against exactly representable separating planes. Other
+edge/corner distances use a conservative uncertainty band: squared radius times
+1.00001 plus 1e-10 square metres. Ambiguous contacts defer; they never authorize
+penetration. Together with conservative candidate-speed eligibility, this can
+produce fewer claims than the double CPU reference near numeric boundaries.
+Float nearest-distance rounding may also resolve almost-ties differently from
+the CPU reference. No cross-device bit-identical replay is promised.
+
+Each pair has already passed the material-specific two-grain/one-voxel mass
+check. The output contains two uvec4 lanes per claim: signed voxel x/y/z/material,
+then first slot/generation and second slot/generation. Unused rows have UINT_MAX
+sentinels. A private uint ownership buffer stores zero or one-based claim index
+per source slot; this is a proposal, not live retirement. Four status words give
+errors, accepted voxel claims, claimed grains and clearance-deferred proposals.
+Any preflight error yields zero claims and a cleared ownership buffer.
+
+The initial resolver uses one deterministic invocation and bounded scans, with
+at most six storage bindings. It prioritizes correctness and is not evidence of
+the final throughput target. Worst-case scan cost and a more parallel arbitration
+path remain part of performance work before expanding the live pool. Production
+has no source-particle readback in this primitive; full readbacks are test-only.
+
+Validation compares exact fixture claims against the CPU reference, independently
+checks ownership, empty targets, long-double per-material mass and remaining-
+sphere clearance, and compares source/history bytes before and after. Cases cover
+workgroup boundaries, 4096 slots, quotas including zero/512, mixed materials,
+fault rollback, mass-tolerance rejection, blocked proposals, exact tangency,
+one-ULP penetration, nearest-partner ties, conservative corner deferral and repeat
+submission. Claim packing also tests negative voxel keys across chunk seams.
+
+Remaining: compact asynchronous claim acknowledgement, candidate occupancy/mesh
+publication, generation-qualified retirement only after publication, deposit mass
+ledgers, wake handling and live controls. This is not live deposition yet.

@@ -289,6 +289,12 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
         if(invalid==4)baseline[7].positionRadius[0]=9;
         check(pair,1,0.8f,0.03125f,nullptr,true,&baseline);
     }
+    // Integer identity comparisons must not round adjacent generations together.
+    for(std::uint32_t generation:{16777216u,2147483648u,UINT32_MAX-1}) {
+        auto current=fixture(2);current[0].identity[3]=generation;auto previous=current;
+        check(current,1,.8f,.03125f,nullptr,true,&previous);
+        ++previous[0].identity[3];check(current,1,.8f,.03125f,nullptr,true,&previous);
+    }
     pair=fixture(2);pair[1].positionRadius[0]=0.0625f;baseline=pair;baseline[0].positionRadius[1]-=0.001953125f;
     for(float mu:{0.0f,1.0f,-1.0f,1.1f,-std::numeric_limits<float>::denorm_min(),std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()}) {
         materials[0].mechanical[1]=mu;bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));

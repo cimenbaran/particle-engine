@@ -31,7 +31,7 @@ void main() {
         eligible=1u;uvec4 oldIdentity=floatBitsToUint(b_predicted[base+3u]);
         vec3 displacement=b_current[base].xyz-b_predicted[base].xyz;
         vec4 mechanical=b_materials[identity.x*4u];coefficients=mechanical.zy;
-        if(any(notEqual(identity,oldIdentity)) || identity.z!=id || identity.w==0u ||
+        if((identity.x!=oldIdentity.x || identity.y!=oldIdentity.y || identity.z!=oldIdentity.z || identity.w!=oldIdentity.w) || identity.z!=id || identity.w==0u ||
            b_current[base].w!=0.0625 || b_predicted[base].w!=0.0625 ||
            floatBitsToUint(b_current[base+1u].w)!=floatBitsToUint(b_predicted[base+1u].w) || !validMass(b_current[base+1u].w) ||
            !contactFinite3(b_current[base].xyz) || !contactFinite3(b_predicted[base].xyz) ||

@@ -174,6 +174,10 @@ void runGpuContactVelocityTest(const std::filesystem::path& assets) {
         if(i%5==3) {excluded[i].identity[1]=0;excluded[i].positionRadius[0]=std::numeric_limits<float>::quiet_NaN();}
         if(i%5==4) excluded[i].velocityInvMass[3]=0;
     }check(excluded,excluded,material);
+    for(std::uint32_t generation:{16777216u,2147483648u,UINT32_MAX-1}) {
+        auto previous=fixture(2);previous[0].identity[3]=generation;auto current=previous;
+        check(previous,current,material);++current[0].identity[3];check(previous,current,material,0,4);
+    }
     auto good=fixture(3),bad=good;bad[0].identity[3]++;check(good,bad,material,0,4);
     bad=good;bad[0].positionRadius[3]=0.05f;check(bad,bad,material,0,4);
     bad=good;bad[0].velocityInvMass[3]=-1;check(bad,bad,material,0,4);

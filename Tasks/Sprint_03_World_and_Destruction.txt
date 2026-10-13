@@ -49,8 +49,9 @@ empty-voxel claims, validates per-material mass tolerance and remaining-grain
 clearance, and resolves owners deterministically (../docs/Terrain_Deposit_Reference.txt).
 The first private GPU pass now validates settled owners and supported empty
 targets without changing live buffers (../docs/GPU_Deposit_Candidates.txt).
-GPU claim arbitration, acknowledged retirement and whole-world mass inventory
-remain open. CPU exposed-face
+Private GPU arbitration now resolves unique grain pairs and voxel targets with
+remaining-solid clearance (../docs/GPU_Deposit_Claims.txt). Acknowledged terrain
+publication/retirement, deposit ledgers and whole-world mass inventory remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 ../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now
