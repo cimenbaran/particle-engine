@@ -88,7 +88,10 @@ The instrumented rerun reproduced a near-tangent sweep rounding defect and
 provided a single-tick regression. A compensated intersection calculation now
 passes that regression, adjacent-ray cases, the full Metal128/256 GPU suites
 and all11 stability scenes; see ../tests/results/m3-max-sphere-tangent-precision.txt.
-The corrected ten-minute sphere soak is still pending.
+The corrected Metal128 soak at sourceef26559 failed after494.36 seconds /
+26923 ticks. Exact committed and solver-stage captures are preserved in
+../tests/results/m3-max-sphere-precision-soak-failure.json. The initial captured
+regression passes, but long-run sphere stability remains unresolved.
 See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
 must be repaired and rerun; earlier enclosure results do not establish it.
 

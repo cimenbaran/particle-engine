@@ -1,0 +1,15 @@
+CPU voxel surface validation on macOS
+
+Core CTest13/13 and native CTest18/18 passed. Standalone AppleClang C++20
+undefined-behavior sanitizer run passed with nonrecovering errors enabled.
+
+Coverage: six face windings and integer corner bounds; materials0/65535;
+empty/invalid chunks; two touching chunks emit ten total faces; unrelated edits
+retain cache validity; seam edits invalidate both chunk surfaces; another store
+cannot validate a cached surface. A solid32-cubed chunk emits6144 faces.
+An independent world-coordinate map from1600 seeded writes compares the complete
+face/material set across a negative/positive chunk seam. Repeated extraction
+has identical ordering. Extreme signed chunk coordinates remain valid.
+
+Logs: out/voxel-surface-{build,tests,native-build,native-tests,ubsan}.log.
+This is CPU geometric extraction only, not live GPU terrain rendering or collision.

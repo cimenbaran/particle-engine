@@ -1,0 +1,39 @@
+CPU VOXEL SURFACE EXTRACTION
+
+buildVoxelSurface extracts exposed faces from one resident chunk of a
+SparseVoxelStore. It does not create GPU buffers or publish terrain collision.
+Each occupied voxel contributes a face only when its face-sharing neighbor is
+empty. Neighbor lookup crosses chunk seams, including negative coordinates.
+Out-of-resident-region space is empty for this geometric extraction; that is
+not a physics exit policy. All stored materials are currently treated as opaque
+solids. Adjacent occupied cells hide their shared face even across materials.
+
+A face stores the local x-fast voxel index, side (-X,+X,-Y,+Y,-Z,+Z) and material
+ID. Face order is deterministic: ascending local voxel index, then side. There
+is no greedy merging yet. A filled chunk emits exactly6144 faces; internal
+voxel interfaces emit none. Empty resident chunks return an empty surface;
+invalid chunks return no value. The implementation copies one chunk's128KiB
+occupancy snapshot, uses that for internal neighbors, and reads adjacent chunk
+occupancy only at seams. Output allocation can fail without modifying terrain.
+
+faceCorners returns four chunk-local integer-grid corners in0..32, with outward
+counterclockwise winding. Triangle indices0,1,2 and0,2,3 preserve that winding.
+Convert to metres with0.125m spacing relative to a common integer chunk origin;
+do not construct large absolute float positions. Invalid sides/indices are
+rejected. Normals follow the face side and need no floating-point calculation.
+
+Each VoxelSurface records its originating store, chunk and content/surface
+revision pair. isCurrent rejects another store or changed revision pair.
+Face-neighbor boundary edits invalidate surfaces through SparseVoxelStore's
+surface revisions. An unrelated chunk edit does not invalidate the surface.
+The store must outlive its cached surfaces. Extraction and cache checks share
+the store's single-threaded ownership contract; checking isCurrent alone does
+not establish asynchronous publication or thread safety.
+
+Tests cover empty/invalid chunks, all six winding directions, material65535,
+neighbor creation/deletion, unrelated edits, cross-chunk occlusion, deterministic
+face ordering, a fully occupied chunk and extreme signed chunk coordinates.
+A separate world-coordinate map enumerates expected exposed interfaces across
+a negative/positive chunk seam and compares the exact face/material set.
+GPU upload, live terrain rendering, collision queries, basin generation,
+transactional edits and persistence remain open Sprint3 work.

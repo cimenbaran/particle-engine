@@ -10,8 +10,10 @@ CPU chunk/voxel addressing and a checked resident layout are implemented and
 covered by exhaustive local-index, signed-boundary, extreme-value and origin
 round-trip tests; see ../docs/Voxel_Coordinates.txt. Sparse CPU material occupancy
 now allocates nonempty chunks and tracks monotonic content/surface revisions,
-including face-neighbor invalidation and stale-edit rejection. See
-../docs/Sparse_Voxel_Storage.txt. This has no live renderer, voxel collision,
+including face-neighbor invalidation and stale-edit rejection. CPU exposed-face
+extraction now handles chunk seams, deterministic material-tagged quads and
+revision validation. See ../docs/Sparse_Voxel_Storage.txt and
+../docs/Voxel_Surface.txt. This has no live renderer, voxel collision,
 thermal state, save files or CPU/GPU origin publication yet. All runtime and
 transaction gates below remain open. Development currently prioritizes macOS.
 
