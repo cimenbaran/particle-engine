@@ -1,0 +1,42 @@
+INTERACTIVE TERRAIN EXCAVATION — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+CPU planner: 138 deterministic plans; all 19 core CTests pass.
+Native: all 24 CTests pass for workgroups 128 and 256.
+Full --gpu-test: workgroups 128 and 256 pass; default restored to 128.
+
+The eleventh joint-transaction scenario uses the actual seed-1337 basin:
+- fresh empty pool, no initial flush, transaction view 8, diagnostic views 6/7;
+- default brush selects 32 of 48 voxels and activates 61 Stone grains;
+- immediate transaction destruction after publication;
+- 240 healthy ticks, submitted four per frame, finite live state and counts;
+- overlapping repeat rejects without publishing;
+- Stone impulse and removal use the normal command queue;
+- a second transaction removes the remaining 16 voxels and creates 31 grains;
+- immediate destruction followed by another 240 batched ticks preserves 31;
+- cumulative conversion history remains 48 voxels / 92 grains after clearing.
+Full particle readbacks are confined to tests.
+
+Live macOS preview, workgroup 128, keyboard controls:
+First excavation: 61 active grains, 404514 terrain voxels, revision 2.
+Repeated excavation: overlap rejection (72), terrain and totals unchanged.
+Clear Stone: zero active particles, conversion history retained.
+Second excavation: 31 active grains, 404498 terrain voxels, 170236 faces,
+revision 3, cumulative mass 243.750 -> 244.619 kg (delta +0.869 kg).
+At paused tick 2026 the app still displayed 31 active / 31 settling candidates,
+no physics fault, and no queued commands.
+
+Two live issues resolved:
+1. Pinned bgfx Metal compute -> blit -> compute skipped the late compute encoder.
+   The first-frame GPU regression failed with acknowledgement bits 64 + 128.
+   A hash-checked macOS-only source patch restores the encoder after the blit;
+   see docs/Metal_Compute_Encoder.txt.
+2. Sampling only on ticks divisible by eight could starve at four ticks/frame
+   and display an old zero count after a successful second edit. Full-state GPU
+   regressions proved particles survived; frame-based sampling and the live
+   repeat-edit check confirm that diagnostics now refresh.
+
+This is a bounded excavation brush, not the complete destruction milestone.
+Explosion falloff/resistance/energy, automatic blast staging, deposition,
+dirty mesh reuse, rebasing and persistence remain open. Water and heat are not
+implemented by this change. Windows is deferred.

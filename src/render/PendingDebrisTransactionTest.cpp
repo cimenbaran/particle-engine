@@ -2,6 +2,8 @@
 #include "Shaders.hpp"
 #include "core/ParticleTypes.hpp"
 #include "core/ComputeDispatch.hpp"
+#include "core/TerrainExcavation.hpp"
+#include "core/BasinWorld.hpp"
 #include <SDL3/SDL.h>
 #include <cstring>
 #include <iostream>
@@ -124,6 +126,50 @@ void runPendingDebrisTransactionTest(const std::filesystem::path& assets) {
         wait(transaction);VoxelProbes replacement(assets,materials,true,true);const auto before=read(replacement);const auto original=live;
         require(!transaction.publish(1,replacement,live) && transaction.state()==State::Stale && live==original && !replacement.transactionPending(),"Destroyed particle owner was resurrected");
         const auto after=read(replacement);require(std::memcmp(before.data(),after.data(),before.size()*64)==0,"Old transaction changed replacement particles");++cases;
+    }
+    {
+        auto source=terrain::buildBasin(1337,unsigned(materials.entries.size()),0,1,3);
+        VoxelPublicationPtr live=std::make_shared<VoxelPublication>(assets,std::move(source),terrain::Chunk{},materials);
+        const auto originalCount=live->source().occupiedVoxelCount();VoxelProbes particles(assets,materials,true,true);
+        std::vector<terrain::ExcavationMaterial> profiles;for(const auto& m:materials.entries)profiles.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,m.gpu.thermal[3]>0?1.f:0.f});
+        Command command;command.type=CommandType::EditTerrain;command.count=32;command.minimum={-8.25f,3.625f,-4.25f};command.maximum={-7.75f,4.125f,-3.75f};command.parameters[1]=2;
+        const auto plan=terrain::planExcavation(live->source(),command,0,profiles,particles.capacity());
+        require(plan.state==terrain::ExcavationPlan::State::Ready && plan.removals.size()==32 && plan.seeds.size()==61 && plan.eligible==48,"Default basin excavation proposal changed");
+        auto transaction=std::make_unique<PendingDebrisTransaction>(assets,particles,live,plan.removals,plan.seeds,materials);transaction->submit(8,particles);
+        // Match the UI's first frame: constructor initialization, a late-view
+        // transaction, earlier-view rendering/diagnostics, and no initial flush.
+        particles.prepare(5);particles.request(6);wait(*transaction);
+        if(transaction->state()!=State::Ready)throw std::runtime_error("First-frame excavation rejected: "+std::to_string(transaction->errors()));
+        require(transaction->publish(0,particles,live) && live->source().occupiedVoxelCount()==originalCount-32,"Default basin excavation did not commit");
+        transaction.reset();
+        for(unsigned frame=0;frame<60;++frame){for(unsigned v=1;v<=4;++v)particles.tick(v,live->occupancy(),live->source());particles.prepare(5);particles.request(6);particles.poll(bgfx::frame());SDL_PumpEvents();}
+        particles.request(6);const auto actual=read(particles);particles.poll(bgfx::frame());
+        require(!particles.fault() && particles.poolSnapshot().valid && particles.poolSnapshot().active==61,"Excavated basin debris failed physics or lost particles");
+        unsigned active=0;for(const auto& p:actual)if(p.identity[1]){++active;for(unsigned a=0;a<3;++a)require(std::isfinite(p.positionRadius[a]) && std::isfinite(p.velocityInvMass[a]),"Nonfinite excavated debris");}
+        require(active==61 && particles.debrisMassTotals()[0].removedVoxels==32 && particles.debrisMassTotals()[0].activatedGrains==61,"Excavation mass totals differ from live population");
+        command.tick=particles.ticks();command.sequence=1;
+        const auto blockedPlan=terrain::planExcavation(live->source(),command,particles.ticks(),profiles,particles.capacity());
+        transaction=std::make_unique<PendingDebrisTransaction>(assets,particles,live,blockedPlan.removals,blockedPlan.seeds,materials);
+        transaction->submit(8,particles);particles.prepare(5);particles.request(6);wait(*transaction);
+        require(transaction->state()==State::Rejected && (transaction->errors()&8),"Occupied repeat excavation was not rejected");transaction.reset();
+        Command impulse;impulse.type=CommandType::ApplyImpulse;impulse.material=0;impulse.minimum={-16,0,-16};impulse.maximum={16,16,16};impulse.parameters[1]=2;
+        require(particles.enqueue(impulse).empty(),"Stone debris impulse rejected");particles.tick(1,live->occupancy(),live->source());
+        auto kicked=read(particles);bool lifted=false;for(const auto& p:kicked)if(p.identity[1] && p.velocityInvMass[1]>1)lifted=true;require(lifted,"Stone debris did not receive impulse");
+        impulse.type=CommandType::RemoveBrush;require(particles.enqueue(impulse).empty(),"Stone debris removal rejected");particles.tick(1,live->occupancy(),live->source());particles.request(6);read(particles);particles.poll(bgfx::frame());
+        require(!particles.fault() && particles.poolSnapshot().active==0 && particles.debrisMassTotals()[0].removedVoxels==32,"Stone clear failed or erased conversion history");
+        particles.tick(1,live->occupancy(),live->source());particles.prepare(5);particles.request(6);particles.poll(bgfx::frame());
+        command.tick=particles.ticks();command.sequence=2;
+        const auto retryPlan=terrain::planExcavation(live->source(),command,particles.ticks(),profiles,particles.capacity());
+        require(retryPlan.removals.size()==16 && retryPlan.seeds.size()==31,"Second excavation proposal changed");
+        transaction=std::make_unique<PendingDebrisTransaction>(assets,particles,live,retryPlan.removals,retryPlan.seeds,materials);
+        transaction->submit(8,particles);particles.prepare(5);particles.request(6);wait(*transaction);
+        require(transaction->publish(0,particles,live),"Second excavation failed publication");transaction.reset();
+        unsigned secondActive=0;
+        for(unsigned frame=0;frame<60;++frame){for(unsigned v=1;v<=4;++v)particles.tick(v,live->occupancy(),live->source());particles.prepare(5);particles.request(6);particles.poll(bgfx::frame());SDL_PumpEvents();}
+        particles.request(6);const auto secondFinal=read(particles);particles.poll(bgfx::frame());secondActive=0;for(const auto& p:secondFinal)secondActive+=p.identity[1]==1;
+        require(secondActive==31 && particles.poolSnapshot().active==31 && !particles.fault(),"Second excavation lost particles during physics");
+        require(particles.debrisMassTotals()[0].removedVoxels==48 && particles.debrisMassTotals()[0].activatedGrains==92,"Second excavation mass history changed");
+        ++cases;std::cout<<"GPU basin excavation passed: 32/61 then 16/31 voxels/grains, overlap rejection, immediate transaction destruction, 480 healthy batched ticks and 48/92 conversion totals\n";
     }
     std::cout<<"GPU joint debris transaction passed: "<<cases<<" scenarios; frozen ticks, dual acknowledgement, atomic terrain/particle/mass publication, failures, stale owners, generations and abandonment\n";
 }

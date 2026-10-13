@@ -1,0 +1,93 @@
+INTERACTIVE TERRAIN EXCAVATION — macOS / Metal
+
+Launch ParticleWorld.app with --terrain-preview. Camera and world controls are
+initially collapsed. Keyboard navigation is enabled (Ctrl+Tab focuses a window,
+Tab moves between controls, Return activates buttons). Open Terrain editing and click
+Excavate brush. The default box targets the stone ledge. Terrain centre and Cut
+half width define a closed box of voxel centres; Debris lift sets the initial
+upward velocity. One click converts up to 32 voxels. The default edit selects
+32 of 48 eligible voxels and creates 61 Stone grains. Remaining voxels stay in
+place and the result message reports their count. This is an excavation tool,
+not an explosion: radial falloff, material resistance, energy accounting and
+automatic staging of oversized blasts remain open.
+
+The tool creates a command pool if needed. It waits for pending particle commands
+to run before accepting an excavation, avoiding reordering an earlier brush.
+An accepted edit freezes simulation ticks while its private candidate is checked.
+Pause does not prevent a terrain commit at the paused tick boundary. Cancel
+excavation discards a still-pending edit; resetting/rebuilding the scene also
+cancels it. No voxel is removed if capacity or geometric validation fails.
+
+CPU proposal
+planExcavation accepts a validated EditTerrain command with tick, stable sequence,
+closed world bounds, voxel quota and bounded initial velocity. It records the
+source revision without modifying occupancy. The current profile uses zero-
+origin Basin coordinates and .0625-metre grains. The generic planner caps a
+proposal at 512 voxels / 4,096 grains and scans at most 262,144 voxel centres.
+The UI further limits the batch to 32 voxels and the pool capacity to 1,024.
+
+Selection is deterministic: descending Y, then ascending Z and X. Count all
+eligible voxels even when the batch is full. Increasing a material's voxel count
+recomputes its mass plan before adding the voxel, so the total product count
+cannot exceed the supplied grain quota. Each material independently uses the
+nearest count and the existing maximum 5% quantization tolerance.
+
+Place one grain at each removed voxel centre. Extra grains occupy empty voxel
+centres no more than .5 metres per axis from a removed voxel of the same material.
+Search only this union of local neighborhoods; a sparse wide brush cannot move
+debris to the midpoint between distant removals. At most 512 * 9^3 candidate
+checks are performed. Extra sites are selected by distance, then descending Y,
+ascending Z/X, with material IDs processed in ascending order. Globally unique
+sites keep new-new spheres nonoverlapping with exact tangency allowed. The .125 m
+voxel-centre lattice also clears remaining terrain exactly. Nonresident sites
+are excluded. If the bounded search cannot place every required product, the
+entire proposal returns NoSpace with no removal or seed records. This deterministic
+placement policy is not an exhaustive packing solver.
+
+Seed velocity uses the validated command vector (length <=12 m/s). Temperature
+starts at 293.15 K; the material profile supplies initial fuel. The UI gives
+combustible materials fuel 1, others 0. No burning or heat solver is enabled yet.
+A separate GPU gate checks every proposed grain against current particles, other
+new grains and the complete candidate occupancy. CPU empty terrain cells alone
+do not prove live-particle clearance. No particle readback is used by planning.
+
+Commit and controls
+PendingDebrisTransaction reserves slots, initializes grains, validates clearance
+and waits for both GPU acknowledgements before adopting terrain, particles and
+per-material conversion totals together. The preview refreshes its mesh/collision
+references from the accepted publication before subsequent simulation/rendering.
+The simulation clock treats a pending transaction as paused.
+
+Particle material selects the target of Clear, Remove and Impulse controls.
+Remove and Impulse use the particle Brush centre/half width; Clear covers the
+whole resident domain. These operate on the chosen material's active grains;
+they do not edit terrain. Add sand continues to spawn Sand independently of the
+selector. Thus excavated Stone and Wood can be moved or removed with the same
+bounded command path. Reset particle pool clears all active particles and
+conversion counters; it retains terrain edits. Rebuild basin restores the seed
+terrain and resets the particle pool. Unsupported overhangs remain static.
+
+Conversion diagnostics list source voxel count, product grain count, source and
+destination kilograms and signed mass delta for each converted material. These
+are cumulative conversion totals; removing particles does not undo that history.
+A full world inventory, deposition ledger and save/load remain pending.
+
+Validation
+CPU tests exercise 138 deterministic plans with independent sphere-pair and
+point-to-voxel-box clearance oracles, per-material mass checks, exact boundaries,
+random mixed occupancy, sparse distant materials, capacity/scan quotas, buried
+and resident-edge placement failure, invalid inputs and immutable source state.
+The GPU suite uses the actual seed-1337 basin and default UI proposal, commits
+32 voxels into 61 grains, runs 240 healthy ticks, checks live counts/mass totals,
+rejects an overlapping repeat, then applies a Stone impulse and removal through
+the command queue. A second edit converts the remaining 16 voxels to 31 grains.
+Both transactions are destroyed immediately after publication; four ticks per
+frame exercise catch-up scheduling. Another 240 healthy ticks preserve all
+31 grains and cumulative totals of 48 removed voxels / 92 activated grains.
+
+The preview samples diagnostics every eight rendered frames (also while paused).
+Sampling only when ticks % 8 == 0 could starve after a four-tick catch-up phase
+shift, leaving a stale zero count despite healthy live particles.
+
+See Metal_Compute_Encoder.txt for the backend fix required by the mixed
+compute/readback/compute view sequence.

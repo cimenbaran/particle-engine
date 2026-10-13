@@ -1,0 +1,23 @@
+METAL COMPUTE ENCODER AFTER A BLIT
+
+The pinned bgfx Metal renderer tracks whether the previous draw item was compute.
+A view-boundary blit can end the compute encoder without changing that flag.
+A later compute item then dispatches to a null encoder. In the basin preview,
+diagnostics at views 6/7 followed by excavation at views 8/9 exposed this path:
+the first excavation returned empty acknowledgements (error bits 64 + 128).
+
+cmake/PatchBgfxMetal.cmake, included only for APPLE, requires the exact pinned
+renderer_mtl.cpp hash. It changes the compute-entry guard to create an encoder
+when either the preceding item was not compute or the encoder is null. Existing
+view-change program invalidation and resource rebinding remain in effect.
+The patch is idempotent and rejects an unexpected dependency source version.
+Review it when changing the bgfx pin; remove it if upstream fixes this path.
+
+Original SHA256:
+85429a0e8eb4bb30454abd0158e5774ba802e408a2d0f38b40bd78a5cf30a3bd
+Patched SHA256:
+0621cf093f89c791fda7adf9bfe34af321e394db6ea064f23d2324b44698be2d
+
+PendingDebrisTransactionTest reproduces initialization, early-view diagnostics,
+late-view excavation and acknowledgement without an initial frame flush. It
+checks that terrain and every grain become available after joint publication.

@@ -57,7 +57,7 @@ std::string_view VoxelProbes::enqueue(Command command) {
     if(!pool_)return "This diagnostic scene has no command pool";
     if(fault())return "Reset the simulation after a physics fault";
     if(command.type!=CommandType::SpawnBrush && command.type!=CommandType::RemoveBrush && command.type!=CommandType::ApplyImpulse)return "Unsupported basin command";
-    if(command.material!=sand_)return "The basin brush currently supports Sand only";
+    if(command.type==CommandType::SpawnBrush && command.material!=sand_)return "The basin spawn brush currently supports Sand only";
     if(command.type!=CommandType::RemoveBrush && std::hypot(command.parameters[0],command.parameters[1],command.parameters[2])>12.0f)return "Brush velocity must be at most 12 m/s";
     command.tick=commands_.nextTick();
     CommandLimits limits;limits.materialCount=materials_;limits.worldBound=16;

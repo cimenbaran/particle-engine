@@ -1,0 +1,15 @@
+# Pinned bgfx Metal compute -> blit -> compute regression. Only macOS builds.
+# Fail closed on dependency changes so the fix is reviewed with a new pin.
+set(pw_metal_source "${bgfx_cmake_SOURCE_DIR}/bgfx/src/renderer_mtl.cpp")
+file(SHA256 "${pw_metal_source}" pw_metal_hash)
+set(pw_metal_original "85429a0e8eb4bb30454abd0158e5774ba802e408a2d0f38b40bd78a5cf30a3bd")
+set(pw_metal_patched "0621cf093f89c791fda7adf9bfe34af321e394db6ea064f23d2324b44698be2d")
+if(pw_metal_hash STREQUAL pw_metal_original)
+  file(READ "${pw_metal_source}" pw_metal_text)
+  string(REPLACE "if (!wasCompute)" "// Particle World: a view-boundary blit may have ended the compute encoder.\n\t\t\t\t\tif (!wasCompute || NULL == m_computeCommandEncoder)" pw_metal_text "${pw_metal_text}")
+  file(WRITE "${pw_metal_source}" "${pw_metal_text}")
+  file(SHA256 "${pw_metal_source}" pw_metal_hash)
+endif()
+if(NOT pw_metal_hash STREQUAL pw_metal_patched)
+  message(FATAL_ERROR "Unexpected bgfx Metal source; review PatchBgfxMetal.cmake when updating the pinned dependency.")
+endif()

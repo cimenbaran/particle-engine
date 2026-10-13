@@ -3,9 +3,10 @@ LIVE BASIN SAND COMMAND POOL (macOS / Metal)
 Launch ParticleWorld.app with --terrain-preview. Add sand creates an empty
 1,024-slot interacting pool on first use, then queues a lattice brush. Subsequent
 Add sand clicks preserve existing particles. Brush centre, half width, requested
-count and velocity are adjustable. Remove in brush and Apply impulse use the
-same closed box; Clear sand queues removal across the entire resident domain.
-Only Sand is exposed. Reset sand pool replaces the simulation with an empty pool
+count and velocity are adjustable. Particle material selects the target for
+Remove and Impulse in the same closed box; Clear queues removal of that material
+across the resident domain. Spawning still supports Sand only.
+Reset particle pool replaces the simulation with an empty pool
 and clears faults, counters, queued commands and settling history. Rebuild basin
 also removes the simulation. Both operations retain the pause preference.
 
@@ -39,8 +40,9 @@ Drop interacting diagnostics preserves the original fixed 256-grain regression
 scene; Drop collision probes retains terrain-only motion. Either replaces the
 pool and its pending commands. No capture/replay or hot reload is exposed here.
 A frozen-pool terrain/debris transaction API now supports joint conversion and
-per-material totals (GPU_Debris_Transaction.txt). Terrain-edit controls, explosion
-planning, deposition, rebasing and persistence remain open. The 1,024-slot preview is a functional integration, not a performance gate.
+per-material totals (GPU_Debris_Transaction.txt). An interactive
+excavation tool uses that API (Terrain_Excavation.txt). Explosion planning,
+deposition, rebasing and persistence remain open. The 1,024-slot preview is a functional integration, not a performance gate.
 
 GPU integration tests exercise empty/paused-equivalent queued state, command
 ordering, duplicate spawn rejection, clear/refill, impulses, expiry, quotas,

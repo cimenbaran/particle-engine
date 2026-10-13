@@ -21,6 +21,9 @@ FetchContent_Declare(glm URL https://github.com/g-truc/glm/archive/a532f5b1cf27d
 FetchContent_Declare(json URL https://github.com/nlohmann/json/archive/65ee68451d8eb2b5f3a30b410476ab83deb3289b.tar.gz)
 FetchContent_Declare(imgui URL https://github.com/ocornut/imgui/archive/bf75bfec48fc00f532af8926130b70c0e26eb099.tar.gz)
 FetchContent_MakeAvailable(bgfx_cmake SDL3 glm json imgui)
+if(APPLE)
+  include(${CMAKE_CURRENT_LIST_DIR}/PatchBgfxMetal.cmake)
+endif()
 add_library(pw_imgui STATIC
   ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp ${imgui_SOURCE_DIR}/imgui_widgets.cpp

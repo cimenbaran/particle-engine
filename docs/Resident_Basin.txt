@@ -5,8 +5,10 @@ Open the installed Mac app's terrain inspection mode:
 Or run its executable with --terrain-preview --frames 180 for a bounded smoke run.
 The normal launch still opens the particle sandbox. Inspection now includes
 optional interacting sand (GPU_Basin_Tick.txt) and terrain-only GPU collision
-probes (GPU_Voxel_Motion.txt). Sand spawn/remove/impulse commands are connected (GPU_Basin_Pool.txt). Terrain editing commands are not connected. Water, burning, destruction and deposition remain
-open. Escape closes it.
+probes (GPU_Voxel_Motion.txt). Sand spawning and material-targeted particle brushes are connected
+(GPU_Basin_Pool.txt). Excavate brush now converts small terrain batches into
+physical debris with mass totals (Terrain_Excavation.txt). Water, burning,
+explosion planning and deposition remain open. Escape closes it.
 
 The version 1 deterministic recipe uses 256 chunks across [-16,16) x [0,16) x
 [-16,16) metres. Each chunk has 32 cubed voxels with .125 m spacing. It produces

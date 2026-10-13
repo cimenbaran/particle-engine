@@ -2,12 +2,8 @@
 #include "GpuDebrisReservation.hpp"
 #include "assets/Materials.hpp"
 #include <span>
+#include "core/DebrisSeed.hpp"
 namespace pw {
-struct DebrisSeed {
-    std::array<float,3> position{},velocity{};
-    std::uint32_t material=0;
-    float temperature=293.15f,fuel=0;
-};
 // One-shot initialization of a private reservation snapshot. This is not a
 // commit or a geometric clearance test. Keep the output private until terrain,
 // particle clearance, base-tick freshness and mass gates have all succeeded.

@@ -3,9 +3,9 @@ JOINT TERRAIN / DEBRIS TRANSACTION — macOS / Metal
 PendingDebrisTransaction coordinates removal-only physical conversion in the
 VoxelProbes command pool. It stages a complete private terrain/particle candidate
 and adopts both only after GPU acknowledgements. The existing live world stays
-authoritative throughout preparation. This API is not yet wired to a terrain-edit
-or explosion button; spatial/energy planning and oversized-blast scheduling remain
-separate work.
+authoritative throughout preparation. The Excavate brush control now uses this API (Terrain_Excavation.txt). Explosion
+falloff/resistance/energy planning and oversized-blast scheduling remain separate
+work.
 
 Preparation
 The caller supplies a current immutable VoxelPublication, unique occupied voxel
@@ -90,7 +90,7 @@ are not a capability/security boundary. The material table in VoxelProbes has no
 reload path. This first coordinator supports the basin's zero shared origin;
 origin rebasing is still pending.
 
-GPU integration tests cover ten scenarios with real command pools and terrain
+GPU integration tests cover eleven scenarios with real command pools and terrain
 publications: mixed-material commit, a second conversion with generation reuse,
 pre-ACK/repeated/invalid-view attempts, frozen ticks and queued commands,
 post-commit pool membership/settling reset and continued healthy physics,
@@ -100,4 +100,9 @@ pool replacement, original-owner destruction, and prepared/in-flight abandonment
 They compare live particle bytes across failed/prepared operations, validate
 committed particle identities/masses and check per-material counters. Host cases
 reject wrong product counts/materials/tolerance, modified material tables with
-unchanged hashes, duplicate/addition/empty edits and competing transactions.
+unchanged hashes, duplicate/addition/empty edits and competing transactions. A default full-basin excavation also validates
+61 live grains over 240 physics ticks, overlap rejection, material-targeted
+impulse/removal, and a second 16-voxel / 31-grain edit over 240 further ticks.
+Transactions are destroyed immediately after adoption; four ticks per frame
+exercise catch-up execution. The first transaction follows an early diagnostic
+blit without an initial frame flush (see Metal_Compute_Encoder.txt).

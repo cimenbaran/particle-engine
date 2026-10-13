@@ -24,7 +24,10 @@ grains against candidate terrain, existing solids and other new grains
 (../docs/GPU_Debris_Clearance.txt). A frozen-pool coordinator now validates the
 base tick, owner and material epoch, waits for terrain/particle acknowledgements,
 and jointly adopts terrain, particles and per-material conversion totals
-(../docs/GPU_Debris_Transaction.txt). UI editing/explosion planning remains open.
+(../docs/GPU_Debris_Transaction.txt). A bounded interactive excavation brush now
+plans local debris sites and commits up to 32 voxels per click, with conversion
+totals and material-targeted particle controls (../docs/Terrain_Excavation.txt).
+Explosion falloff/resistance/energy and automatic blast staging remain open.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals
@@ -58,9 +61,9 @@ see ../docs/GPU_Basin_Tick.txt.
 A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed
 rebuilds and matching render/occupancy revision checks. See
-../docs/Resident_Basin.txt. Inspection and collision probes have no thermal state, save files,
-terrain-edit controls or tick-boundary origin publication yet. Dirty chunk
-mesh reuse and terrain conversion remain open. Development prioritizes macOS.
+../docs/Resident_Basin.txt. Thermal simulation, save files and tick-boundary
+origin publication are not connected. Dirty chunk mesh reuse, explosion planning
+and deposition remain open. Development prioritizes macOS.
 
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,

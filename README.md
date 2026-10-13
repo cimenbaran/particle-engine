@@ -10,7 +10,9 @@ impulse and clear controls use guarded GPU spawning; see
 [basin controls](docs/GPU_Basin_Pool.txt). Live voxel support reports settling candidates.
 A [terrain/debris transaction API](docs/GPU_Debris_Transaction.txt) now commits
 validated removals, particles and per-material conversion totals together.
-Terrain-edit controls, explosion planning and deposition remain open.
+Use [Excavate brush](docs/Terrain_Excavation.txt) to turn up to 32 terrain voxels
+into physical debris per click, with conversion mass totals shown in the panel.
+Explosion planning, deposition and save/load remain open.
 Development currently prioritizes macOS.
 
 ## Build
@@ -64,8 +66,10 @@ open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-pr
 ```
 
 Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
-panel controls the camera and rebuilds the seed. **Add sand** queues a brush in
-the 1,024-slot interactive pool. **Drop interacting diagnostics** starts
+panel controls the camera and rebuilds the seed under **Camera and world**.
+**Excavate brush** converts up to 32 voxels into debris after GPU validation.
+**Add sand** queues a brush in the 1,024-slot interactive pool; **Particle material**
+chooses the target for clear, remove and impulse. **Drop interacting diagnostics** starts
 256 fixed grains with both particle and terrain collisions. **Drop collision probes**
 keeps the terrain-only diagnostic mode. **Pause simulation** stops either mode;
 Rebuild clears the particles. See [basin physics](docs/GPU_Basin_Tick.txt) and
