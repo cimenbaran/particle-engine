@@ -33,9 +33,9 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     GranularHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     GranularHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     std::array<std::uint32_t,4> stats{},neighborhood{};unsigned cases=0;
-    auto check=[&](std::vector<ParticleGpu> input,unsigned ticks=1,float gravity=9.81f,bool oracle=true,bool error=false,GpuGranularStep* reused=nullptr) {
+    auto check=[&](std::vector<ParticleGpu> input,unsigned ticks=1,float gravity=9.81f,bool oracle=true,bool error=false,GpuGranularStep* reused=nullptr,AnalyticSphere obstacle={}) {
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);
-        auto owned=reused?nullptr:std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,gravity);auto& solver=reused?*reused:*owned;
+        auto owned=reused?nullptr:std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,gravity,false,obstacle);auto& solver=reused?*reused:*owned;
         auto uploaded=input;if(uploaded.empty())uploaded.resize(1);
         GranularHandle state(bgfx::createDynamicVertexBuffer(bgfx::copy(uploaded.data(),storage*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
         auto current=state.value;
@@ -94,6 +94,7 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
             }
             if(source.velocityInvMass[3]!=0 && (actual[i].identity[1]&1)){
                 double speed=0;for(unsigned a=0;a<3;++a){const float p=actual[i].positionRadius[a],v=actual[i].velocityInvMass[a];require(std::isfinite(p)&&std::isfinite(v),"Nonfinite granular output");require(p>=(a==1?0.0625f:-7.9375f)&&p<=(a==1?15.9375f:7.9375f),"Granular output outside inset bounds");speed+=double(v)*v;}require(speed<=144.001,"Granular final speed cap exceeded");
+                if(obstacle.radius>0){double distance=0;for(unsigned a=0;a<3;++a){double d=double(actual[i].positionRadius[a])-obstacle.centre[a];distance+=d*d;}require(std::sqrt(distance)>=obstacle.radius+0.0625-1e-7,"Granular output inside sphere");}
             }
         }
         ++cases;actual.resize(count);return actual;
@@ -127,6 +128,31 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     GpuGranularStep latched(assets,3,GranularStepProfile{},4,9.81f,true);
     p=fixture(3);p[0].identity[3]=0;check(p,1,9.81f,false,true,&latched);
     check(fixture(3),1,9.81f,false,true,&latched);latched.resetFailures(0);check(fixture(3),1,9.81f,true,false,&latched);
+    const AnalyticSphere sphere{{0,4,0},0.9375f};
+    p=fixture(1);p[0].positionRadius[0]=0;p[0].positionRadius[1]=5;p[0].positionRadius[2]=0;
+    p[0].velocityInvMass[0]=0;
+    auto sphereRest=check(p,240,9.81f,false,false,nullptr,sphere);
+    require(std::abs(sphereRest[0].positionRadius[1]-5)<5e-6 && std::abs(sphereRest[0].velocityInvMass[1])<1e-5,"Sphere top resting contact drifted");
+    for(unsigned axis=0;axis<3;++axis)for(float sign:{-1.0f,1.0f}) {
+        p=fixture(1);for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=sphere.centre[a];p[0].velocityInvMass[a]=0;}
+        p[0].positionRadius[axis]+=sign*1.02f;p[0].velocityInvMass[axis]=-sign*12;
+        auto impact=check(p,1,0,false,false,nullptr,sphere);
+        require(impact[0].velocityInvMass[axis]*sign>0 && stats[3]>0,"Sphere impact did not rebound or report contact");
+        double energy=0;for(unsigned a=0;a<3;++a)energy+=double(impact[0].velocityInvMass[a])*impact[0].velocityInvMass[a];
+        require(energy<=144.001,"Sphere impact gained kinetic energy");
+        check(p,240,0,false,false,nullptr,sphere);
+    }
+    // An upper particle drives contact corrections toward the curved obstacle.
+    p=fixture(2);for(unsigned i=0;i<2;++i){p[i].positionRadius[0]=0;p[i].positionRadius[1]=5+i*0.125f;p[i].positionRadius[2]=0;p[i].velocityInvMass[0]=0;}
+    check(p,120,9.81f,false,false,nullptr,sphere);
+    GpuGranularStep sphereRecovery(assets,1,GranularStepProfile{},4,0,false,sphere);
+    p=fixture(1);p[0].positionRadius[0]=0;p[0].positionRadius[1]=4;p[0].positionRadius[2]=0;
+    check(p,1,0,false,true,&sphereRecovery,sphere);
+    p[0].positionRadius[1]=6;check(p,1,0,false,false,&sphereRecovery,sphere);
+    GpuGranularStep sphereLatch(assets,1,GranularStepProfile{},4,0,true,sphere);
+    p[0].positionRadius[1]=4;check(p,1,0,false,true,&sphereLatch,sphere);
+    p[0].positionRadius[1]=6;check(p,1,0,false,true,&sphereLatch,sphere);
+    sphereLatch.resetFailures(0);check(p,1,0,false,false,&sphereLatch,sphere);
     std::cout<<"GPU granular step passed: "<<cases<<" fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback\n";
 }
 }

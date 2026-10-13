@@ -3,7 +3,8 @@ GPU GRANULAR TICK COORDINATOR
 Scope
 GpuGranularStep owns a complete GPU granular tick. It is exercised by --gpu-test
 and the optional interactive particle-collision mode; see Interactive_Granular.txt.
-Granular recording integration, larger piles, performance and long soaks remain open.
+Granular recording integration, broader pile validation and reference-hardware
+performance remain open. See Granular_Soak.txt for lifecycle soak coverage.
 
 Default profile
 Tick 1/60 s; four substeps selected by GranularStepProfile at 12 m/s maximum
@@ -18,11 +19,12 @@ not claims that every valid configuration is stable or meets performance budgets
 
 Each substep runs in one sequential view:
 1. Apply gravity and material drag, advance solid age and expire lifetimes.
-2. Cap velocity and sweep the sphere against the six analytic boundary planes.
+2. Cap velocity and sweep particles against the six analytic boundary planes
+   and the optional fixed sphere.
 3. Rebuild the spatial index and solve bounded Jacobi contacts each iteration.
 4. Reconstruct velocity relative to the swept predicted snapshot.
 5. Apply particle restitution/friction using retained incoming velocities.
-6. Remove newly introduced outward wall velocity inelastically, apply boundary
+6. Remove newly introduced inward obstacle/outward wall velocity inelastically, apply boundary
    friction and cap the resulting velocity again.
 Prediction is retained through reconstruction/response. The response search bound
 is iterations * 0.03125 plus its numerical allowance. Each corrected position
@@ -69,7 +71,7 @@ No reuse optimization or memory-budget certification is claimed. Each dispatch
 stays within the existing six-compute-binding capability floor.
 
 Validation
-25 Metal fixtures compare no-contact trajectories to independent force/sweep
+The original 25 Metal fixtures compare no-contact trajectories to independent force/sweep
 calculations; cover workgroup boundaries, speed caps including FLT_MAX, static and
 phase exclusion, age/expiry, closed-pair rebound/momentum/energy, whole-tick rollback,
 a late contact-index failure and recovery. A floor body stays motionless for 120
@@ -77,3 +79,22 @@ ticks. A four-body stack runs 60 ticks without intermediate state readback and m
 end below 0.00625 m overlap and 0.1 m/s maximum speed. This small aligned stack is
 not proof of general piles, dense spawns, wall columns or ten-minute stability.
 See tests/results/m3-max-granular-step.txt. D3D11 validation remains pending.
+
+Optional sphere terrain
+The final constructor argument is AnalyticSphere (radius zero disables it).
+The validated profile is shared by swept prediction, every Jacobi correction and
+final velocity constraints. See GPU_Swept_Bounds.txt for geometry limits. A dynamic
+particle inside the expanded sphere fails the tick and preserves the original
+pool; no implicit depenetration is attempted. At a gap no larger than 4e-6 m,
+the final stage removes inward normal velocity and applies bounded material
+friction. Swept impacts retain material restitution; this final guard is
+inelastic because it handles velocity introduced later by particle contacts.
+Sphere response events contribute to the existing boundary event counter.
+The default interactive scene still disables this optional collider. Rendering,
+scene controls and sphere support in settling tracking remain separate work.
+
+The optional sphere adds 19 full-tick fixtures: 240-tick top resting contact,
+six signed-axis impacts and 240-tick sphere/wall paths, a 120-tick two-body stack,
+and overlap rollback, recovery, latched failure and reset. Full GPU suites pass
+at 128 and 256 threads on Metal; current sphere D3D11 validation is pending.
+See tests/results/m3-max-sphere-granular-step.txt.

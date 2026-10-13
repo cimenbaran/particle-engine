@@ -10,7 +10,7 @@ namespace pw {
 class GpuGranularStep {
 public:
     GpuGranularStep(const std::filesystem::path& assets,std::uint32_t capacity,
-        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f,bool latchFailures=false);
+        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f,bool latchFailures=false,AnalyticSphere obstacle={});
     ~GpuGranularStep();
     GpuGranularStep(const GpuGranularStep&)=delete;
     GpuGranularStep& operator=(const GpuGranularStep&)=delete;
@@ -33,6 +33,7 @@ private:
     GranularStepPlan plan_;
     float gravity_;
     bool latchFailures_;
+    AnalyticSphere obstacle_;
     GpuCellOccupancy occupancy_;
     GpuSweptBounds sweep_;
     GpuJacobiContacts contacts_;
@@ -43,7 +44,7 @@ private:
     bgfx::DynamicIndexBufferHandle neighborhood_=BGFX_INVALID_HANDLE,zero_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE,phaseStatus_=BGFX_INVALID_HANDLE,latched_=BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,force_=BGFX_INVALID_HANDLE,finish_=BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle collect_=BGFX_INVALID_HANDLE,apply_=BGFX_INVALID_HANDLE,latch_=BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,step_=BGFX_INVALID_HANDLE,collection_=BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,step_=BGFX_INVALID_HANDLE,collection_=BGFX_INVALID_HANDLE,sphere_=BGFX_INVALID_HANDLE;
 };
 void runGpuGranularStepTest(const std::filesystem::path& assets);
 }

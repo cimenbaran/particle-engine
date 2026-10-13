@@ -1,6 +1,8 @@
 #include <bgfx_compute.sh>
 #include "workgroup.sh"
 #include "granular_io.sh"
+#include "sphere_contact.sh"
+uniform vec4 u_granular_sphere;
 NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint id=gl_GlobalInvocationID.x;if(id>=uint(u_velocity.x))return;
@@ -20,6 +22,20 @@ void main() {
     vec3 impulse=v-old;float speed=sqrt(dot(v,v)),support=sqrt(dot(impulse,impulse));
     if(speed>0.0)v*=max(0.0,1.0-mu*support/speed);
     atomicAdd(b_status[2],1u);
+  }
+  if(u_granular_sphere.w>0.0) {
+    vec3 offset=p-u_granular_sphere.xyz;float distance=sqrt(dot(offset,offset));
+    float radius=u_granular_sphere.w+0.0625;
+    if(distance<radius){atomicOr(b_status[0],1u);return;}
+    if(distance<=radius+2.0*sphereSkin) {
+      vec3 normal=offset/distance;float inward=dot(v,normal);
+      if(inward<0.0) {
+        v-=normal*inward;
+        uint material=floatBitsToUint(b_input[base+3u]).x;float mu=b_materials[material*4u].y;
+        float speed=sqrt(dot(v,v));if(speed>0.0)v*=max(0.0,1.0+mu*inward/speed);
+        atomicAdd(b_status[2],1u);
+      }
+    }
   }
   float largest=max(abs(v.x),max(abs(v.y),abs(v.z)));
   if(largest>0.0) {

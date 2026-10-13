@@ -1,0 +1,15 @@
+OPTIONAL SPHERE FULL GRANULAR TICK
+M3 Max 48 GiB, Metal; development worktree based on 97d317d.
+Full GPU suites passed at workgroup sizes 128 and 256.
+44 coordinator fixtures, including 19 optional-sphere fixtures.
+14/14 CTests passed at each workgroup size.
+Default live scene remains sphere-disabled; settling support/rendering pending.
+D3D11 sphere integration validation pending. No performance certification.
+out/sphere-step128.log sha256=328759fa53462024402adfcd76b7c0231ab1ab90fa9584cfe4c5c7daba35d8eb
+GPU granular step passed: 44 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+out/sphere-step256.log sha256=435359e7279ad3dad4a3989fd939eae2163333553ee0215e1b50597bb581878a
+GPU granular step passed: 44 fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback
+out/sphere-step-ctest128.log sha256=d9e112096a0c548952d0ce2e87409b4ebbf1131fd4cd183233c945b3fff78dd1
+100% tests passed, 0 tests failed out of 14
+out/sphere-step-ctest256.log sha256=059a9023fd17a9d96ef4aae7fabfee9b41b6f0cbf0020d7ebf780a91b5a79776
+100% tests passed, 0 tests failed out of 14

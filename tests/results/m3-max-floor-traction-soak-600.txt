@@ -1,0 +1,67 @@
+FLOOR TRACTION V2 TEN-MINUTE METAL SOAK
+Clean installed source bf65179; workgroup 128, M3 Max 48 GiB, capacity 129.
+Sphere integration is not included in this binary. Windows remains a separate gate.
+Intentional spawn rejections exercise pool overflow.
+Report out/floor-traction-soak-600-metal128.json sha256=945144716ea24f572591c3c3fb1c030278b93fee9aee62779774fc5f648c0798
+{
+  "backend": "Metal",
+  "build": {
+    "binary_sha256": "039fcc4755025c417d2a7675d2af5287f29a19a49a76fb0965eb39007c0a5b51",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "bf65179be4f29a617574c7aedb114ee9b7857f7d",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "completed_cycles": 152,
+  "discarded_samples": 0,
+  "elapsed_seconds": 600.0782215,
+  "failure": "",
+  "final_snapshot": {
+    "active": 129,
+    "checked_slots": 129,
+    "free": 0,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 247190996,
+    "state_error": false,
+    "tick": 39086
+  },
+  "granular": {
+    "final_acquiring": 0,
+    "final_candidates": 0,
+    "final_contact_grace": 0,
+    "initial_scene": {
+      "count": 129,
+      "materials": [
+        "Sand"
+      ],
+      "maximum": [
+        0.75,
+        2.5,
+        0.75
+      ],
+      "minimum": [
+        -0.75,
+        1.0,
+        -0.75
+      ],
+      "name": "Granular sand drop"
+    },
+    "iterations": 4,
+    "position_friction": "static_traction_floor_v2",
+    "radius": 0.0625,
+    "saw_settling_candidates": true,
+    "solver_error": 0,
+    "speed_limit": 12,
+    "substeps": 4,
+    "tracking_error": 0
+  },
+  "passed": true,
+  "saw_empty": true,
+  "saw_full": true,
+  "saw_overflow": true,
+  "slot_checks": 5042094,
+  "ticks": 39086,
+  "workgroup_size": 128
+}
