@@ -1,0 +1,42 @@
+GPU GEOMETRIC CONTACT NORMALS
+
+GpuContactNormals is a diagnostic component for the remaining collision-normal
+view. It rebuilds a read-only spatial index from one frozen particle state and
+selects each dynamic solid's closest surface within 0.002 m. It does not alter
+particle state, settling history, material data or solver decisions. It currently
+runs in --gpu-test; live menu/render integration remains open.
+
+The component uses the standard exact-key grid, radix sort, cell ranges and hash,
+then visits every candidate in the support neighborhood without a neighbor cap.
+Signed gaps and normals follow Contact_Normal_Reference.txt. Particle normals
+point away from the other body; plane and sphere normals point out of terrain.
+Exact ties explicitly compare source and feature IDs, independent of hash walk
+order. A result describes current geometry, not accumulated impulses or the sum
+of all simultaneous contact normals.
+
+Each slot has two 16-byte lanes. The first stores normal XYZ and signed gap.
+The second stores bit-preserving uint32 source (0 none, 1 plane, 2 sphere,
+3 particle), feature ID, error and reserved zero. None uses a zero normal and
+FLT_MAX gap. Errors also clear source/feature/normal: 1 failed index, 2 invalid
+query or nearby candidate geometry, 4 traversal failure. Query radius must be
+0.0625 and inverse mass must satisfy the solver profile; static queries return
+None but static solid neighbors remain colliders. Sphere-centre coincidence is
+invalid. Dead and non-solid queries remain empty.
+
+submit validates CPU arguments, allocates nothing and performs no CPU readback.
+The result remains valid until the next submission. Capacity zero produces no
+logical records. Six compute buffer bindings are used. Owned payload is
+80*N + 64 + 2*S + 8*H bytes, where N=max(1,capacity), S is one hierarchical
+prefix-scan allocation and H is the hash table's slot count. Shader/uniform
+objects and driver allocation overhead are excluded, as in Resource_Usage.txt.
+The component is not allocated by the live app yet; this is not an increase to
+normal interactive resource totals. Rebuilding every displayed frame has a cost
+that must be measured when integrating the UI.
+
+Fifty GPU fixtures compare source, feature, direction and gap to the independent
+all-pairs CPU oracle, and compare original particle bytes unchanged. They cover
+zero/workgroup-edge capacities, six planes, contact/no-contact band, signed sphere
+axes/octants, exact ties, 257 coincident particles, exclusions/static neighbors,
+invalid radius/mass/index, bad-then-valid reuse and moving away without a stale
+normal. Full live render records, paused reset/mode switching, upstream solver
+failure presentation and D3D11 validation remain separate required checks.

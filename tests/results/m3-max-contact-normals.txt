@@ -1,0 +1,12 @@
+GPU CONTACT NORMAL COMPONENT
+
+Development source based on c350825; Apple M3 Max, Metal.
+Both workgroup128 and256 full GPU suites pass, including 50 contact-normal
+fixtures against independent all-pairs CPU source/feature/direction/gap results.
+Particle input bytes remain unchanged. Local native CTest15 passes at both sizes.
+Live rendering/menu integration and Windows validation remain open.
+
+out/contact-normals-final128.log sha256=6b0a25de3593d4649efa0c937c7ac98728f88d717439925529283048033ce85a
+out/contact-normals-final256.log sha256=f45d7ffedadeb790b893616ace938f23e7d49825817d83bd4c389f144cf2c82e
+out/contact-normals-ctest128.log sha256=bd7f72f3bbfce261c7141e9d3dd0da55b75d9fecdd56d998501e24a15adb1b6d
+out/contact-normals-ctest256.log sha256=3b07e22bd0c56f21c6abfd3800fb72e60b9668a56a26cd9766c2f7fc5d0019c2
