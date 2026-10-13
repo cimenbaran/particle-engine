@@ -1,0 +1,36 @@
+SPHERE TERRAIN SCENE
+
+Run ParticleWorld --scene assets/scenes/sphere_drop.json --capacity 256,
+or choose Scene presets -> Sand over sphere -> Load preset in the app.
+The scene enables granular physics automatically. It contains 256 sand particles
+above a fixed sphere at (0,2,0), radius 1.25 m. Empty/reset preserve the obstacle.
+Load a scene without terrain before disabling particle collisions. Loading a
+non-terrain preset removes the collider and its renderer while keeping granular
+mode enabled until explicitly switched off.
+
+Schema version 1 remains unchanged. Version 2 adds exactly one sphere object,
+with centre (three finite numbers) and positive radius. AnalyticSphere validation
+requires radius 0.0625..4 and separation from enclosure planes. Initial spawn
+bounds must be disjoint from the sphere expanded by the common particle radius
+0.0625 m, and fit the granular enclosure. Intersecting spawn brushes are rejected
+with a visible message; this is a conservative whole-box rejection, not partial
+sampling. Existing ballistic recordings reject sphere scenes until the granular
+recording profile is implemented.
+
+The solver, settling tracker and renderer consume the same scene geometry. The
+sphere is fixed terrain, has no particle slot or inverse mass, and does not alter
+active/free pool ownership. Swept collision, position correction, final velocity
+constraints and upward settling support are handled by their existing GPU stages.
+The render surface is an opaque, depth-tested 48-by-96 tessellated sphere with
+smooth lighting. Its polygonal surface approximates the analytic collision shape;
+particle billboards retain their existing centre-depth rendering limitation.
+Mesh payload: 49*97*3*4 + 48*96*6*2 = 112332 bytes, reported separately as
+terrain_geometry. Shader/uniform overhead remains outside requested payload totals.
+
+Validation includes strict schema/round-trip/spawn checks and an application GPU
+fixture that rests a particle on the sphere for 60 ticks, acquires a settling
+candidate, rejects intersecting spawns and unsupported ballistic switching, then
+loads an empty preset and removes terrain resources. Native Metal UI validation
+loaded the preset both through CLI and the menu, observed 256 active particles and
+256 settling candidates at paused tick 1412 without a displayed solver fault,
+and reloaded the preset to tick zero. This is not a stability/performance gate.

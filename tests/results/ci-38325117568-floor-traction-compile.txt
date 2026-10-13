@@ -1,0 +1,11 @@
+FLOOR TRACTION V2 WINDOWS COMPILATION FAILURE
+Source bf65179, run 38325117568, Windows workgroup 256 job 115061864837.
+Workgroup 128 job 115061864883 also failed with the same X4596 diagnostic.
+Terminal failure occurred during shader compilation, before runtime validation.
+cs_contact_pack.sc used a partial typed UAV store to b_packed[id*8+6].x.
+D3DCompile error X4596: typed UAV stores must write all declared components.
+A loop-variable shadowing warning also appeared for lane.
+Fix writes vec4(budget,0,0,0) and uses a distinct clearLane variable.
+Fresh Windows compilation/runtime validation is still required. This result
+provides no evidence about whether floor-v2 fixes the prior wall-pile failure.
+Log: out/ci-38325117568-wg256.log.

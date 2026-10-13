@@ -26,6 +26,7 @@
 #include "render/GpuSweptBounds.hpp"
 #include "render/GpuGranularStep.hpp"
 #include "render/GpuSettling.hpp"
+#include "render/SphereTerrain.hpp"
 #include "render/GpuParticleDebug.hpp"
 #include "render/GpuGranularStability.hpp"
 #include "render/GpuContactVelocity.hpp"
@@ -105,6 +106,7 @@ struct Particles {
     std::unique_ptr<pw::GpuGranularStep> granular;
     std::unique_ptr<pw::PoolDiagnostics> granularDiagnostics,neighborhoodDiagnostics,occupancyDiagnostics;
     std::unique_ptr<pw::GpuSettling> settling;
+    std::unique_ptr<pw::SphereTerrain> terrain;
     std::unique_ptr<pw::GpuParticleDebug> debugView;
     int debugMode=0;
     std::unique_ptr<pw::PoolDiagnostics> settlingDiagnostics;
@@ -167,20 +169,22 @@ struct Particles {
     }
     void setGranular(bool enabled) {
         if(session.active()) throw std::runtime_error("Finish the recording session before changing solver");
+        if(!enabled && scene.obstacle.radius>0)throw std::runtime_error("Load a scene without terrain before disabling particle collisions");
         if(enabled) {
             validateGranularScene(scene);
-            auto candidate=std::make_unique<pw::GpuGranularStep>(assetsPath,particleCount,pw::GranularStepProfile{},4,9.81f,true);
+            auto candidate=std::make_unique<pw::GpuGranularStep>(assetsPath,particleCount,pw::GranularStepProfile{},4,9.81f,true,scene.obstacle);
             auto diagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
-            auto tracker=std::make_unique<pw::GpuSettling>(assetsPath,particleCount,pw::SettlingProfile{},true);
+            auto tracker=std::make_unique<pw::GpuSettling>(assetsPath,particleCount,pw::SettlingProfile{},true,scene.obstacle);
             auto occupancyDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto neighborhoodDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto trackingDiagnostic=std::make_unique<pw::PoolDiagnostics>(assetsPath);
             auto debug=std::make_unique<pw::GpuParticleDebug>(assetsPath);
-            granular=std::move(candidate);granularDiagnostics=std::move(diagnostic);
+            auto surface=scene.obstacle.radius>0?std::make_unique<pw::SphereTerrain>(assetsPath):nullptr;
+            terrain=std::move(surface);granular=std::move(candidate);granularDiagnostics=std::move(diagnostic);
             occupancyDiagnostics=std::move(occupancyDiagnostic);
             debugView=std::move(debug);neighborhoodDiagnostics=std::move(neighborhoodDiagnostic);
             settling=std::move(tracker);settlingDiagnostics=std::move(trackingDiagnostic);
-        } else {debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();}
+        } else {terrain.reset();debugView.reset();debugMode=0;settlingDiagnostics.reset();settling.reset();occupancyDiagnostics.reset();neighborhoodDiagnostics.reset();granularDiagnostics.reset();granular.reset();}
         granularFault=false;reloadPending=false;reset();solverMessage.clear();
     }
     void stageShaders(pw::ShaderReload& reload) {
@@ -280,7 +284,8 @@ struct Particles {
             pw::sceneMaterials(*candidate,materials);
             if(granular) validateGranularScene(*candidate);
         } catch(const std::exception& error) {sceneMessage=std::string("Scene rejected: ")+error.what();return false;}
-        scene=std::move(*candidate);scenePath=path;sceneMaterial=-1;reset();
+        scene=std::move(*candidate);scenePath=path;sceneMaterial=-1;
+        if(granular || scene.obstacle.radius>0)setGranular(true);else reset();
         sceneMessage="Scene loaded";return true;
     }
     void captureFromReset() {
@@ -317,6 +322,11 @@ struct Particles {
                 command.maximum[axis]=std::min(command.maximum[axis],axis==1?15.9375f:7.9375f);
                 if(command.minimum[axis]>command.maximum[axis]) {commandMessage="Spawn brush is outside the granular enclosure";return;}
             }
+        }
+        if(granular && type==pw::CommandType::SpawnBrush && scene.obstacle.radius>0) {
+            double distance=0;for(unsigned a=0;a<3;++a){double d=double(scene.obstacle.centre[a])-std::clamp(scene.obstacle.centre[a],command.minimum[a],command.maximum[a]);distance+=d*d;}
+            const double radius=double(scene.obstacle.radius)+0.0625;
+            if(distance<=radius*radius){commandMessage="Spawn brush intersects sphere terrain; move the brush outside it";return;}
         }
         pw::CommandLimits limits; limits.materialCount=uint32_t(materials.entries.size());
         const auto reason=commands.enqueue(command,limits);
@@ -361,6 +371,7 @@ struct Particles {
         session.observed(batch,commands.nextTick());
     }
     void render(uint16_t view,bool indirect) {
+        if(terrain)terrain->render(view,scene.obstacle);
         bgfx::setVertexBuffer(0,vertices); bgfx::setIndexBuffer(indices);
         bgfx::setInstanceDataBuffer(visibility->instances(),0,particleCount);
         bgfx::setState(BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A|BGFX_STATE_WRITE_Z|BGFX_STATE_DEPTH_TEST_LESS|BGFX_STATE_MSAA);
@@ -473,6 +484,17 @@ void runGpuPoolIsolationTest(const std::filesystem::path& assets) {
         require(!sandbox.settlingDiagnostics->latest().free && sandbox.settlingDiagnostics->latest().reserved==1,"Scene reset reused candidate history");
         sandbox.reset(0);bgfx::frame();sandbox.tick(1);readSettling();
         require(!sandbox.settlingDiagnostics->latest().free && !sandbox.settlingDiagnostics->latest().reserved && !sandbox.diagnostics->latest().active,"Empty scene retained settling candidates");
+        sandbox.scene.obstacle={{0,4,0},0.9375f};sandbox.scene.minimum={0,5.00001f,0};sandbox.scene.maximum=sandbox.scene.minimum;
+        sandbox.scene.count=1;sandbox.setGranular(true);bgfx::frame();
+        for(unsigned i=0;i<60;++i){sandbox.tick(1);bgfx::frame();}
+        readSettling();require(sandbox.terrain && sandbox.settlingDiagnostics->latest().free==1,"Live sphere failed to acquire settling support");
+        const auto sphereState=snapshot(sandbox);require(std::abs(sphereState[0].positionRadius[1]-5)<5e-6,"Live sphere resting pose mismatch");
+        pw::BrushBox sphereBrush;sphereBrush.minimum={-0.1f,3.9f,-0.1f};sphereBrush.maximum={0.1f,4.1f,0.1f};
+        sandbox.queueBrush(pw::CommandType::SpawnBrush,0,1,0,&sphereBrush);
+        require(sandbox.commandMessage.find("intersects sphere")!=std::string::npos,"Sphere-intersecting spawn was accepted");
+        bool rejectedMode=false;try{sandbox.setGranular(false);}catch(const std::runtime_error&){rejectedMode=true;}
+        require(rejectedMode && sandbox.granular && sandbox.terrain,"Sphere allowed unsupported ballistic mode");
+        require(sandbox.loadPreset(assets/"scenes/empty.json") && !sandbox.terrain,"Loading non-terrain scene retained sphere renderer");
         sandbox.setGranular(false);sandbox.reset(0);bgfx::frame();
         require(!sandbox.settling && !sandbox.settlingDiagnostics,"Ballistic mode retained settling resources");
         std::cout<<"GPU live settling passed: active-list membership, impulse release, same-generation scene reset, empty scene and mode teardown\n";
@@ -793,6 +815,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         failure="Soak final snapshots do not match the final tick";
     auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true);
     if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=256;resources.diagnosticHost+=192;}
+    if(particles.terrain)resources.terrainGeometry=pw::SphereTerrain::payloadBytes;
     Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v1":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"resources",pw::resourceReport(resources,*bgfx::getStats())},
         {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
@@ -863,7 +886,7 @@ int main(int argc, char** argv) {
         pw::ScenePreset granularScene;granularScene.name="Granular sand drop";granularScene.count=std::min(256u,options.capacity);
         granularScene.minimum={-0.75f,1,-0.75f};granularScene.maximum={0.75f,2.5f,0.75f};granularScene.materials={"Sand"};
         Particles particles(assets,replay?replay->capacity:options.capacity,options.scene,replay?&replay->scene:(options.granular?&granularScene:nullptr));
-        if(options.granular) particles.setGranular(true);
+        if(options.granular || particles.scene.obstacle.radius>0) particles.setGranular(true);
         if(replay) {particles.beginReplay(std::move(*replay),false);return runReplay(window,particles,assets,options);}
         if(options.soakSeconds) return runSoak(window,particles,assets,options);
         std::unique_ptr<Particles> cosmetics;
@@ -895,7 +918,7 @@ int main(int argc, char** argv) {
         float yaw=0.65f, distance=options.granular?8.0f:24.0f, elevation=options.granular?5.0f:12.0f, impulseStrength=6, spawnLifetime=10;
         const float orbitTarget=options.granular?1.0f:3.0f;
         int presetSelection=0;
-        constexpr const char* presetFiles[]{"ballistic.json","empty.json","sand_drop.json"};
+        constexpr const char* presetFiles[]{"ballistic.json","empty.json","sand_drop.json","sphere_drop.json"};
         int spawnCount=1024,pointerTool=0;
         uint32_t brushMaterial=0;
         float brushHeight=.5f,brushHalfSize=1;
@@ -1034,7 +1057,7 @@ int main(int argc, char** argv) {
             if(ImGui::Button("Empty scene")) {particles.reset(0);clock.reset();ticks=0;lag=0;}
             if(ImGui::CollapsingHeader("Scene presets")) {
                 ImGui::TextWrapped("Current: %s",particles.scene.name.c_str());
-                ImGui::Combo("Preset",&presetSelection,"Ballistic cloud\0Empty workspace\0Sand drop\0");
+                ImGui::Combo("Preset",&presetSelection,"Ballistic cloud\0Empty workspace\0Sand drop\0Sand over sphere\0");
                 if(ImGui::Button("Load preset") && particles.loadPreset(assets/"scenes"/presetFiles[presetSelection])) {clock.reset();ticks=0;lag=0;}
                 if(!particles.scenePath.empty()) {
                     ImGui::SameLine();
@@ -1173,6 +1196,7 @@ int main(int argc, char** argv) {
             ImGui::EndDisabled();
             ImGui::End();
             auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect());
+            if(particles.terrain)resources.terrainGeometry=pw::SphereTerrain::payloadBytes;
             if(cosmetics) resources+=pw::resourceUsage(cosmetics->particleCount,uint32_t(cosmetics->materials.entries.size()),cosmetics->visibility->supportsIndirect());
             if(particles.granular) {resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=256;resources.diagnosticHost+=192;}
             memoryPeaks.observe(pw::reportedMemory(*stats));

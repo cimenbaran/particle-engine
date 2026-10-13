@@ -22,14 +22,17 @@ limits. Static_traction_v1 passes all seven on Metal128/256. Windows WARP run
 but wall_pile_64 reaches 0.160916 m/s at tick 510 in the final settling window
 (limit 0.1). Both workgroups reproduce it; penetration coverage passes. A candidate unspent
 floor-traction budget (static_traction_floor_v2) improves Metal settling; Windows
-validation remains required. See
+validation remains required. Run 38325117568 failed both Windows shader builds
+on a partial typed UAV store; the full-vector store fix awaits fresh CI. See
 ../tests/results/ci-38321953983-static-friction.txt. Do not widen the gate.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain has a tested CPU sphere-sweep oracle in
 ../docs/Swept_Sphere_Reference.txt and an optional GPU sweep component tested
 on Metal. Optional Jacobi sphere constraints also preserve sliding and prevent
-correction paths from entering the collider. Live coordinator/support/rendering
-integration remains open. Detailed debug views/metrics,
+correction paths from entering the collider. The coordinator and settling tracker
+share the collider with the native Sand over sphere preset and depth-tested
+renderer; see ../docs/Sphere_Terrain.txt. Metal component/app/UI checks pass;
+D3D11 sphere validation remains pending. Detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in

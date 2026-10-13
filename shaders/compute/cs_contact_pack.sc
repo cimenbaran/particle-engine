@@ -11,7 +11,7 @@ NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint id=gl_GlobalInvocationID.x;if(id>=uint(u_contact_friction.x))return;
   for(uint lane=0u;lane<4u;++lane)b_packed[id*8u+lane]=b_current[id*4u+lane];
-  for(uint lane=4u;lane<8u;++lane)b_packed[id*8u+lane]=vec4_splat(0.0);
+  for(uint clearLane=4u;clearLane<8u;++clearLane)b_packed[id*8u+clearLane]=vec4_splat(0.0);
   if(u_contact_friction.z==0.0)return;
   uvec4 identity=floatBitsToUint(b_current[id*4u+3u]);
   if((identity.y&1u)==0u || identity.x>=uint(u_contact_friction.y))return;
@@ -32,7 +32,7 @@ void main() {
       if(speed>u_contact_floor.z){float scale=(u_contact_floor.z/speed)*0.9999995231628418;tangent*=scale;normal*=scale;}
       // The sweep spent min(tangent,mu*normal) stopping existing sliding.
       // Only the unused static traction may resist later position corrections.
-      b_packed[id*8u+6u].x=max(0.0,mu*normal-tangent)*u_contact_floor.y;
+      b_packed[id*8u+6u]=vec4(max(0.0,mu*normal-tangent)*u_contact_floor.y,0.0,0.0,0.0);
     }
   }
   b_packed[id*8u+4u]=p;

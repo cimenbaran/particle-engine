@@ -76,5 +76,5 @@ invalidate candidates globally, as before.
 43 added fixtures compare exact histories with double-precision sphere geometry:
 upper/lower/side normals, support-cone sides, entry/hold/separation/deep gaps,
 acquisition and grace transitions, upstream invalidation/reset, and six workgroup
-edge capacities. Particle state remains bytewise unchanged. Scene/rendering
-integration is separate; the default interactive scene still disables spheres.
+edge capacities. Particle state remains bytewise unchanged. The Sand over sphere preset shares its geometry with the solver and renderer;
+the default scene still disables spheres. See Sphere_Terrain.txt.

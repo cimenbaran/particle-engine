@@ -90,9 +90,9 @@ the final stage removes inward normal velocity and applies bounded material
 friction. Swept impacts retain material restitution; this final guard is
 inelastic because it handles velocity introduced later by particle contacts.
 Sphere response events contribute to the existing boundary event counter.
-The default interactive scene still disables this optional collider. Rendering,
-scene controls remain separate work. GpuSettling accepts the same optional
-collider for support classification; callers must share its profile.
+The default interactive scene disables this optional collider. The Sand over
+sphere preset shares its geometry with rendering and GpuSettling; see
+Sphere_Terrain.txt.
 
 The optional sphere adds 19 full-tick fixtures: 240-tick top resting contact,
 six signed-axis impacts and 240-tick sphere/wall paths, a 120-tick two-body stack,

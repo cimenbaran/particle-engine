@@ -50,6 +50,7 @@ template<std::size_t N> std::array<float,N> numbers(const Json& json) {
 }
 void validateRecording(const CommandRecording& recording,const MaterialLibrary& materials) {
     parseScene(encodeScene(recording.scene));
+    if(recording.scene.obstacle.radius>0)throw std::runtime_error("Sphere terrain requires granular recording support");
     validateSceneCapacity(recording.scene,recording.capacity);sceneMaterials(recording.scene,materials);
     if(recording.materialsHash!=materials.contentHash) throw std::runtime_error("Recording material table hash mismatch");
     if(recording.workgroupSize!=128 && recording.workgroupSize!=256) throw std::runtime_error("Invalid recorded workgroup size");

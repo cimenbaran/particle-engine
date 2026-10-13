@@ -46,6 +46,17 @@ int main(int argc,char** argv) {
         rejects([](auto& j){j["materials"]={"Missing"};});rejects([](auto& j){j["materials"]={"Water"};});
         rejects([](auto& j){j["materials"]={"Stone","Stone"};});rejects([](auto& j){j["materials"]=nlohmann::json::array();});
         rejects([](auto& j){j["unrecognized"]=true;});rejects([](auto& j){j.erase("seed");});
+        const auto sphere=pw::loadScene(assets/"scenes/sphere_drop.json");
+        const auto roundtrip=pw::parseScene(pw::encodeScene(sphere));
+        CHECK(roundtrip.obstacle.radius==1.25f && roundtrip.obstacle.centre==sphere.obstacle.centre);
+        const auto sphereParticles=pw::instantiateScene(sphere,library,256,pw::sceneMaterials(sphere,library));
+        for(const auto& body:sphereParticles){double distance=0;for(unsigned a=0;a<3;++a){double d=body.positionRadius[a]-sphere.obstacle.centre[a];distance+=d*d;}CHECK(distance>1.3125*1.3125);}
+        source=nlohmann::json::parse(pw::encodeScene(sphere));
+        rejects([](auto& j){j["sphere"]["radius"]=-1;});rejects([](auto& j){j["sphere"]["radius"]=0;});
+        rejects([](auto& j){j["sphere"]["radius"]=true;});rejects([](auto& j){j["sphere"]["centre"]={0,0,0};});
+        rejects([](auto& j){j["sphere"]["centre"][0]=true;});rejects([](auto& j){j["sphere"]["extra"]=1;});
+        rejects([](auto& j){j["minimum"]={-1,2,-1};});rejects([](auto& j){j["maximum"][1]=20;});
+        rejects([](auto& j){j.erase("sphere");});rejects([](auto& j){j["schema_version"]=1;});
         std::cout<<"Scene schema, material resolution, capacity limits, seeded repeatability and inactive slots passed\n";
     } catch(const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
 }

@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "name": "Sand over sphere",
+  "seed": 42,
+  "count": 256,
+  "minimum": [-0.75, 4, -0.75],
+  "maximum": [0.75, 5.5, 0.75],
+  "materials": ["Sand"],
+  "sphere": {"centre": [0, 2, 0], "radius": 1.25}
+}

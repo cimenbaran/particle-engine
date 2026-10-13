@@ -17,11 +17,25 @@ std::uint32_t integer(const nlohmann::json& value,std::uint32_t maximum,const ch
 ScenePreset parseScene(std::string_view text) {
     if(text.size()>65536) throw std::runtime_error("Scene exceeds 64 KiB");
     const auto json=nlohmann::json::parse(text);
-    const std::set<std::string> fields{"schema_version","name","seed","count","minimum","maximum","materials"};
-    if(!json.is_object() || json.size()!=fields.size()) throw std::runtime_error("Scene requires exactly the version-1 fields");
+    if(!json.is_object())throw std::runtime_error("Scene must be an object");
+    const auto version=integer(json.at("schema_version"),2,"schema version");
+    if(version!=1 && version!=2)throw std::runtime_error("Unsupported scene version");
+    std::set<std::string> fields{"schema_version","name","seed","count","minimum","maximum","materials"};
+    if(version==2)fields.insert("sphere");
+    if(json.size()!=fields.size()) throw std::runtime_error("Scene requires exactly the versioned fields");
     for(const auto& [key,value]:json.items()) {if(!fields.contains(key)) throw std::runtime_error("Unknown scene field: "+key);}
-    if(integer(json.at("schema_version"),1,"schema version")!=1) throw std::runtime_error("Unsupported scene version");
+
     ScenePreset scene;
+    if(version==2) {
+        const auto& sphere=json.at("sphere");
+        if(!sphere.is_object() || sphere.size()!=2 || !sphere.contains("centre") || !sphere.contains("radius") ||
+           !sphere.at("centre").is_array() || sphere.at("centre").size()!=3 || !sphere.at("radius").is_number())
+            throw std::runtime_error("Scene sphere requires numeric centre and radius");
+        for(const auto& value:sphere.at("centre"))if(!value.is_number())throw std::runtime_error("Scene sphere centre must be numeric");
+        scene.obstacle={sphere.at("centre").get<std::array<float,3>>(),sphere.at("radius").get<float>()};
+        validateAnalyticSphere(scene.obstacle);
+        if(scene.obstacle.radius==0)throw std::runtime_error("Version-2 scene requires an enabled sphere");
+    }
     scene.name=json.at("name").get<std::string>();
     if(scene.name.empty() || scene.name.size()>80) throw std::runtime_error("Scene name must be 1-80 bytes");
     scene.seed=integer(json.at("seed"),UINT32_MAX,"seed");
@@ -44,12 +58,22 @@ ScenePreset parseScene(std::string_view text) {
     std::set<std::string> unique;
     for(const auto& name:scene.materials) if(name.empty() || name.size()>80 || !unique.insert(name).second)
         throw std::runtime_error("Scene material names must be nonempty and unique");
+    if(scene.obstacle.radius>0) {
+        double nearest=0;
+        for(unsigned a=0;a<3;++a){double d=double(scene.obstacle.centre[a])-std::clamp(scene.obstacle.centre[a],scene.minimum[a],scene.maximum[a]);nearest+=d*d;}
+        const double radius=double(scene.obstacle.radius)+0.0625;
+        if(nearest<=radius*radius)throw std::runtime_error("Scene spawn bounds intersect sphere terrain");
+        for(unsigned a=0;a<3;++a)if(scene.minimum[a]<(a==1?0.0625f:-7.9375f) || scene.maximum[a]>(a==1?15.9375f:7.9375f))
+            throw std::runtime_error("Sphere scene must fit the granular enclosure");
+    }
     return scene;
 }
 std::string encodeScene(const ScenePreset& scene) {
-    nlohmann::json json={{"schema_version",1},{"name",scene.name},{"seed",scene.seed},
+    validateAnalyticSphere(scene.obstacle);
+    nlohmann::json json={{"schema_version",scene.obstacle.radius>0?2:1},{"name",scene.name},{"seed",scene.seed},
         {"count",scene.count?nlohmann::json(*scene.count):nlohmann::json("capacity")},
         {"minimum",scene.minimum},{"maximum",scene.maximum},{"materials",scene.materials}};
+    if(scene.obstacle.radius>0)json["sphere"]={{"centre",scene.obstacle.centre},{"radius",scene.obstacle.radius}};
     const auto text=json.dump(2);parseScene(text);return text;
 }
 ScenePreset loadScene(const std::filesystem::path& path) {

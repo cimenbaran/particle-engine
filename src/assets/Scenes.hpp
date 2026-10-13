@@ -1,10 +1,12 @@
 #pragma once
 #include "Materials.hpp"
 #include "core/ParticleTypes.hpp"
+#include "core/AnalyticSphere.hpp"
 #include <optional>
 namespace pw {
 struct ScenePreset {
     std::string name="Ballistic cloud";
+    AnalyticSphere obstacle{};
     std::uint32_t seed=42;
     std::optional<std::uint32_t> count; // absent means fill the selected capacity
     std::array<float,3> minimum{-6,1,-6},maximum{6,11,6};

@@ -118,3 +118,8 @@ Cell occupancy
 A second snapshot displays occupied cells, indexed solids, maximum occupancy and
 mean occupancy for the last position-solve input. Failed snapshots are shown as
 unavailable, not empty. See Cell_Occupancy.txt for timing, validation and limits.
+
+Sphere terrain
+The Sand over sphere preset enables the solver and shares its analytic obstacle
+with rendering and settling tracking. See Sphere_Terrain.txt for launch, schema,
+spawn restrictions and validation.

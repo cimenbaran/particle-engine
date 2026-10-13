@@ -8,7 +8,7 @@
 namespace pw {
 ResourceUsage& ResourceUsage::operator+=(const ResourceUsage& r) {
     state+=r.state;instances+=r.instances;lists+=r.lists;counters+=r.counters;indirect+=r.indirect;
-    materials+=r.materials;geometry+=r.geometry;diagnosticTextures+=r.diagnosticTextures;
+    materials+=r.materials;geometry+=r.geometry;terrainGeometry+=r.terrainGeometry;diagnosticTextures+=r.diagnosticTextures;
     diagnosticHost+=r.diagnosticHost;auditBuffers+=r.auditBuffers;seedUpload+=r.seedUpload;granular+=r.granular;return *this;
 }
 
@@ -44,7 +44,7 @@ nlohmann::json resourceReport(const ResourceUsage& u,const bgfx::Stats& s) {
     return {{"schema_version",1},{"requested_payload_bytes",{
         {"particle_state",u.state},{"granular_solver",u.granular},{"render_instances",u.instances},{"active_free_lists",u.lists},
         {"pool_visibility_counters",u.counters},{"indirect_arguments",u.indirect},{"material_table",u.materials},
-        {"billboard_geometry",u.geometry},{"diagnostic_textures",u.diagnosticTextures},{"audit_buffers",u.auditBuffers},
+        {"billboard_geometry",u.geometry},{"terrain_geometry",u.terrainGeometry},{"diagnostic_textures",u.diagnosticTextures},{"audit_buffers",u.auditBuffers},
         {"persistent_total",u.persistentPayload()},{"particle_buffers",u.particleBuffers()}}},
         {"host_diagnostic_payload_bytes",u.diagnosticHost},{"temporary_seed_upload_payload_bytes",u.seedUpload},
         {"renderer_estimates_bytes",{{"gpu_used",available(s.gpuMemoryUsed)},{"gpu_available",available(s.gpuMemoryMax)},
@@ -87,7 +87,7 @@ void drawResourceUsage(const ResourceUsage& u,const bgfx::Stats& s,ReportedMemor
         if(u.granular) row("Granular solver",u.granular);
         row("State ping-pong",u.state);row("Render + visible instances",u.instances);
         row("Active/free slot lists",u.lists);row("Pool/visibility counters",u.counters);
-        row("Indirect arguments",u.indirect);row("Materials + geometry",u.materials+u.geometry);
+        row("Indirect arguments",u.indirect);row("Materials + geometry",u.materials+u.geometry+u.terrainGeometry);
         row("Diagnostic textures",u.diagnosticTextures);if(u.auditBuffers) row("Audit buffers",u.auditBuffers);
         row("Persistent payload total",u.persistentPayload());row("Temporary seed upload",u.seedUpload);
         ImGui::EndTable();

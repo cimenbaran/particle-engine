@@ -1,0 +1,14 @@
+SPHERE SCENE AND RENDERER VALIDATION
+M3 Max 48 GiB, Metal, development worktree based on 7805354.
+Full GPU suites and 14/14 CTests pass at both 128 and 256 threads.
+Native UI: CLI sphere_drop.json capacity256, paused tick1412, 256 active and
+256 settling candidates, no displayed solver/tracking fault; visible sphere
+and grains on/around it. Scene menu includes Sand over sphere; Load preset
+resets tick to zero, displays the sphere and the initial particle cloud.
+Window closed cleanly (process exit0).
+UI observation preceded the final memory-report and full-vector UAV store edits.
+Windows run38325117568 failed at compile; the store fix needs fresh CI validation.
+out/sphere-scene-final128.log sha256=06df2c459a6c47ebc628e8fc565e36851d8f7ceb460e19f25a1d3d1016a05afe
+out/sphere-scene-final256.log sha256=40fb31cd3986885639e283f89003c60e268a896152981ba0e97324582ae070c8
+out/sphere-scene-final-ctest128.log sha256=c9498e9f73794fbd71fe35de4857ab88685783875957d5cce65f5f5dfa198f22
+out/sphere-scene-final-ctest256.log sha256=6249256d722621bfd507998a61e906f3f944b5650465ec09706ea9139fe8ba91
