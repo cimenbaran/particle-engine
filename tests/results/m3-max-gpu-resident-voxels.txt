@@ -1,0 +1,27 @@
+GPU RESIDENT VOXELS — MACOS / METAL
+
+Apple M3 Max, workgroup sizes 128 and 256:
+- Complete --gpu-test suite passed on both configurations.
+- Resident queries: 7 batches / 8,201 comparisons per configuration.
+- 300 contacts, 872 overlaps, 6,980 misses; remaining queries exercise invalid
+  inputs and resident-region exits.
+- Full 256-chunk basin snapshot allocation and chunk-seam geometry.
+- Atomic CPU edits, deletion/recreation, mixed material IDs 0 and 65535,
+  stale/foreign source and wrong-origin rejection.
+- Reused query owner across replacement snapshots and origin rebasing.
+- INT32_MIN/MAX chunk origins, empty terrain, zero-capacity query, malformed
+  input/alias/domain rejection and immutable input readback.
+- Exact adjacent-float resident exit regression.
+
+CPU reference endpoint-edge tangent correction:
+- Native CTest: 20/20 in both Metal build configurations.
+- Core CTest: 15/15.
+- Standalone UBSan swept-voxel test passed, including 4,096 distance-search
+  comparisons (621 hits), rotated endpoint tangency and adjacent-float misses.
+
+Local ignored logs: out/gpu-world-{test128,test256,ctest128,ctest256,core-tests,
+reference-ubsan}.log.
+
+These are geometry and snapshot correctness checks. They do not establish
+live voxel collision response, rendering publication, particle transactions,
+performance certification, or Windows support for this implementation.

@@ -1,0 +1,65 @@
+GPU RESIDENT VOXEL SNAPSHOTS AND SHORT SWEEPS
+
+GpuVoxelWorld uploads one immutable, chunk-major occupancy snapshot from a
+SparseVoxelStore. Up to 256 resident chunks cover the planned 32 x 16 x 32 m
+basin. CPU occupancy remains sparse; this initial GPU representation is dense:
+4 bytes per voxel plus 64 bytes of metadata, or 33,554,496 bytes for the basin.
+Snapshot construction also allocates a temporary CPU image and bgfx upload copy.
+Old and new snapshots coexist until their owners release them; bgfx defers GPU
+resource destruction. Incremental uploads and memory budgets remain future work.
+
+Integer chunk subtraction happens before conversion to origin-relative floats.
+The entire region must fit within +/-64 m of the supplied integer chunk origin.
+The header stores relative minimum voxel coordinates, chunk dimensions, counts,
+the exact 64-bit content revision and integer origin. Occupancy uses all material
+IDs 0..65535; UINT32_MAX means empty. Slot and local voxel order are x-fastest.
+The source store must outlive its snapshot, and construction/use is single-threaded.
+
+GpuVoxelWorldSweep requires the source store and shared origin on every submit.
+A source identity, world revision or origin mismatch rejects the submission before
+GPU work is queued. No-op edits keep a snapshot current; deletions, recreation and
+material changes require a fresh snapshot. Construction queues an upload before
+consumer dispatches. Its content stamp is not a CPU/GPU edit acknowledgement or
+permission to retire particles. There is no active particle transaction yet.
+
+Input has two vec4 lanes per query: start xyz/radius .0625 and end xyz/reserved 0.
+Coordinates are finite and bounded by +/-64 m; displacement may not exceed .125 m
+on any axis. This exceeds the current 12 m/s, 1/240 s granular substep displacement.
+Longer queries report invalid input rather than silently truncating traversal.
+The caller supplies at least capacity complete input records, up to 1,048,576.
+A zero-capacity owner dispatches nothing but still validates host arguments.
+
+The shader enumerates every voxel whose closed box intersects the swept sphere's
+axis-aligned bounds, then runs the rounded face/edge/corner sweep only on occupied
+voxels. At most four candidates per axis are needed, including both sides of exact
+grid planes. No candidate cap discards contacts. Earliest time wins; at an exact
+t=0 tie overlap outranks touching, then the lowest chunk-major address wins.
+All occupied materials are treated as solid geometry at this stage.
+
+Output is three vec4 lanes:
+  normal xyz / normalized time
+  centre xyz / kind encoded as uint bits
+  material / chunk-major voxel address / revision low / revision high (uint bits)
+Kinds: 0 miss, 1 contact, 2 initial overlap, 3 invalid input/numerics,
+4 swept sphere footprint leaves the resident region. Invalid results have finite
+zero geometry and time 1; misses and outside results retain the endpoint with
+zero normal and time 1. Non-contact material/address are UINT32_MAX. Every result
+carries the snapshot revision. Outside is explicit, not an empty-space answer;
+the live response must implement the world boundary policy before integration.
+
+Bounds compare particle centres to the resident box inset by the radius. Expanding
+a just-outside centre can round onto a boundary and hide an exit; adjacent-float
+regressions cover that case. Query submit allocates nothing and does no readback.
+The output payload is 48 * max(1, capacity) bytes. Input and occupancy bind read-only.
+
+Tests compare GPU results to exhaustive independent CPU sweeps over all occupied
+voxels, without using the GPU broad phase. They cover the full basin layout,
+negative and positive chunk seams, exact tangency, mixed materials including 0
+and 65535, empty regions, deletion/recreation, stale/foreign snapshot rejection,
+origin rebasing, INT32_MIN/MAX chunk coordinates, immutable input and malformed
+queries. CPU reference tests also cover an exact endpoint edge tangent discovered
+by the seam test. Geometry tolerances remain time/centre 2e-5, normal 5e-4.
+
+This component is not enabled in live scenes yet. Particle collision response,
+consistent rendering publication, origin changes at tick boundaries, destruction,
+deposition and mass-accounted acknowledgements remain required before world editing.

@@ -27,5 +27,10 @@ does not reuse plane intervals or analytic quadratic roots. New tests also
 validate the reported boundary point and unit normal. Core CTest15/15, native
 CTest20/20 and the standalone undefined-behavior sanitizer pass on macOS.
 Logs: out/swept-voxel-{build,tests,native-build,native-tests,ubsan}.log.
-This is a geometric oracle. Resident occupancy traversal, GPU collision,
-multiple-contact response and live terrain integration remain open.
+The resident seam tests found an exact endpoint edge tangent missed when a
+rounded hypot was squared through (distance-radius)*(distance+radius). The root
+numerator now accumulates squared separation directly with fma; rotated exact
+tangents and adjacent-float misses are regression tests.
+This is a geometric oracle. GPU resident queries now use it for comparison; see
+GPU_Resident_Voxels.txt. Multiple-contact response and live terrain integration
+remain open.

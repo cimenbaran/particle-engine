@@ -84,7 +84,12 @@ inline VoxelSweepResult sweepVoxelSphere(VoxelVector start,VoxelVector end,Voxel
         const double closest=std::hypot(nearest[0],nearest[1],nearest[2]);
         if(closest>radius)continue;
         const double discriminant=a*(radius-closest)*(radius+closest);
-        const double root=(distance-radius)*(distance+radius)/(-b+std::sqrt(discriminant));
+        // Form squared separation directly; squaring a rounded hypot via
+        // (distance-radius)*(distance+radius) can push an exact endpoint
+        // tangent beyond t=1. Keep the independently computed closest distance.
+        double separation=-radius*radius;
+        for(double component:q)separation=std::fma(component,component,separation);
+        const double root=separation/(-b+std::sqrt(discriminant));
         if(root>=0 && root<=duration) {
             const double time=std::min(1.0,left+root);
             // Subtracting distant endpoints may round away an ULP of the

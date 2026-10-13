@@ -20,8 +20,10 @@ revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 covers faces, rounded edges/corners and closed-segment endpoints against an
 independent distance-search oracle; see ../docs/Swept_Voxel_Reference.txt.
 An independent GPU single-voxel query now compares against that CPU reference;
-see ../docs/GPU_Voxel_Sweep.txt. Occupancy traversal and live response are not
-connected. This has no live renderer or resident-world GPU voxel collision,
+see ../docs/GPU_Voxel_Sweep.txt. Immutable resident GPU occupancy snapshots now
+feed short swept queries over all candidate occupied voxels, with stale-source
+and shared-origin rejection; see ../docs/GPU_Resident_Voxels.txt. These queries
+are not connected to live particle response or rendering. This has no live renderer,
 thermal state, save files or CPU/GPU origin publication yet. All runtime and
 transaction gates below remain open. Development currently prioritizes macOS.
 

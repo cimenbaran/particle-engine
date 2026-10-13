@@ -28,6 +28,14 @@ int main() {
     CHECK(!sweepVoxelSphere({-1,std::nextafter(-r,-1.0),r},{1,std::nextafter(-r,-1.0),r},{}).hit);
     CHECK(sweepVoxelSphere({-1,r,r},{-r,r,r},{}).hit);
     CHECK(!sweepVoxelSphere({-1,r,r},{std::nextafter(-r,-1.0),r,r},{}).hit);
+    // Exact endpoint edge tangency found by the resident chunk-seam query.
+    for(unsigned rotation=0;rotation<3;++rotation) {
+        VoxelVector a{-.125,-r,r},b{0,-r,r};
+        std::rotate(a.begin(),a.begin()+rotation,a.end());std::rotate(b.begin(),b.begin()+rotation,b.end());
+        const auto endpoint=sweepVoxelSphere(a,b,{});
+        CHECK(endpoint.hit && endpoint.time==1 && !endpoint.initialOverlap);
+    }
+    CHECK(!sweepVoxelSphere({-.125,std::nextafter(-r,-1.0),r},{0,std::nextafter(-r,-1.0),r},{}).hit);
     auto touching=sweepVoxelSphere({-r,r,r},{-1,r,r},{});CHECK(touching.hit && !touching.initialOverlap && touching.time==0);
     auto inside=sweepVoxelSphere({r,r,r},{r,r,r},{});CHECK(inside.hit && inside.initialOverlap && inside.time==0 && inside.normal[0]==-1);
     CHECK(!sweepVoxelSphere({1,1,1},{1,1,1},{}).hit);

@@ -95,6 +95,8 @@ public:
         for(unsigned axis=0;axis<3;++axis){result[axis]=std::int32_t(std::int64_t(minimum_[axis])+index%dimensions_[axis]);index/=dimensions_[axis];}
         return result;
     }
+    Chunk minimum() const{return minimum_;}
+    std::array<std::uint32_t,3> dimensions() const{return dimensions_;}
     std::uint32_t chunkCount() const{return count_;}
     std::uint64_t voxelCount() const{return std::uint64_t(count_)*voxelsPerChunk;}
 private:
