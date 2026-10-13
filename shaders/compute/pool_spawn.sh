@@ -6,6 +6,8 @@ BUFFER_RW(b_counts, uint, 1);
 BUFFER_RO(b_free, uint, 2);
 #if PW_VOXEL_SPAWN
 BUFFER_RO(b_world,uvec4,4);
+uniform vec4 u_spawn_lattice_min;
+uniform vec4 u_spawn_lattice_size;
 #include "contact_math.sh"
 #include "voxel_world_contact.sh"
 #endif
@@ -32,6 +34,14 @@ void main() {
   vec3 random=vec3(random01(seed),random01(seed+1u),random01(seed+2u));
   vec3 position=mix(u_brushMin.xyz,u_brushMax.xyz,random);
 #if PW_VOXEL_SPAWN
+  if(u_spawn_lattice_min.w!=0.0) {
+    uint sites=floatBitsToUint(u_spawn_lattice_size.w);
+    if(request>=sites){rejectSpawn();return;}
+    uvec3 dimensions=uvec3(u_spawn_lattice_size.xyz);
+    uint index=(hash32(floatBitsToUint(u_pool.w))%sites+request)%sites;
+    uvec3 cell=uvec3(index%dimensions.x,(index/dimensions.x)%dimensions.y,index/(dimensions.x*dimensions.y));
+    position=(u_spawn_lattice_min.xyz+vec3(cell))*.125;
+  }
   vec3 centre,normal;float time;uint terrainMaterial,index;
   if(material>=uint(u_pool.z) || floatBitsToUint(b_materials[material*4u+3u]).y!=0u ||
      voxelWorldSweep(position,position,false,0xffffffffu,centre,normal,time,terrainMaterial,index)>1u) {

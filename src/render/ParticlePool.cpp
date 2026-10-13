@@ -16,16 +16,18 @@ ParticlePool::ParticlePool(const std::filesystem::path& assets,std::uint32_t cap
         pool_=bgfx::createUniform("u_pool",bgfx::UniformType::Vec4);
         min_=bgfx::createUniform("u_brushMin",bgfx::UniformType::Vec4);
         max_=bgfx::createUniform("u_brushMax",bgfx::UniformType::Vec4);
+        latticeMin_=bgfx::createUniform("u_spawn_lattice_min",bgfx::UniformType::Vec4);
+        latticeSize_=bgfx::createUniform("u_spawn_lattice_size",bgfx::UniformType::Vec4);
         value_=bgfx::createUniform("u_brushValue",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(counts_) || !bgfx::isValid(free_) || !bgfx::isValid(active_) ||
-           !bgfx::isValid(pool_) || !bgfx::isValid(min_) || !bgfx::isValid(max_) || !bgfx::isValid(value_))
+           !bgfx::isValid(latticeMin_) || !bgfx::isValid(latticeSize_) || !bgfx::isValid(pool_) || !bgfx::isValid(min_) || !bgfx::isValid(max_) || !bgfx::isValid(value_))
             throw std::runtime_error("GPU particle pool allocation failed");
     }catch(...) {release();throw;}
 }
 void ParticlePool::release() {
     for(auto h:{counts_,free_,active_}) if(bgfx::isValid(h)) bgfx::destroy(h);
     for(auto h:{clear_,classify_,spawn_,voxelSpawn_,brush_}) if(bgfx::isValid(h)) bgfx::destroy(h);
-    for(auto h:{pool_,min_,max_,value_}) if(bgfx::isValid(h)) bgfx::destroy(h);
+    for(auto h:{pool_,min_,max_,value_,latticeMin_,latticeSize_}) if(bgfx::isValid(h)) bgfx::destroy(h);
 }
 ParticlePool::~ParticlePool() {release();}
 void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,bool resetDiagnostics) {
@@ -39,7 +41,10 @@ void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle st
     bgfx::dispatch(view,classify_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius,const VoxelContactContext* terrain) {
+                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius,const VoxelContactContext* terrain,SpawnPlacement placement) {
+    if(placement!=SpawnPlacement::Random && placement!=SpawnPlacement::GranularLattice)throw std::invalid_argument("Invalid spawn placement");
+    if(placement==SpawnPlacement::GranularLattice && (!terrain || command.type!=CommandType::SpawnBrush))throw std::invalid_argument("Lattice placement requires terrain spawn");
+    const auto lattice=placement==SpawnPlacement::GranularLattice?spawnLattice(command.minimum,command.maximum):SpawnLattice{};
     if(terrain && (radius!=.0625f || !terrain->world.isCurrent(terrain->source,terrain->origin)))
         throw std::invalid_argument("Pool terrain requires current occupancy and common granular radius");
     if(terrain && (state.idx==terrain->world.buffer().idx || materials.idx==terrain->world.buffer().idx))
@@ -61,7 +66,12 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(command.type==CommandType::SpawnBrush) {
         bgfx::setBuffer(1,counts_,bgfx::Access::ReadWrite);bgfx::setBuffer(2,free_,bgfx::Access::Read);
         bgfx::setBuffer(3,materials,bgfx::Access::Read);
-        if(terrain)bgfx::setBuffer(4,terrain->world.buffer(),bgfx::Access::Read);
+        if(terrain) {
+            const float first[]{float(lattice.first[0]),float(lattice.first[1]),float(lattice.first[2]),placement==SpawnPlacement::GranularLattice?1.0f:0.0f};
+            const float size[]{float(lattice.dimensions[0]),float(lattice.dimensions[1]),float(lattice.dimensions[2]),std::bit_cast<float>(lattice.sites)};
+            bgfx::setUniform(latticeMin_,first);bgfx::setUniform(latticeSize_,size);
+            bgfx::setBuffer(4,terrain->world.buffer(),bgfx::Access::Read);
+        }
         bgfx::dispatch(view,terrain?voxelSpawn_:spawn_,pw::dispatchGroups(command.count));
     } else bgfx::dispatch(view,brush_,pw::dispatchGroups(capacity_));
 }

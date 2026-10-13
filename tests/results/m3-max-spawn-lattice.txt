@@ -1,0 +1,36 @@
+SPACED GRANULAR SPAWN VALIDATION
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Workgroup 128: complete --gpu-test exit 0; native CTest 22/22 pass.
+Workgroup 256: complete --gpu-test exit 0; native CTest 22/22 pass.
+
+Native spawn_placement checks run in Release (explicit checks, not assert):
+- Closed/point/empty bounds and exact lattice-site counts from exhaustive
+  integer-coordinate enumeration.
+- Seed permutations preserve the site set; every generated site is unique and
+  within its brush; all-pairs spacing is at least .125m.
+- Signed zero, positive/negative subnormal endpoints and neighboring floats.
+- Maximum [-64,64]^3 layout: 1025^3 = 1076890625 sites, without allocation of
+  that domain; checks the first 4096 requests and rejects request==site count.
+- 256 deterministic randomized brushes.
+- Nonfinite, reversed/out-of-domain bounds and malformed layouts reject.
+
+GPU pool capacities: 1,127,128,129,255,256,257,16384.
+Each capacity exercises 17-request partial and 257-request overfull lattice
+brushes in outer-basin coordinates. Accepted GPU positions must be a unique
+subset of the CPU sequence after independent voxel-distance validation. When
+capacity fits, the exact admissible set must be published. Every accepted pair
+is checked for squared distance >=.015625m^2. Count/rejection diagnostics and
+pool membership agree; an empty lattice rejects every request without allocation.
+Original random terrain/generic pool and complete physics regressions pass.
+
+Ignored local logs:
+  out/lattice-pool-gpu128.log
+  out/lattice-pool-gpu256.log
+  out/lattice-pool-ctest128.log
+  out/lattice-pool-ctest256.log
+
+Scope: within-command spacing. Existing particles and previous brush commands
+are not excluded yet, and the live basin still uses its fixed seed. No live
+interactive spawning, deposition or performance acceptance is claimed.

@@ -41,8 +41,9 @@ in the same suite. See ../tests/results/m3-max-voxel-pool.txt.
 
 Remaining integration
 The live basin still uses its fixed 256-particle seed. This allocation primitive
-checks terrain only; it does not prevent particle-particle spawn overlap, perform
-spaced brush placement, apply the basin speed cap, or connect the basin UI to a
-command queue. Those remain required before general interactive basin spawning.
+checks terrain; optional GranularLattice placement now provides within-command
+spacing (Granular_Spawn_Placement.txt). It does not prevent overlap with existing
+particles or previous commands, apply the basin speed cap, or connect the basin
+UI to a command queue. Those remain required before general interactive basin spawning.
 Existing ownership and physical terrain edits/deposition are separate systems;
 no mass-transfer transaction or persistence is claimed here.

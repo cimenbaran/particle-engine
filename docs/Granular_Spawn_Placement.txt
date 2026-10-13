@@ -1,0 +1,52 @@
+SPACED GRANULAR SPAWN PLACEMENT
+
+ParticlePool::apply now accepts SpawnPlacement::GranularLattice after its optional
+VoxelContactContext. The mode requires a terrain SpawnBrush and the common
+.0625m radius. Random placement remains the default for all existing callers.
+This stage generates distinct candidates within one command; it does not yet
+exclude particles already in the pool or candidates from previous commands.
+
+Closed brush bounds select global lattice sites at integer multiples of .125m.
+The first site is ceil(minimum*8); the last is floor(maximum*8), per axis. Bounds
+must be finite, ordered and within [-64,64], matching the voxel query domain.
+Host double arithmetic handles signed subnormal boundaries before Metal can
+flush them. Each axis has at most 1025 sites, so the site product fits uint32.
+Empty axes produce zero sites without division. No CPU particle state or GPU
+readback is used; the host computes only the command's small immutable layout.
+
+Sites use x-fast linear indexing. Hashing the low 32 bits of command.sequence
+selects a cyclic start; request i visits (start+i) modulo site count. Requests
+at or beyond site count reject instead of wrapping into duplicates. Exact binary
+.125m coordinates guarantee at least one diameter between distinct sites,
+including across signed zero and in outer basin coordinates. This layout has no
+jitter. Selecting a subset can leave a contiguous region of the lattice.
+
+The GPU applies occupancy/residency/material checks before reserving free ranks,
+then uses existing capacity and generation checks. Terrain-blocked sites are
+rejected; this stage does not search replacement sites to fulfill a requested
+count. Excess requests, blocked positions and capacity failures share existing
+saturating rejection diagnostics. Atomic slot allocation can change which
+admissible subset wins when capacity is insufficient; particle spacing still
+holds. Both spawn modes share the same physical mass and identity publication.
+
+Validation
+A native Release-active check covers closed/empty/point bounds, all-pairs spacing,
+seed permutations, negative coordinates, signed subnormals, exact-neighbor floats,
+maximum domain, invalid/malformed layouts and 256 randomized brushes. It does
+not depend on assert/NDEBUG. CPU lattice counts are checked against exhaustive
+integer-coordinate enumeration.
+GPU pool tests cover capacities 1,127,128,129,255,256,257,16384. Partial (17-request)
+and over-requested (257-request) brushes compare accepted coordinates with the
+CPU sequence and an independent double voxel-distance test. Full capacity must
+publish the exact admissible set; limited capacity must publish a unique subset.
+Every accepted pair is checked for >=.125m separation. An empty lattice rejects
+all requests without allocating a slot. Existing generic/random terrain pool,
+slot reuse, ownership and physics tests remain enabled.
+See ../tests/results/m3-max-spawn-lattice.txt for execution results.
+
+Remaining work
+Before enabling general live basin spawning, check candidates against the
+immutable active-particle snapshot, preserve exclusion between successive brush
+commands, and connect commands to basin pool ownership, rendering and settling.
+The current live basin seed remains unchanged. Deposition/terrain transactions
+and mass conversion remain separate unfinished work.

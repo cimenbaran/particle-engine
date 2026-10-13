@@ -13,6 +13,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <set>
 namespace pw {
 namespace {
 template<class T> struct Owned {
@@ -209,6 +210,39 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
         for(const auto& particle:particles)if(particle.identity[1]&1u)
             require(reference::voxelDistance({particle.positionRadius[0],particle.positionRadius[1],particle.positionRadius[2]},voxelLower)>=.0625,"Mixed brush spawned inside terrain");
         pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&mixedContext);pool.rebuild(0,state.value,true);check(0,0);
+        // Distinct lattice sites provide within-command particle spacing.
+        Command latticeSpawn=terrainSpawn;latticeSpawn.sequence=77;
+        for(unsigned requested:{17u,257u}) {
+        latticeSpawn.count=requested;
+        latticeSpawn.minimum={-11.49f,6.0f,-7.49f};latticeSpawn.maximum={-10.51f,6.25f,-6.51f};
+        const auto lattice=spawnLattice(latticeSpawn.minimum,latticeSpawn.maximum);
+        std::set<std::array<float,3>> admissible;
+        unsigned latticeRejected=0;
+        for(unsigned request=0;request<latticeSpawn.count;++request) {
+            const auto position=spawnLatticePosition(lattice,request,uint32_t(latticeSpawn.sequence));
+            if(position && reference::voxelDistance({(*position)[0],(*position)[1],(*position)[2]},voxelLower)>=.0625)admissible.insert(*position);
+            else ++latticeRejected;
+        }
+        const auto latticeAccepted=std::min(capacity,uint32_t(admissible.size()));
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice);
+        pool.rebuild(0,state.value);check(latticeAccepted,latticeSpawn.count-latticeAccepted);
+        std::set<std::array<float,3>> spawned;
+        for(const auto& particle:particles)if(particle.identity[1]&1u) {
+            const std::array<float,3> position{particle.positionRadius[0],particle.positionRadius[1],particle.positionRadius[2]};
+            require(admissible.contains(position) && spawned.insert(position).second,"Lattice GPU spawn repeated or escaped an admissible site");
+        }
+        if(capacity>=admissible.size())require(spawned==admissible,"Lattice GPU spawn lost valid sites");
+        for(auto i=spawned.begin();i!=spawned.end();++i)for(auto j=spawned.begin();j!=i;++j) {
+            double squared=0;for(unsigned axis=0;axis<3;++axis){double d=double((*i)[axis])-(*j)[axis];squared+=d*d;}
+            require(squared>=.015625,"Lattice brush created overlapping grains");
+        }
+        if(requested==257)require(latticeRejected>0,"Lattice fixture did not exercise candidate rejection");
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&mixedContext);pool.rebuild(0,state.value,true);check(0,0);
+        }
+        latticeSpawn.minimum={-10.49f,6.01f,-6.49f};latticeSpawn.maximum={-10.4f,6.1f,-6.4f};
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice);
+        pool.rebuild(0,state.value);check(0,latticeSpawn.count);
+        pool.rebuild(0,state.value,true);check(0,0);
         if(capacity==1) {
             // Exhausted generations must never wrap to a previously valid handle.
             particles[0].identity[3]=0xffffffffu;
