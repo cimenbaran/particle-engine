@@ -1,0 +1,45 @@
+SETTLED-GRAIN DEPOSITION REFERENCE — macOS preparation
+
+planDeposits is a bounded, read-only CPU reference for the future GPU claim pass.
+It accepts one immutable particle/history/terrain epoch and returns proposed
+one-voxel claims with two generation-qualified grain owners and explicit mass
+balances. It never edits occupancy, retires particles, advances a ledger, or
+reads the GPU. It is not connected to the live simulation.
+
+Input limits are 4096 particle slots, 256 materials and 512 output voxels per
+call (default quota 32). Eligible owners are live solid particles with common
+.0625 m radius and the exact density-derived encoded inverse mass. Their default
+settling history must match generation, have 30 quiet ticks, candidate=1 and no
+unsupported grace ticks. Current speed must be at most the .1 m/s hold limit.
+Other solid particles, including static or ineligible grains, remain blockers.
+Malformed live identity or solid numeric state rejects the reference input.
+
+Claims are considered in ascending stable-slot order. The first owner's current
+cell is the target, inside the zero-origin resident basin. The cell must be
+resident and empty, and sit on y=0 or above existing solid terrain. Claims do not
+use other proposals as support; later acknowledged ticks can grow another layer.
+The second owner has the same material and minimizes squared distance to the
+cell centre, with stable-slot tie breaking. Its centre must be within .1875 m on
+every axis. Previously rejected owners may become partners of a later target.
+
+Each pair must pass planGrainDeposit with the requested tolerance, capped at 5%.
+For this common-radius profile, two grains produce one voxel with approximately
+4.5% signed mass loss; one grain cannot fund a voxel within tolerance. Values use
+actual encoded inverse mass and are retained per claim/material. Different
+materials cannot cancel each other's errors. Strict tolerances can reject all
+pairs. This is quantized conversion, not exact mass conservation.
+
+No grain or voxel may be claimed twice. A proposed voxel must not strictly
+intersect any remaining solid sphere; exact tangency is allowed. Previously
+accepted owners are omitted because the eventual joint transaction would retire
+them together. A blocked nearest pair is skipped; the reference does not search
+all partner combinations. Other owners may propose a different valid target.
+Failed or quota-deferred claims leave all original data intact.
+
+Remaining integration
+GPU candidate generation/arbitration and clearance must be checked against this
+reference. Production must freeze the source epoch, stage candidate occupancy,
+validate terrain and particle acknowledgements, then publish occupancy before
+retiring exactly acknowledged generation-qualified owners. Failure must retain
+dynamic grains. Deposit mass ledgers, wake handling, thermal transfer and live
+controls remain open. CPU reference tests do not prove any of those GPU gates.

@@ -44,7 +44,10 @@ counters, finite lifetimes, alpha fading and reset/pause controls
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals
-are tracked per material. Deposition and whole-world mass inventory remain open. CPU exposed-face
+are tracked per material. A bounded read-only deposition reference now pairs settled grains into supported
+empty-voxel claims, validates per-material mass tolerance and remaining-grain
+clearance, and resolves owners deterministically (../docs/Terrain_Deposit_Reference.txt).
+GPU claims, acknowledged retirement and whole-world mass inventory remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 ../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now

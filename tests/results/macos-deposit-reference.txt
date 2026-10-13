@@ -1,0 +1,25 @@
+DEPOSITION CPU REFERENCE — macOS / AppleClang 21.0.0.21000099
+
+All 22 core tests and 27 native CTests pass. No GPU shader or live application
+path changes in this commit; the full Metal GPU suite was not repeated.
+
+Focused cases cover two-grain/one-voxel mass bounds, stricter tolerances, zero
+quota, stale generation and quiet history, unsupported grace, speed/radius/mass
+mismatch, mixed materials, blockers, exact tangency and the adjacent float inside,
+occupied targets, support requirements, signed cells, deterministic partner ties,
+quota limits, unique targets/owners, malformed state and unchanged source data.
+
+128 seeded randomized layouts produce 1899 accepted claims. Independent checks
+sum long-double source mass, compare voxel mass within 5%, test remaining-sphere
+clearance using clamped point-to-box distance, verify unique owners and targets,
+compare repeated plans, and confirm byte-identical particle input and unchanged
+settling history. A 64-pair fixture also checks bounded prefixes and mixed-material
+accounting without combining material errors.
+
+The first blocker fixture exposed a valid alternate target at the neighboring
+owner's cell. The test now explicitly checks that case, and places a blocker
+across both cells when testing complete rejection. No implementation relaxation
+was needed to pass that geometric case.
+
+This is a reference only: there are no GPU deposit claims, acknowledgement-gated
+particle retirements, deposit ledgers or live deposition controls yet.
