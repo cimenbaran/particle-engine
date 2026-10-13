@@ -1,0 +1,19 @@
+CONVEX SPHERE EVENT ELIGIBILITY CANDIDATE
+
+Development source based on live-normal view commit e6d1899.
+Apple M3 Max, Metal. Full GPU suites pass workgroups128 and256, including
+153 swept fixtures. All11 fixed stability scenes and15 CTests pass both sizes.
+The sweep tolerances are unchanged. New tests cover signed-axis near-grazing
+batches, sphere/wall/sphere returns and event-budget rollback. Suppression lasts
+only until the next wall response in the current constant-velocity sweep.
+
+Windows motivating failure: run38330433954 produced348 impacts instead of257
+in pure-sphere fixture53. Fresh Windows execution of this candidate is required.
+No cross-backend success, physical hardware certification or speedup is claimed.
+
+out/sphere-event-final128.log sha256=9cf129a3ec99f1623419658c06245d9aab9cb6c5a6f8ab23623d7ccdac9304b2
+out/sphere-event-stability128.json sha256=daddc61b4e6fc86589517c19a77063fb77043c611cb4780394d4b35e7e455b23
+out/sphere-event-ctest128.log sha256=79f3e1e356d7ee3bf2bc5e09bd389516e72f9da640094e2c1cf03af925dcad4e
+out/sphere-event-final256.log sha256=2282deb29229013220f176ad71fb21499c4ce6dc78897fb3dafc8b94bf3c90ee
+out/sphere-event-stability256.json sha256=13404064cae26130071cb2113d114c234f4adffe5ae702b4a86380468bd88d27
+out/sphere-event-ctest256.log sha256=d98cf884afecc0df330636a5b85375e7cba9cfb67af323d59c33963467856e0a

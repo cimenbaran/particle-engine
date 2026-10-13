@@ -126,3 +126,18 @@ candidate for the D3D11 WARP oblique-friction discrepancy recorded in
 The GPU sweep suite now has 129 fixtures. Forty-two added cases rotate a half-radius
 miss across signed axes and all eight octants, with friction 0.49, 0.5 and 0.57.
 Position and velocity tolerances are unchanged; the double CPU sweep is the oracle.
+
+Convex-sphere event eligibility
+WARP run38330433954 reports348 impacts in a257-ray pure-sphere fixture where
+the double oracle has exactly257. After sphere response the ray is outgoing
+from a fixed convex surface; another inward sphere contact is impossible until
+a wall response changes velocity. The sweep now suppresses repeat sphere tests
+until that wall response, avoiding spurious tangent re-entry from rounded
+distance estimates. New rotated near-grazing fixtures retain exact event-count
+checks and all original numerical tolerances. This candidate requires fresh
+Windows validation; see tests/results/ci-38330433954-sphere-reentry.txt.
+
+The event-eligibility suite has153 sweep fixtures: twelve signed-axis/near-grazing
+ray batches and twelve three-impact/budget fixtures augment the129-case suite.
+The three-impact fixtures ensure sphere -> wall -> sphere remains enabled across
+all signed axes; limiting the event budget to two must roll back the entire pass.

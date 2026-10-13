@@ -48,10 +48,11 @@ void main() {
       v=unit*((u_sweep.x/length)*0.9999995231628418);atomicAdd(b_status[1],1u);
     }
   }
-  float remaining=u_velocity.y;uint events=0u,planes=0u;
+  float remaining=u_velocity.y;uint events=0u,planes=0u;bool sphereEligible=true;
   LOOP while(remaining>0.0) {
     vec3 times=vec3(hitTime(p.x,v.x,lo.x,hi.x),hitTime(p.y,v.y,lo.y,hi.y),hitTime(p.z,v.z,lo.z,hi.z));
-    vec4 sphere=sphereImpact(p,v,u_sweep_sphere);
+    vec4 sphere=vec4(0.0,0.0,0.0,2.0);
+    if(sphereEligible)sphere=sphereImpact(p,v,u_sweep_sphere);
     // Division can round an endpoint root just beyond dt. A contained endpoint
     // independently proves an entry occurred; retain that collision at dt.
     if(sphere.w>remaining && sphere.w<2.0 && u_sweep_sphere.w>0.0 &&
@@ -67,11 +68,16 @@ void main() {
       vec3 tangent=v-normal*incoming;float speed=length(tangent),support=max(0.0,outgoing-incoming);
       float scale=speed>0.0?max(0.0,1.0-material.y*support/speed):0.0;
       v=normal*outgoing+tangent*scale;
-      // A two-micrometre outward guard prevents a rounded surface point from
-      // repeatedly re-entering this same convex collider at time zero.
+      // Keep the published contact point just outside the rounded surface.
+      // Event eligibility below separately excludes impossible repeat impacts.
       p=u_sweep_sphere.xyz+normal*(u_sweep_sphere.w+pose.w+sphereSkin);++planes;
+      // An outgoing straight ray cannot re-enter this fixed convex sphere.
+      // Only a subsequent wall response can turn it back. Re-testing a tangent
+      // ray here can invent another impact from rounded distance estimates.
+      sphereEligible=false;
       continue;
     }
+    sphereEligible=true;
     bool x=times.x==first,y=times.y==first,z=times.z==first;
     vec3 old=v;
     if(x) {p.x=old.x>0.0?hi.x:lo.x;v.x=reflected(old.x,material.z);++planes;}

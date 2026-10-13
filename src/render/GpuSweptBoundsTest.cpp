@@ -161,6 +161,17 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
         for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=obstacle.centre[a]-2*direction[a]+0.5f*miss[a];p[0].velocityInvMass[a]=10*direction[a];}
         check(p,0.2f,0,friction,1000,128,0,0,nullptr,obstacle);
     }
+    // Every ray hits only the convex sphere and then travels outward. Signed
+    // rotations and near-grazing offsets must not invent a second sphere event.
+    for(unsigned axis=0;axis<3;++axis)for(float sign:{-1.0f,1.0f})for(float dt:{0.2f,0.4f}) {
+        p=sphereFixture(129);
+        for(unsigned i=0;i<p.size();++i){
+            for(unsigned a=0;a<3;++a){p[i].positionRadius[a]=obstacle.centre[a];p[i].velocityInvMass[a]=0;}
+            p[i].positionRadius[axis]-=sign*2;p[i].velocityInvMass[axis]=sign*10;
+            p[i].positionRadius[(axis+1)%3]+=(float(i%33)-16)*0.062f;
+        }
+        check(p,dt,0,0,1000,128,0,0,nullptr,obstacle);
+    }
     p=sphereFixture(1);check(p,0.1f,0.5f,0,1000,128,0,0,nullptr,obstacle);
     p[0].positionRadius[1]=9;check(p,0.4f,1,1,1000,128,0,0,nullptr,obstacle); // grazing
     p[0].positionRadius[1]=9.01f;check(p,0.4f,1,1,1000,128,0,0,nullptr,obstacle); // miss
@@ -173,6 +184,16 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     check(p,1,1,0,1000,1,4,0,nullptr,obstacle);
     p[0].positionRadius[0]=-7;p[0].velocityInvMass[0]=-10;
     twoHits={{{-3.125,8,0},{-10,0,0}},2,2};check(p,1,1,0,1000,128,0,0,nullptr,obstacle,&twoHits);
+    // Sphere -> wall -> sphere must re-enable the sphere after the wall, with
+    // path length 3 + 6.9375 + 6.9375 and 3.125 m remaining travel.
+    for(unsigned axis=0;axis<3;++axis)for(float sign:{-1.0f,1.0f}) {
+        p=sphereFixture(1);reference::SweepResult threeHits{};threeHits.events=threeHits.planes=3;
+        for(unsigned a=0;a<3;++a){p[0].positionRadius[a]=obstacle.centre[a];p[0].velocityInvMass[a]=0;threeHits.state.position[a]=obstacle.centre[a];}
+        p[0].positionRadius[axis]-=sign*4;p[0].velocityInvMass[axis]=sign*20;
+        threeHits.state.position[axis]-=sign*4.125;threeHits.state.velocity[axis]=-sign*20;
+        check(p,1,1,0,1000,128,0,0,nullptr,obstacle,&threeHits);
+        check(p,1,1,0,1000,2,4,0,nullptr,obstacle);
+    }
     p=sphereFixture(129);p[7].positionRadius[0]=0;check(p,0.2f,0,0,1000,128,2,0,&reused,obstacle);
     check(sphereFixture(129),0.2f,0,0,1000,128,0,0,&reused,obstacle);
     check(fixture(129),0.1f,0,0,1000,128,0,0,&reused); // disabled obstacle after reuse

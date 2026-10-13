@@ -12,8 +12,8 @@ hits and compile-step durations across subsequent runs before claiming a
 speedup; the initial run may have no reusable entries.
 
 The cache integration passed actionlint 1.7.12 (shellcheck and pyflakes disabled)
-and git diff --check locally. Hosted cold/warm cache behavior remains to be
-verified after this workflow is pushed. A passing cached build does not replace
+and git diff --check locally. Hosted Windows cache reuse is confirmed below; controlled cold/warm build-time
+comparisons remain open. A passing cached build does not replace
 Metal or D3D11 hardware validation.
 
 macOS uses direct compilation. Run 38329721926 with caching enabled failed in
@@ -26,3 +26,10 @@ compiler language flags are changed to work around it.
 Upstream setup and cache documentation:
 https://github.com/Mozilla-Actions/sccache-action/tree/v0.0.11
 https://github.com/mozilla/sccache/blob/v0.16.0/docs/GHA.md
+
+Observed hosted cache reuse
+Windows run38330433954 reports GitHub cache hits in both workgroup jobs (70.70%
+of cacheable calls for128; 50.50% for256). Compiler, CPU and shader steps pass.
+The runtime sphere gate still fails independently. These hit rates establish
+cache reuse, not a controlled build-time speedup. See
+tests/results/ci-38330433954-sphere-reentry.txt for logs and source identity.

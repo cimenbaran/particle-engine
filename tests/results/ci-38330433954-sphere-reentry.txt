@@ -1,0 +1,33 @@
+WARP SPHERE RE-ENTRY DIAGNOSTIC
+
+Source c3508254147c2391999088d232e8c2a3ffc586a8, run38330433954.
+Both Windows workgroup128 and256 builds and CPU suites passed; both GPU suites
+failed at swept fixture53, slot0, axis0, dt0.20000000298023224, e0, mu0.
+Input p=(-2,7.199999809265137,0), v=(10,0,0).
+GPU p=(-0.21637549996376038,6.912074565887451,0),
+v=(6.398344993591309,-4.802208423614502,0).
+CPU p=(-0.21599970626832715,6.911999970436186,0),
+v=(6.400003051758176,-4.799999109902813,0).
+
+The 257 rays in this fixture each hit the sphere once, without reaching walls.
+GPU counters report348 impacts and348 incident normals: 91 extra impacts.
+This supports false re-entry after the outgoing response as the next fix target.
+It does not identify every repeated slot or prove all sphere discrepancies fixed.
+
+Candidate: after a sphere response, skip that same convex sphere until an
+enclosing-wall response changes the trajectory. No forces occur inside this
+constant-velocity sweep. Existing sphere-to-wall and wall-to-sphere fixtures
+remain required; CPU comparison tolerances and event-budget handling are unchanged.
+New signed-axis/near-grazing fixtures require exact aggregate event counts.
+Fresh WARP execution remains required.
+
+out/ci-38330433954-wg128.log sha256=eb705f7eb76d01f27d199d1c512f04d1b127b75700a18b400277f78523adf63b
+2026-10-13T01:15:47.5606805Z Cache hits                          637
+2026-10-13T01:15:47.5608513Z Cache misses                        264
+2026-10-13T01:15:47.5800041Z Cache hits                          637
+2026-10-13T01:15:47.5803082Z Cache misses                        264
+out/ci-38330433954-wg256.log sha256=85332e8e8501294f1fee9ecd990a4c32fb75f69dfd0b50543c86c23a4becf39c
+2026-10-13T01:15:46.1606504Z Cache hits                          455
+2026-10-13T01:15:46.1607645Z Cache misses                        446
+2026-10-13T01:15:46.1786707Z Cache hits                          455
+2026-10-13T01:15:46.1788857Z Cache misses                        446
