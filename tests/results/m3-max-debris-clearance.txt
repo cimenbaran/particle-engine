@@ -1,0 +1,31 @@
+PRIVATE DEBRIS CLEARANCE — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+PW_WORKGROUP_SIZE=128 and 256: full --gpu-test suite passes.
+Both profiles: all 23 native CTest tests pass.
+Default installed workgroup restored to 128.
+
+59 debris-clearance batches / 6,332 queries per profile:
+- capacities 0,1,127,128,129,255,256,257,4096;
+- maximum 4,096-seed batch and uncapped 4,095-neighbor query;
+- all-pairs CPU oracle for random new/existing solids;
+- new-new and new-existing tangency, neighboring inward/outward floats;
+- analytically classified signed subnormal offsets on either endpoint;
+- static solids block; dead and nonsolid slots do not;
+- global invalid-radius rejection, failed reservation/activation propagation;
+- out-of-range, generation-mismatched and malformed claim injection;
+- voxel tangency/overlap, removal and residency rejection;
+- unsubmitted activation, mismatched capacity, invalid/aliased material buffers,
+  invalid material counts and stale/foreign/wrong-origin terrain rejected;
+- live and activated particle buffers unchanged byte-for-byte.
+
+The shared overlap helper also passes all existing spawn-clearance tests:
+60 cases / 37,042 queries per profile. Full regressions include debris activation,
+reservation, terrain publication, live basin command/physics paths, spatial
+primitives, solver, settling, rendering and shader reload.
+
+This is a private preparation gate. Joint terrain/particle publication,
+base-tick validation, committed mass accounting and live explosions remain open.
+No Windows or reference-performance acceptance is claimed.
+
+Ignored logs: out/debris-clearance-{gpu128,gpu256,ctest128,ctest256}.log.

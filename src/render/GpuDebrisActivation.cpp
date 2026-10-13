@@ -51,7 +51,7 @@ void GpuDebrisActivation::submit(std::uint16_t view,const GpuDebrisReservation& 
     if(submitted_)throw std::logic_error("Debris activation is single-use");
     if(!reservation.submitted())throw std::invalid_argument("Debris reservation has not been submitted");
     if(reservation.capacity()!=capacity_)throw std::invalid_argument("Debris reservation capacity mismatch");
-    submitted_=true;bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
+    sourceClaims_=reservation.claims();submitted_=true;bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     const float p[]{float(capacity_),float(count_),0,0};bgfx::setUniform(params_,p);
     bgfx::setBuffer(0,reservation.status(),bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(capacity_) {

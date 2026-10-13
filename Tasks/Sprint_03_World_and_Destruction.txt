@@ -19,8 +19,10 @@ See ../docs/GPU_Terrain_Publication.txt. GPU debris capacity reservation now
 prepares deterministic all-or-nothing claims in a private particle snapshot
 (../docs/GPU_Debris_Reservation.txt). Private debris activation now validates
 claims/generations and initializes whole batches without modifying live input
-(../docs/GPU_Debris_Activation.txt). Geometric clearance, base-tick validation and
-coordinated terrain/particle commit remain open. Pure mass plans now choose
+(../docs/GPU_Debris_Activation.txt). A private GPU clearance gate now checks new
+grains against candidate terrain, existing solids and other new grains
+(../docs/GPU_Debris_Clearance.txt). Base-tick validation and coordinated
+terrain/particle commit remain open. Pure mass plans now choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed mass ledgers and runtime
 conversion remain open. CPU exposed-face

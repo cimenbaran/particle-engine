@@ -1,0 +1,65 @@
+PRIVATE DEBRIS CLEARANCE — macOS / Metal
+
+GpuDebrisClearance is a read-only geometric gate for a private activated debris
+batch. It checks new grains against all indexed solids, including other new
+grains, and against the candidate terrain occupancy. Existing-existing overlap
+is left to the solver. A batch can proceed only when the aggregate error is zero.
+This gate neither adopts particle state nor commits terrain removal.
+
+Submission follows GpuDebrisActivation and the candidate occupancy upload in a
+sequential view or a later view. Across frames, prior work must have completed.
+The activation, its borrowed reservation claims, the material table and terrain
+must remain alive and unchanged until clearance completes. The coordinator must
+validate the material epoch and base tick. The CPU rejects unsubmitted or wrong-
+capacity activation, invalid/aliased material buffers, invalid material counts,
+and stale, foreign or differently based terrain before dispatch.
+
+Pipeline
+1. Build a fresh Basin spatial index of the activated state. Validate the common
+   .0625-metre radius globally for every indexed solid, not just nearby ones.
+2. Check activation success, counts, ascending claims and matching slot/generation
+   identities. An activation failure prevents claim reads even if requests exceed
+   capacity. Validate each new material remains solid.
+3. For each new grain, traverse all solids in its 27 neighboring .125-metre cells,
+   excluding only its own slot. There is no neighbor truncation. Static solids
+   also block placement; dead and nonsolid particles are excluded by the index.
+4. Reject strict sphere overlap; exact tangency is clear. The shared compensated
+   comparison lifts both endpoints before subtraction to retain signed subnormal
+   coordinates. Spatial cell selection also preserves their sign.
+5. Query the candidate voxel occupancy at each new position. Contact and miss are
+   clear; overlap, invalid queries and footprints outside residency reject.
+6. Reduce per-request errors and counts. No CPU readback or allocation occurs
+   during submit. Consumers can use the existing asynchronous 16-byte diagnostics.
+
+Aggregate words: error OR, requested count, clear count, rejected count.
+Error bits: 1 failed activation/count, 2 malformed claim/identity/material,
+4 spatial index or radius profile, 8 particle overlap, 16 terrain rejection.
+Errors may combine. Zero-request batches still validate activation/index status.
+Per-request records use three 16-byte lanes: pose, uint claim, and uint fields
+(error, visited other particles, hash probes, terrain query kind).
+Only rows below requested count are meaningful. Outputs may be reused by the
+next submission; inputs and live state are never modified.
+
+Limits
+Capacity is inherited from the existing spatial primitives (up to 1,048,576);
+activation accepts at most 4,096 seeds. This gate has at most six compute-buffer
+bindings per pass. Dense regions are fully traversed and may be expensive;
+performance acceptance is separate from correctness. Caller-owned material
+hashes and snapshot provenance cannot be proved by a raw GPU buffer handle.
+
+The transaction coordinator remains open: freeze or validate the base tick,
+verify per-material mass plans and stable materials, acknowledge preparation,
+and adopt terrain and particles together. Failed private outputs are discarded.
+Live terrain editing, explosions, deposition and committed mass ledgers are
+not enabled by this component.
+
+The GPU fixture runs 59 batches and 6,332 queries over capacities
+0,1,127,128,129,255,256,257,4096. It includes a 4,096-seed batch, a single query
+visiting 4,095 neighbors, CPU all-pairs comparisons, new-new and new-existing
+pairs, exact/inward/outward tangency, signed subnormals on both endpoints,
+static solids, ignored dead/nonsolid particles, invalid radius, failed activation,
+malformed claims, voxel tangency/overlap/removal and residency rejection.
+Readback confirms activated and live particle buffers remain byte-identical.
+Host fixtures reject stale/foreign/displaced occupancy, unsubmitted activation,
+capacity mismatch and invalid/aliased material inputs. The shared comparison
+also retains the existing 37,042 spawn-clearance query regressions.

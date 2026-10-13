@@ -17,7 +17,8 @@ The one-shot seed upload cannot be overwritten by another submission. A second
 submit throws; an unsubmitted reservation or mismatched capacity rejects before
 GPU work. After reservation execution, activation runs in the same sequential
 view or a later view; if crossing frames, the reservation must have completed.
-The caller keeps its reservation buffers immutable/alive through execution.
+The caller keeps its reservation buffers immutable/alive through activation and
+any subsequent clearance execution; the activation exposes borrowed claims.
 
 GPU stages:
 1. Validate successful reservation status, requested/reserved counts and capacity.
@@ -40,8 +41,9 @@ capacity have initialized output contents.
 
 Required remaining gates
 The initialized output remains private. Numeric seed validation and complete
-ownership do not prove geometric clearance. New particles still require current
-terrain clearance and checks against existing and other new particles. The
+ownership do not prove geometric clearance. GpuDebrisClearance now provides current
+terrain clearance and checks against existing and other new particles; see
+GPU_Debris_Clearance.txt. The
 transaction must also verify a healthy/current base tick, stable materials and
 per-material mass plans; acknowledge terrain/particle preparation; then adopt
 both states together at one tick boundary. Failed outputs may still contain
