@@ -56,5 +56,7 @@ Diagnostic workload v2
 Source ddd2640 adds the neighborhood/occupancy/contact-total readbacks without
 changing physics or lifecycle commands. Its 30-second Metal128 smoke run passed
 1931 ticks and 7 cycles; ballistic regression passed 599 ticks. See
-tests/results/m3-max-soak-diagnostic-rings.txt. The new ten-minute run is pending;
-earlier v1 soak evidence does not certify these additional readbacks.
+tests/results/m3-max-soak-diagnostic-rings.txt. The clean ddd2640 ten-minute Metal128 run passed 38935 ticks, 152 cycles and
+5022615 slot checks with all 1497 synchronized snapshots valid. See
+tests/results/m3-max-soak-all-diagnostics-600.txt. Windows v2 validation remains
+open; earlier v1 soak evidence does not certify the additional readbacks.

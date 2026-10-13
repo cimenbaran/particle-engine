@@ -1,0 +1,14 @@
+METAL GRANULAR SOAK WITH ALL DIAGNOSTIC RINGS
+
+Clean installed source: ddd26402c4e1855ae76fe1d8004a714bf0144195
+Apple M3 Max, Metal, workgroup128, capacity129.
+Passed 600.078078167 seconds, 38935 ticks, 152 lifecycle cycles,
+5022615 per-slot audit checks. All 1497 retained snapshots include
+synchronized neighborhood, occupancy and exact contact totals alongside solver,
+settling and ownership results. Full/empty/overflow/settling coverage passed.
+No diagnostic bounds, solver/tracker or ownership audit failures.
+Other development GPU fixtures ran concurrently; this is not a performance result.
+Does not certify later contact-normal work, sphere-scene soaks or D3D11.
+
+out/soak-diagnostics-600-metal128.json sha256=233acdcf482a62160fd1c96f8cc78d059d8853c2736feb2dba779df73f2ae07f
+out/soak-diagnostics-600-metal128.log sha256=e4b02b78358ec9d63746313ee4c61b352fab26c302319c302f95fedd287884cd
