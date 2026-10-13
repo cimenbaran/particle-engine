@@ -1,0 +1,39 @@
+GPU SPAWN CLEARANCE AND GUARDED POOL VALIDATION
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Workgroup 128: complete --gpu-test exit 0; native CTest 22/22 pass.
+Workgroup 256: complete --gpu-test exit 0; native CTest 22/22 pass.
+Each configuration runs 60 clearance cases / 37042 candidate queries.
+
+Query verification:
+- Exhaustive long-double CPU all-pairs comparison for ordinary positions.
+- Empty snapshots; capacities 1/127/128/129/255/256/257; 1024 coincident blockers
+  in one cell, with all 1024 visited (no silent neighbor truncation).
+- Six-axis exact and near tangencies, static blockers, dead/non-solid exclusion.
+- Analytically classified signed-subnormal inward/outward offsets around .125m.
+- Four seeded wide brushes and four seeded local brushes, 4096 requests each.
+- Entire snapshot invalidation for wrong radius (including NaN), bad identity,
+  or outside-grid state; valid subsequent submissions recover.
+- Half-open Basin bounds, empty lattice, and zero requests.
+- Every input record remains bytewise unchanged.
+
+Guarded allocation verification at capacities 1/127/128/129/255/256/257/16384:
+- Two identical 257-request guarded commands submitted in one sequential view
+  publish no duplicate sites; capacity/rejection counts match the admissible set.
+- Remove/refill reuses sites after rebuilding the particle index.
+- A wrong-radius active particle causes every new request to reject and leaves
+  the complete particle state bytewise unchanged.
+- Guarded pool partial shader reload is rejected.
+- Existing ownership, generation reuse/exhaustion, terrain checks, lattice
+  spacing, generic/random spawn, expiry, impulses and delayed diagnostics pass.
+
+Ignored local logs:
+  out/spawn-clearance-gpu128.log
+  out/spawn-clearance-gpu256.log
+  out/spawn-clearance-ctest128.log
+  out/spawn-clearance-ctest256.log
+
+Limits: the guarded backend is implemented, but live basin command/pool/render
+integration remains pending. The preview retains its fixed seed. No deposition,
+terrain mass transaction, granular hot reload or performance acceptance is claimed.

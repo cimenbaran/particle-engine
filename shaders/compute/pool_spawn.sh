@@ -6,10 +6,12 @@ BUFFER_RW(b_counts, uint, 1);
 BUFFER_RO(b_free, uint, 2);
 #if PW_VOXEL_SPAWN
 BUFFER_RO(b_world,uvec4,4);
-uniform vec4 u_spawn_lattice_min;
-uniform vec4 u_spawn_lattice_size;
+#include "spawn_lattice.sh"
 #include "contact_math.sh"
 #include "voxel_world_contact.sh"
+#endif
+#if PW_SPAWN_CLEARANCE
+BUFFER_RO(b_clearance,uvec4,5);
 #endif
 uniform vec4 u_pool; // capacity, requested count, material count, seed bits
 uniform vec4 u_brushMin; // xyz, material ID
@@ -29,18 +31,16 @@ NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint request=gl_GlobalInvocationID.x;
   if(request>=uint(u_pool.y)) return;
+#if PW_SPAWN_CLEARANCE
+  if(b_clearance[request].x!=0u){rejectSpawn();return;}
+#endif
   uint material=uint(u_brushMin.w);
   uint seed=floatBitsToUint(u_pool.w)^hash32(request);
   vec3 random=vec3(random01(seed),random01(seed+1u),random01(seed+2u));
   vec3 position=mix(u_brushMin.xyz,u_brushMax.xyz,random);
 #if PW_VOXEL_SPAWN
   if(u_spawn_lattice_min.w!=0.0) {
-    uint sites=floatBitsToUint(u_spawn_lattice_size.w);
-    if(request>=sites){rejectSpawn();return;}
-    uvec3 dimensions=uvec3(u_spawn_lattice_size.xyz);
-    uint index=(hash32(floatBitsToUint(u_pool.w))%sites+request)%sites;
-    uvec3 cell=uvec3(index%dimensions.x,(index/dimensions.x)%dimensions.y,index/(dimensions.x*dimensions.y));
-    position=(u_spawn_lattice_min.xyz+vec3(cell))*.125;
+    if(!spawnLatticePoint(request,floatBitsToUint(u_pool.w),position)){rejectSpawn();return;}
   }
   vec3 centre,normal;float time;uint terrainMaterial,index;
   if(material>=uint(u_pool.z) || floatBitsToUint(b_materials[material*4u+3u]).y!=0u ||

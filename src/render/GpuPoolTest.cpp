@@ -1,6 +1,7 @@
 #include "core/ComputeDispatch.hpp"
 #include "GpuPoolTest.hpp"
 #include "ParticlePool.hpp"
+#include "GpuSpawnClearance.hpp"
 #include "PoolDiagnostics.hpp"
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
@@ -243,6 +244,33 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
         pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice);
         pool.rebuild(0,state.value);check(0,latticeSpawn.count);
         pool.rebuild(0,state.value,true);check(0,0);
+        // Each guarded command builds its index before allocation. The next
+        // command must see the preceding publication, even in the same view.
+        GpuSpawnClearance clearance(assets,capacity);
+        latticeSpawn.minimum={-11.49f,6,-7.49f};latticeSpawn.maximum={-10.51f,6.25f,-6.51f};latticeSpawn.count=257;
+        unsigned available=0;const auto guardedLattice=spawnLattice(latticeSpawn.minimum,latticeSpawn.maximum);
+        for(unsigned request=0;request<latticeSpawn.count;++request){auto candidate=spawnLatticePosition(guardedLattice,request,uint32_t(latticeSpawn.sequence));if(candidate && reference::voxelDistance({(*candidate)[0],(*candidate)[1],(*candidate)[2]},voxelLower)>=.0625)++available;}
+        const unsigned guardedAccepted=std::min(capacity,available);
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice,&clearance);
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice,&clearance);
+        pool.rebuild(0,state.value);check(guardedAccepted,514-guardedAccepted);
+        std::set<std::array<float,3>> guardedSites;
+        for(const auto& particle:particles)if(particle.identity[1]&1u)require(guardedSites.insert({particle.positionRadius[0],particle.positionRadius[1],particle.positionRadius[2]}).second,"Guarded repeat brush created duplicate particles");
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&mixedContext);pool.rebuild(0,state.value,true);
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice,&clearance);
+        pool.rebuild(0,state.value);check(guardedAccepted,257-guardedAccepted);
+        // Invalid profile anywhere in the frozen snapshot must reject all new
+        // requests, rather than being interpreted as an empty neighborhood.
+        bool reloadRejected=false;try{ShaderReload reload(assets);pool.stageShaders(reload);}catch(const std::runtime_error&){reloadRejected=true;}
+        require(reloadRejected,"Guarded pool allowed partial shader reload");
+        const auto beforeGuardFailure=particles;
+        auto corrupt=particles;for(auto& particle:corrupt)if(particle.identity[1]&1u){particle.positionRadius[3]=.1f;break;}
+        bgfx::update(state.value,0,bgfx::copy(corrupt.data(),capacity*sizeof(ParticleGpu)));
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),latticeSpawn,.0625f,&mixedContext,SpawnPlacement::GranularLattice,&clearance);
+        pool.rebuild(0,state.value);check(guardedAccepted,514-guardedAccepted);
+        require(!std::memcmp(corrupt.data(),particles.data(),capacity*sizeof(ParticleGpu)),"Failed spawn clearance mutated the pool");
+        bgfx::update(state.value,0,bgfx::copy(beforeGuardFailure.data(),capacity*sizeof(ParticleGpu)));
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&mixedContext);pool.rebuild(0,state.value,true);check(0,0);
         if(capacity==1) {
             // Exhausted generations must never wrap to a previously valid handle.
             particles[0].identity[3]=0xffffffffu;

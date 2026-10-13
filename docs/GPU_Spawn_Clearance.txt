@@ -1,0 +1,65 @@
+GPU SPAWN CLEARANCE AND GUARDED ALLOCATION
+
+GpuSpawnClearance classifies up to 4096 lattice requests against an immutable
+physical particle snapshot. It builds Basin spatial keys, stable sorted ranges
+and an exact-key hash on each submission. Live solid particles block candidates,
+including static particles. Dead and non-solid slots are excluded. Every indexed
+solid must have radius .0625m; a separate global validation pass rejects a bad
+radius even when that particle lies outside every queried neighborhood.
+
+A request visits all particles in its 27 neighboring cells, without a candidate
+count cap. Duplicate/coincident particles still count as blockers. Strict sphere
+overlap rejects; exact tangency is admissible. Distances use scaled coordinates,
+compensated subtraction/products and the exact squared diameter to preserve
+near-contact decisions, including signed subnormal positions around zero.
+Scaling by 2^64 keeps the relevant subnormal terms normal; bounded neighborhood
+differences keep squared products finite. No velocities or masses are changed.
+
+The shared spawn_lattice.sh supplies precisely the same candidate positions to
+the overlap query and allocation shaders. One uvec4 per request reports:
+  0: code (0 clear, 1 overlap, 2 invalid index/profile, 3 outside Basin grid,
+     4 no lattice site for this request)
+  1: visited particle count
+  2: hash probes
+  3: reserved
+Only the submitted request count is initialized. A failed index is never treated
+as empty space. Output remains valid until the next submission. Inputs and their
+buffers must remain immutable/alive through the query dispatch.
+
+ParticlePool::apply accepts an optional GpuSpawnClearance pointer after placement.
+It requires matching pool capacity, a current terrain context and lattice mode.
+The query runs first in the same sequential view, followed by pool rebuild and
+allocation. The clearance-aware spawn shader rejects every nonzero result before
+free-rank reservation, then performs existing terrain/material and generation
+checks. No CPU readback or per-submit allocation is involved. Query and guarded
+allocation use at most six compute bindings.
+
+One lattice command has unique sites; a following command rebuilds its index
+from the previous command's published particles, including when both commands
+share a view/frame. Removal is likewise visible to the next command. This orders
+allocation and exclusion without racing particle reads against slot publication.
+All rejected candidates count in the existing saturating rejection diagnostic.
+Snapshot/profile/index-construction faults reject the entire command and leave
+particle bytes intact. A traversal error rejects its affected candidate; query
+codes distinguish errors from ordinary blocked candidates.
+
+Shader reload remains disabled after a pool uses guarded spawning: reloading only
+pool programs could change placement without replacing the query/index pipeline
+atomically. Existing unguarded pool reload behavior remains available. The helper
+has no hot-reload API; live granular reload already remains unfinished work.
+
+Verification
+GPU queries are compared with exhaustive CPU all-pairs geometry, covering empty,
+static, excluded, dense 1024-particle cells, signed boundaries, exact tangencies,
+nearby representable values and analytic signed-subnormal cases. Wide and local
+randomized brushes exercise 4096 requests. Invalid radius/NaN/identity/domain
+snapshots reject globally, and later valid submissions recover. Inputs are
+compared byte-for-byte. Pool tests use all eight existing capacities to check
+repeated brushes, remove/refill, failure immutability and reload rejection.
+See ../tests/results/m3-max-spawn-clearance.txt for execution evidence.
+
+Remaining integration
+The live basin still uses its fixed 256-particle seed. Connecting its command
+queue, active pool, visibility/rendering, impulses and settling remains next.
+These guards allocate active particles only; they are not terrain destruction,
+deposition or a mass-transfer transaction. No performance acceptance is claimed.

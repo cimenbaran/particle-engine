@@ -1,5 +1,6 @@
 #include "core/ComputeDispatch.hpp"
 #include "ParticlePool.hpp"
+#include "GpuSpawnClearance.hpp"
 #include "Shaders.hpp"
 #include <bit>
 #include <stdexcept>
@@ -12,7 +13,7 @@ ParticlePool::ParticlePool(const std::filesystem::path& assets,std::uint32_t cap
         free_=bgfx::createDynamicIndexBuffer(capacity,flags);
         active_=bgfx::createDynamicIndexBuffer(capacity,flags);
         clear_=loadCompute(assets,"cs_pool_clear"); classify_=loadCompute(assets,"cs_pool_classify");
-        spawn_=loadCompute(assets,"cs_pool_spawn");voxelSpawn_=loadCompute(assets,"cs_pool_spawn_voxel"); brush_=loadCompute(assets,"cs_pool_brush");
+        spawn_=loadCompute(assets,"cs_pool_spawn");voxelSpawn_=loadCompute(assets,"cs_pool_spawn_voxel");clearSpawn_=loadCompute(assets,"cs_pool_spawn_clear"); brush_=loadCompute(assets,"cs_pool_brush");
         pool_=bgfx::createUniform("u_pool",bgfx::UniformType::Vec4);
         min_=bgfx::createUniform("u_brushMin",bgfx::UniformType::Vec4);
         max_=bgfx::createUniform("u_brushMax",bgfx::UniformType::Vec4);
@@ -26,7 +27,7 @@ ParticlePool::ParticlePool(const std::filesystem::path& assets,std::uint32_t cap
 }
 void ParticlePool::release() {
     for(auto h:{counts_,free_,active_}) if(bgfx::isValid(h)) bgfx::destroy(h);
-    for(auto h:{clear_,classify_,spawn_,voxelSpawn_,brush_}) if(bgfx::isValid(h)) bgfx::destroy(h);
+    for(auto h:{clear_,classify_,spawn_,voxelSpawn_,clearSpawn_,brush_}) if(bgfx::isValid(h)) bgfx::destroy(h);
     for(auto h:{pool_,min_,max_,value_,latticeMin_,latticeSize_}) if(bgfx::isValid(h)) bgfx::destroy(h);
 }
 ParticlePool::~ParticlePool() {release();}
@@ -41,7 +42,9 @@ void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle st
     bgfx::dispatch(view,classify_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius,const VoxelContactContext* terrain,SpawnPlacement placement) {
+                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius,const VoxelContactContext* terrain,SpawnPlacement placement,GpuSpawnClearance* clearance) {
+    if(clearance && (clearance->capacity()!=capacity_ || !terrain || placement!=SpawnPlacement::GranularLattice || command.type!=CommandType::SpawnBrush))
+        throw std::invalid_argument("Spawn clearance requires matching capacity and a terrain lattice brush");
     if(placement!=SpawnPlacement::Random && placement!=SpawnPlacement::GranularLattice)throw std::invalid_argument("Invalid spawn placement");
     if(placement==SpawnPlacement::GranularLattice && (!terrain || command.type!=CommandType::SpawnBrush))throw std::invalid_argument("Lattice placement requires terrain spawn");
     const auto lattice=placement==SpawnPlacement::GranularLattice?spawnLattice(command.minimum,command.maximum):SpawnLattice{};
@@ -55,6 +58,7 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(command.type!=CommandType::SpawnBrush && command.type!=CommandType::ApplyImpulse && command.type!=CommandType::RemoveBrush)
         throw std::runtime_error("Unsupported pool command");
     if(command.type==CommandType::SpawnBrush && command.count==0) return;
+    if(clearance){clearance->submit(view,state,materials,materialCount,command);guardedSpawns_=true;}
     if(command.type==CommandType::SpawnBrush) rebuild(view,state);
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     const float minimum[]{command.minimum[0],command.minimum[1],command.minimum[2],float(command.material)};
@@ -72,14 +76,17 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
             bgfx::setUniform(latticeMin_,first);bgfx::setUniform(latticeSize_,size);
             bgfx::setBuffer(4,terrain->world.buffer(),bgfx::Access::Read);
         }
-        bgfx::dispatch(view,terrain?voxelSpawn_:spawn_,pw::dispatchGroups(command.count));
+        if(clearance)bgfx::setBuffer(5,clearance->output(),bgfx::Access::Read);
+        bgfx::dispatch(view,clearance?clearSpawn_:terrain?voxelSpawn_:spawn_,pw::dispatchGroups(command.count));
     } else bgfx::dispatch(view,brush_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::stageShaders(ShaderReload& reload) {
+    if(guardedSpawns_)throw std::runtime_error("Guarded granular spawn shader reload is not supported");
     reload.compute(clear_,"cs_pool_clear");
     reload.compute(classify_,"cs_pool_classify");
     reload.compute(spawn_,"cs_pool_spawn");
     reload.compute(voxelSpawn_,"cs_pool_spawn_voxel");
+    reload.compute(clearSpawn_,"cs_pool_spawn_clear");
     reload.compute(brush_,"cs_pool_brush");
 }
 }

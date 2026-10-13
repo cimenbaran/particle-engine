@@ -3,8 +3,9 @@ SPACED GRANULAR SPAWN PLACEMENT
 ParticlePool::apply now accepts SpawnPlacement::GranularLattice after its optional
 VoxelContactContext. The mode requires a terrain SpawnBrush and the common
 .0625m radius. Random placement remains the default for all existing callers.
-This stage generates distinct candidates within one command; it does not yet
-exclude particles already in the pool or candidates from previous commands.
+This stage generates distinct candidates within one command. Optional
+GpuSpawnClearance now excludes particles already in the pool and candidates from
+previous commands; see GPU_Spawn_Clearance.txt.
 
 Closed brush bounds select global lattice sites at integer multiples of .125m.
 The first site is ceil(minimum*8); the last is floor(maximum*8), per axis. Bounds
@@ -45,8 +46,8 @@ slot reuse, ownership and physics tests remain enabled.
 See ../tests/results/m3-max-spawn-lattice.txt for execution results.
 
 Remaining work
-Before enabling general live basin spawning, check candidates against the
-immutable active-particle snapshot, preserve exclusion between successive brush
-commands, and connect commands to basin pool ownership, rendering and settling.
+Optional clearance now checks the immutable active-particle snapshot and
+preserves exclusion between successive commands. General live basin spawning
+still needs command/pool ownership, rendering and settling integration.
 The current live basin seed remains unchanged. Deposition/terrain transactions
 and mass conversion remain separate unfinished work.
