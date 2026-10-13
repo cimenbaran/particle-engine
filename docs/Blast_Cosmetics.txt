@@ -1,0 +1,30 @@
+BOUNDED BLAST COSMETIC EVENTS — macOS preparation
+
+StagedExplosion exposes takeCosmeticEvent after its first published physical
+change: a nonzero existing-grain impulse or an accepted terrain batch. It returns
+one centre/radius/sequence descriptor per command. Taking it again or committing
+later terrain batches cannot emit another event. Preparation, rejection and zero
+energy do not emit. Cancellation retains an unconsumed event for effects already
+published; destroying the command discards it. No visual allocation is required
+for a physical publication to succeed.
+
+planBlastCosmetics creates bounded visual-only seeds from that event. Defaults
+are 48 dust and 16 sparks; hard limits are independently 128 and 64. Dust has
+0.5..2 m/s initial speed, .055 m radius and .8..2 s lifetime. Sparks have 3..8 m/s
+initial speed, .018 m radius and .2...8 s lifetime. Directions cover the upper
+hemisphere; centres start within half the blast radius. These visual seeds may
+extend outside the basin or intersect terrain. They do not represent physical
+matter and never authorize terrain removal, heat, mass or energy changes.
+
+Each visual family has an independent SplitMix64 stream keyed by command sequence.
+Changing one quota cannot change the other's seed sequence. Integer random bits
+are portable; final trigonometric floating-point results are reproducible on the
+same host/library, not promised bit-identical across platforms. Planning has no
+physical pool handles and cannot consume physical capacity. Lifetime is always
+finite. Invalid centres, radius and quotas reject before creating output.
+
+This is an event and seed-planning API only. The terrain preview does not yet
+consume it, and there are no new visible dust/spark effects yet. GPU allocation,
+per-family pool overflow counters, lifetime evolution, drawing and reset wiring
+remain required before the cosmetic blast feature is complete. The earlier
+ballistic cosmetic demo remains independent of this terrain blast path.

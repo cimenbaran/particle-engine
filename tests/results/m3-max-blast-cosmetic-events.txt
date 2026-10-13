@@ -1,0 +1,23 @@
+BLAST COSMETIC EVENT / SEED PLANNING — APPLE M3 MAX / METAL
+
+Default workgroup 128; AppleClang 21.0.0.21000099.
+26 native CTests, 21 CPU-only core tests and the complete --gpu-test suite pass.
+No shader changes; workgroup 256 was not repeated for this host-side layer.
+
+The CPU test inspects 6144 seeds across four command sequences (including
+UINT64_MAX), four radii and two basin-edge centres. It checks finite values,
+position/speed/lifetime bounds, family tags, repeatability, independently stable
+family streams, zero quotas, quota overflow, nonfinite and out-of-domain inputs.
+
+Eleven real Metal staged-blast scenarios now include one-shot visual-event
+checks: no event before acknowledgement, after capacity/health rejection, after
+cancelled preparation, or for zero energy. First terrain/impulse publication
+produces exactly one matching descriptor. Later terrain batches do not repeat
+it. Cancellation retains an unconsumed event for an already accepted impulse.
+An empty-pool impulse publishes no effect and no event; subsequent effective
+terrain publication produces the event exactly once.
+
+This validates events and bounded CPU seeds only. No terrain-preview cosmetic
+GPU allocation, overflow counters, lifetime simulation or drawing exists yet.
+Existing ballistic-demo physical/cosmetic isolation regressions still pass,
+but they do not prove isolation of the pending terrain cosmetic implementation.

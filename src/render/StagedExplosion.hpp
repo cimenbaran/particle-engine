@@ -2,6 +2,8 @@
 #include "PendingDebrisTransaction.hpp"
 #include "PendingBlastImpulse.hpp"
 #include "core/TerrainExplosion.hpp"
+#include "core/BlastCosmetics.hpp"
+#include <optional>
 namespace pw {
 // Simulation-thread coordinator. Call pump at a frame/tick boundary before
 // physics or rendering. Publication and energy charging happen together here.
@@ -16,6 +18,13 @@ public:
     bool pump(std::uint32_t completedFrame,VoxelProbes& particles,VoxelPublicationPtr& terrain,
               std::uint16_t prepareView=8,std::uint16_t commitView=0);
     void cancel();
+    // One visual event after the first physical effect is published. Pending or
+    // rejected operations never emit. Consumption cannot mutate physical state.
+    std::optional<BlastCosmeticEvent> takeCosmeticEvent() {
+        if(!cosmeticPending_)return std::nullopt;
+        cosmeticPending_=false;
+        return BlastCosmeticEvent{request_.centre,request_.radius,request_.sequence};
+    }
     bool active() const{return state_==State::WaitingForTick || state_==State::WaitingForGpu || state_==State::Deferred;}
     State state() const{return state_;}
     Completion completion() const{return completion_;}
@@ -42,6 +51,8 @@ private:
     double remaining_=0,pendingCharge_=0,impulseBudget_=0,impulseCharge_=0;
     std::uint32_t impulsed_=0;
     bool impulseDone_=true;
+    bool cosmeticIssued_=false,cosmeticPending_=false;
+    void armCosmetics(){if(!cosmeticIssued_){cosmeticIssued_=true;cosmeticPending_=true;}}
     std::uint64_t batches_=0,removed_=0,grains_=0,lastAttempt_=0;
     std::uint32_t pendingVoxels_=0,pendingGrains_=0,errors_=0,eligible_=0;
     bool attempted_=false;

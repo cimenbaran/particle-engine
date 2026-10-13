@@ -37,7 +37,9 @@ acknowledgement now gates live adoption and settling invalidation, with one
 existing-grain phase sharing the command budget before terrain batches
 (../docs/Pending_Blast_Impulse.txt). Fracture resistance is now persisted in schema-2 material JSON, included in
 portable encoding and material-version guards, and consumed by the live planner
-(../docs/Materials.md). Cosmetic blast quotas remain open.
+(../docs/Materials.md). A one-shot post-publication cosmetic event and independently bounded dust/spark
+seed quotas are now prepared (../docs/Blast_Cosmetics.txt). Their GPU pools,
+lifetime/draw path and live wiring remain open.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals

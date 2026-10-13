@@ -36,6 +36,7 @@ bool StagedExplosion::pump(std::uint32_t completedFrame,VoxelProbes& particles,V
             const auto accepted=impulse_->accepted();
             if(!impulse_->publish(commitView,particles,terrain)){impulse_.reset();expected_.reset();state_=State::Stale;return false;}
             remaining_=remaining;impulseCharge_=charge;impulsed_=accepted;impulseDone_=true;
+            if(accepted)armCosmetics();
             impulse_.reset();state_=State::WaitingForTick;errors_=0;return true;
         }
         errors_=impulse_->errors();impulse_.reset();expected_.reset();state_=State::Faulted;return false;
@@ -47,7 +48,7 @@ bool StagedExplosion::pump(std::uint32_t completedFrame,VoxelProbes& particles,V
             // Validate all arithmetic before the nonthrowing joint adoption.
             const auto remaining=terrain::explosionEnergyRemainder(remaining_,pendingCharge_);
             if(!pending_->publish(commitView,particles,terrain)){pending_.reset();expected_.reset();state_=State::Stale;return false;}
-            remaining_=remaining;expected_=terrain;++batches_;removed_+=pendingVoxels_;grains_+=pendingGrains_;
+            armCosmetics();remaining_=remaining;expected_=terrain;++batches_;removed_+=pendingVoxels_;grains_+=pendingGrains_;
             pending_.reset();state_=State::WaitingForTick;errors_=0;
             return true; // Never start another batch in the publication call.
         }
