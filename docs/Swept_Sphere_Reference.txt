@@ -1,9 +1,12 @@
 INTERIOR SPHERE SWEEP REFERENCE
 
-This is CPU reference preparation for S2-08 interior analytic terrain. It does
-not add an interior obstacle to the running application. GpuSweptBounds now supports an optional sphere, with Metal component tests;
-the live coordinator still uses only the six enclosing planes. No terrain or fluid
-gate is closed. See GPU_Swept_Bounds.txt.
+This document describes the independent CPU sphere-sweep oracle for S2-08.
+The production GPU sweep, Jacobi constraints, granular coordinator and settling
+tracker now share an optional analytic sphere. The native Sand over sphere scene
+configures and renders it; see Sphere_Terrain.txt and GPU_Swept_Bounds.txt.
+Metal component, application and fixed stability fixtures pass. D3D11 validation
+of the current sphere implementation remains pending; no broad terrain gate is
+closed by the CPU oracle or local GPU tests.
 
 The oracle sweeps a moving sphere against one fixed sphere using their summed
 radii. Forces are already applied; the path is linear over dt in [0,1] seconds.
@@ -39,10 +42,21 @@ final nonpenetration, signed axis permutation and translation covariance. Elasti
 frictionless cases reverse to their initial state when run backward. Invalid
 profiles, nonfinite state and initial penetration are rejected.
 
-GPU integration must select the earliest event among enclosing planes and interior
-colliders, preserve remaining substep time, handle ties deliberately, enforce an
-event budget, and report failure through whole-tick rollback. Position correction
-must also respect interior obstacles, not only predicted motion. Material contact
-response, settling support, debug normals, scene configuration/rendering, repeatable
-stability fixtures and both backends must cover the same collider profile. Those
-requirements remain open; a CPU oracle alone does not satisfy S2-08.
+Integration and remaining gates
+The GPU sweep selects the earliest enclosing-plane or interior-sphere event,
+preserves remaining substep time and rolls back on event-budget failure. Jacobi
+corrections constrain the full correction segment; the coordinator applies final
+sphere velocity constraints. Settling support, versioned scene configuration,
+spawn rejection, reset and rendering use the same analytic sphere profile.
+
+The fixed stability suite includes sphere drop, resting stack and dissipative
+impact fixtures with explicit nonpenetration, settling and energy gates. Metal
+results are recorded in tests/results/m3-max-sphere-normal-refinement.txt. The
+129-case sweep suite retains the original CPU comparison tolerances.
+
+D3D11 WARP run 38326929216 failed oblique sphere friction before reaching later
+sphere integration/stability tests. Source d9ba21e refines direction/normal
+normalization and adds rotated oblique fixtures; its Windows result is pending.
+Collision-normal visualization, granular recording/replay, sustained sphere-scene
+soaks and reference-hardware validation remain open. The existing lifecycle soak
+uses an enclosure-only scene and cannot certify the interior sphere.

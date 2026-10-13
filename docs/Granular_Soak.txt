@@ -13,7 +13,7 @@ least one 256-tick cycle and observe full/empty/overflow and settling coverage.
 the interactive default capacity of 512 unless --capacity is given. Cosmetics,
 custom scene files, frame limits, warmup, benchmark and replay options are rejected.
 The original --soak workload remains ballistic unless --granular is specified.
-The workload name is granular_256_tick_pool_cycle_v1 so reports cannot be confused.
+The workload name is granular_256_tick_pool_cycle_v2 so reports cannot be confused.
 
 The fixed initial scene is the seeded sand drop, count min(256, capacity). Each
 256-tick cycle stresses bounded spawn overflow, repeated removal, slot reuse,
@@ -25,10 +25,14 @@ is submitted per frame with VSync disabled. Requested duration is wall-clock tim
 not simulated time. Do not compare raw ticks/second as a controlled benchmark.
 
 Every tick audits all slots for unique ownership, valid identity and finite state.
-Solver and tracking errors latch every tick. Four synchronized diagnostic rings
-sample the audit, allocation counts, solver status and settling counts at matching
-ticks. Samples assert active+free=capacity, candidates+acquiring<=active and
-contact-grace<=candidates. The final readbacks must match the final submitted tick.
+Solver and tracking errors latch every tick. Seven synchronized readback rings
+sample ownership audit, allocation counts and five granular diagnostics: solver,
+settling, neighborhood, occupancy and contact totals. Accepted samples all match
+the audit tick. Samples assert active+free=capacity, candidates+acquiring<=active,
+contact-grace<=candidates, bounded occupancy, expected contact-solve counts and
+64-bit candidate/contact total bounds. All rings drain at shutdown and the final
+readbacks must match the final submitted tick. Occupancy describes the final
+position-solve input; contact totals include repeated directed visits.
 Reports include solver/tracking fault masks, caps, contact degree, boundary events,
 settling coverage and counts, seed/initial scene, material data, shader fingerprints,
 build identity, requested resource payload and sampled driver memory estimates.
@@ -47,3 +51,10 @@ Clean installed source 6dad618 passed Metal128 for 600.080679125 seconds,
 overflow/settling coverage passed, with zero solver/tracker and final audit
 errors. See tests/results/m3-max-static-friction-soak-600.txt. This does not
 certify later diagnostic changes, D3D11 or controlled frame-time performance.
+
+Diagnostic workload v2
+Source ddd2640 adds the neighborhood/occupancy/contact-total readbacks without
+changing physics or lifecycle commands. Its 30-second Metal128 smoke run passed
+1931 ticks and 7 cycles; ballistic regression passed 599 ticks. See
+tests/results/m3-max-soak-diagnostic-rings.txt. The new ten-minute run is pending;
+earlier v1 soak evidence does not certify these additional readbacks.

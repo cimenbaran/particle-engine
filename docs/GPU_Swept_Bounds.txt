@@ -2,7 +2,7 @@ GPU SWEPT BOUNDARIES
 
 Scope
 GpuSweptBounds performs constant-velocity sphere sweeps inside six analytic
-boundary planes and caps incoming speed. GPU tests and optional interactive
+boundary planes, optionally around one fixed interior sphere, and caps incoming speed. GPU tests and optional interactive
 granular mode use it. GpuGranularStep supplies forces, contacts and lifetime
 evolution; the standalone sweep only changes dynamic-solid pose and velocity.
 Swept_Bounds_Reference.txt defines the independent CPU oracle and substep plan.
@@ -58,7 +58,7 @@ A caller performing repeated steps must retain/aggregate errors separately befor
 clearing this component's status on a later submission.
 
 Validation
-45 fixtures at both Metal workgroup sizes: CPU trajectory comparisons across
+The original 45 enclosure fixtures pass at both Metal workgroup sizes: CPU trajectory comparisons across
 workgroup boundaries; nine restitution/friction combinations on 257 seeded bodies;
 analytic floor/endpoint/grazing/corner cases; speed caps including FLT_MAX input;
 static/phase/dead exclusions; invalid identity/radius/mass/material/nonfinite data;
@@ -68,16 +68,14 @@ error limit is 2e-4 m; velocity limit is 2e-4 * max(1, abs(expected)). Tests als
 check strict geometric containment, diagnostics and energy/cap bounds.
 See tests/results/m3-max-swept-bounds.txt for local evidence. D3D11 is pending.
 
-Remaining integration
-Apply forces before each sweep, expose cap/error diagnostics in the UI, preserve
-snapshots for contact reconstruction, handle correction-induced boundary overlap,
-and publish a complete granular step transactionally. Internal terrain sweeps,
-settling, cross-backend stability, performance and soaks remain open. The planner's
-half-feature travel guarantee is not a guarantee about position-solver corrections.
-
-GpuGranularStep now composes this pass with forces, bounded corrections and
-whole-tick publication; see GPU_Granular_Step.txt. It remains outside live UI
-stepping and does not close the integration/stability gates listed above.
+Current integration
+GpuGranularStep composes forces, sweeps, bounded contact corrections, velocity
+reconstruction/response and whole-tick publication. Interactive granular mode
+uses this chain and displays delayed cap/error diagnostics. Its final stage
+constrains boundary velocity after corrections. See GPU_Granular_Step.txt.
+The planner's half-feature travel guarantee is not a guarantee about position-
+solver corrections. Cross-backend stability, sustained sphere-scene soaks and
+reference-hardware performance remain separate gates.
 
 Optional interior sphere (component API)
 submit accepts an AnalyticSphere after the event budget. Radius zero disables
@@ -105,7 +103,7 @@ zero-time re-entry caused by a rounded surface position. The existing 0.0002 m
 position comparison tolerance was not widened. This guard is numerical separation,
 not a scene-scale collider inflation or general contact-skin policy.
 
-The 87 sweep fixtures include the prior 45 enclosure cases plus sphere workgroup
+The initial 87-case sphere suite included the prior 45 enclosure cases plus sphere workgroup
 boundaries, nine restitution/friction combinations, six approach and endpoint
 directions, grazing/miss/slow contact, a 10000 m/s shot, both sphere/wall event
 orders, exhaustion, initial-overlap rollback, reuse, exclusions and upstream faults.
@@ -113,11 +111,12 @@ Pure sphere trajectories compare with the independent double oracle; mixed paths
 use analytic one-dimensional distances. Original buffers and persistent fields
 remain bitwise unchanged. Both Metal workgroup suites pass; Windows is unverified.
 
-The live granular coordinator still supplies the disabled default. Matching Jacobi sphere constraints are now available as an optional component.
-Enabling a scene still requires coordinator configuration, settling support, collider rendering,
-scene configuration, reset/recording contracts and stability tests. A swept
-prediction alone is insufficient because particle corrections could push a body
-back into the obstacle. See Swept_Sphere_Reference.txt for the remaining work.
+The live granular coordinator and settling tracker receive scene.obstacle.
+Sphere_Terrain.txt describes the native preset, shared geometry, reset/spawn
+contracts and renderer. Ordinary presets retain the disabled default. Interior
+sphere correction, coordinator, settling and application fixtures pass on Metal;
+Windows coverage must pass the sweep gate before validating these later stages.
+Granular recording/replay and collision-normal visualization remain open.
 
 Sphere normalization refinement
 The shared sphere entry helper refines reciprocal-square-root estimates with one
