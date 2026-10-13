@@ -1,0 +1,48 @@
+TERRAIN-AWARE PARTICLE POOL SPAWNING
+
+ParticlePool::apply accepts an optional VoxelContactContext after radius.
+The context must match its immutable GPU snapshot's source, revision and shared
+origin. Terrain mode requires radius .0625m and rejects world/state/material
+buffer aliases. Host validation precedes command submission and pool rebuild,
+including zero-count commands. The source/snapshot must remain current and alive
+through execution. Omitting the context preserves the existing generic pool.
+
+SpawnBrush selects cs_pool_spawn_voxel in terrain mode. Both spawn programs use
+pool_spawn.sh for deterministic candidate generation, slot/generation handling,
+physical mass, lifetime, identity and saturating rejection accounting. The voxel
+variant checks each candidate sphere against the resident radius-inset bounds
+and every relevant occupied voxel. Closed face/edge/corner tangency is accepted;
+overlap, outside residency, invalid query and non-solid particle material are
+rejected. The query uses the same voxel geometry as physical motion.
+
+Terrain/phase validation runs before free-rank reservation. A blocked request
+increments rejection diagnostics but neither consumes a rank nor changes any
+particle record or generation. Valid requests then follow existing capacity and
+generation-overflow checks. Mixed brushes can use all available ranks for their
+valid candidates even when earlier requests were blocked. Commands remain
+ordered and per-request; this is not an all-or-nothing terrain transaction.
+Call rebuild after commands/physics before consuming final membership or counts,
+as with the existing pool. ApplyImpulse and RemoveBrush retain existing semantics
+and honor the supplied terrain context's host freshness checks.
+
+The variant adds one read-only world binding (five total) and participates in
+atomic shader reload staging. Both shader sources and the shared implementation
+are included in the existing source/binary fingerprint system.
+
+Verification
+All eight pool capacities (1,127,128,129,255,256,257,16384) exercise blocked
+occupancy, outside residency, non-solid rejection, exact contact, stable slot
+ownership, generation reuse, edited occupancy, and stale/foreign/origin/radius
+host rejection. A 257-request mixed brush uses an independent CPU voxel-distance
+check to count admissible positions, verifies exact capacity/rejection counts,
+and confirms every accepted sphere is terrain-clear. Original fill/overflow,
+impulse, removal, lifetime, generation exhaustion and delayed diagnostics remain
+in the same suite. See ../tests/results/m3-max-voxel-pool.txt.
+
+Remaining integration
+The live basin still uses its fixed 256-particle seed. This allocation primitive
+checks terrain only; it does not prevent particle-particle spawn overlap, perform
+spaced brush placement, apply the basin speed cap, or connect the basin UI to a
+command queue. Those remain required before general interactive basin spawning.
+Existing ownership and physical terrain edits/deposition are separate systems;
+no mass-transfer transaction or persistence is claimed here.

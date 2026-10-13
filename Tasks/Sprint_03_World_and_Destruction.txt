@@ -33,7 +33,9 @@ material friction after pair response; see ../docs/GPU_Voxel_Finish.txt. Static
 traction now resists supported position corrections (GPU_Voxel_Traction.txt).
 Settling checks current voxel faces/edges/corners
 and reports live basin candidates with hysteresis and physics-fault invalidation.
-Candidates remain active; deposition remains pending. The complete particle/terrain tick
+Candidates remain active; deposition remains pending. An optional pool spawn
+path now checks current voxel occupancy before reserving slots; live basin
+command/pool integration and spaced placement remain open (../docs/GPU_Voxel_Pool.txt). The complete particle/terrain tick
 now powers Drop interacting sand in the basin preview, with whole-tick rollback;
 see ../docs/GPU_Basin_Tick.txt.
 A deterministic full basin recipe

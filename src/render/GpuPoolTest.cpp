@@ -5,6 +5,7 @@
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
 #include "core/ParticleTypes.hpp"
+#include "../../tests/reference/SweptVoxel.hpp"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
@@ -148,6 +149,66 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
         while(bgfx::frame()<renderReady) SDL_PumpEvents();
         for(const auto& record:rendered) for(unsigned field=0;field<4;++field)
             require(record.positionRadius[field]==0 && record.velocityInvMass[field]==0,"Dead instance was not masked");
+        // Terrain-aware allocation rejects before reserving a physical slot.
+        // This resident region sits outside the legacy x/z +/-8m grid.
+        terrain::SparseVoxelStore terrainStore(terrain::ResidentChunkLayout({-3,0,-2},{2,2,2}),uint32_t(packed.size()));
+        const auto occupied=*terrain::addressOf({-92,48,-60});
+        terrainStore.setMaterial(occupied,0,terrainStore.revision());
+        GpuVoxelWorld world(terrainStore,{});VoxelContactContext terrainContext{world,terrainStore,{}};
+        pool.rebuild(0,state.value,true);check(0,0);
+        const auto beforeRejected=particles;
+        Command terrainSpawn;terrainSpawn.type=CommandType::SpawnBrush;terrainSpawn.count=std::min(capacity,257u);
+        terrainSpawn.minimum=terrainSpawn.maximum={-11.4375f,6.0625f,-7.4375f};
+        auto terrainApply=[&](const Command& command){pool.apply(0,state.value,materials.value,uint32_t(packed.size()),command,.0625f,&terrainContext);};
+        terrainApply(terrainSpawn);pool.rebuild(0,state.value);check(0,terrainSpawn.count);
+        terrainSpawn.minimum=terrainSpawn.maximum={-12,6,-7};
+        terrainApply(terrainSpawn);pool.rebuild(0,state.value);check(0,2*terrainSpawn.count);
+        // Liquid phases cannot enter the current granular terrain pool.
+        terrainSpawn.minimum=terrainSpawn.maximum={-10.5f,6,-6.5f};terrainSpawn.material=2;
+        terrainApply(terrainSpawn);pool.rebuild(0,state.value);check(0,3*terrainSpawn.count);
+        require(!std::memcmp(beforeRejected.data(),particles.data(),capacity*sizeof(ParticleGpu)),"Rejected terrain spawn mutated slot state/generation");
+        // Exact face tangency is admissible and prior rejections used no capacity.
+        terrainSpawn.material=0;terrainSpawn.minimum=terrainSpawn.maximum={-11.4375f,6.1875f,-7.4375f};
+        terrainApply(terrainSpawn);pool.rebuild(0,state.value);check(terrainSpawn.count,3*terrainSpawn.count);
+        for(unsigned slot=0;slot<capacity;++slot)if(particles[slot].identity[1]&1u) {
+            require(particles[slot].positionRadius[3]==.0625f && particles[slot].positionRadius[1]==6.1875f,"Terrain spawn changed radius or contact point");
+            require(particles[slot].identity[3]==beforeRejected[slot].identity[3]+1,"Terrain spawn did not advance selected slot generation exactly once");
+        }
+        const auto beforeStale=particles;
+        auto rejectedContext=[&](const VoxelContactContext& context,float radius=.0625f) {
+            bool caught=false;try{pool.apply(0,state.value,materials.value,uint32_t(packed.size()),terrainSpawn,radius,&context);}catch(const std::invalid_argument&){caught=true;}
+            require(caught,"Pool accepted invalid terrain context/radius");
+        };
+        rejectedContext(terrainContext,.045f);
+        VoxelContactContext wrongOrigin{world,terrainStore,{1,0,0}};rejectedContext(wrongOrigin);
+        terrain::SparseVoxelStore foreign(terrain::ResidentChunkLayout({-3,0,-2},{2,2,2}),uint32_t(packed.size()));
+        VoxelContactContext wrongOwner{world,foreign,{}};rejectedContext(wrongOwner);
+        terrainStore.setMaterial(occupied,terrain::SparseVoxelStore::empty,terrainStore.revision());rejectedContext(terrainContext);
+        pool.rebuild(0,state.value);check(terrainSpawn.count,3*terrainSpawn.count);
+        require(!std::memcmp(beforeStale.data(),particles.data(),capacity*sizeof(ParticleGpu)),"Rejected pool context mutated particle state");
+        GpuVoxelWorld editedWorld(terrainStore,{});VoxelContactContext edited{editedWorld,terrainStore,{}};
+        Command clearTerrain;clearTerrain.type=CommandType::RemoveBrush;clearTerrain.minimum={-12,0,-8};clearTerrain.maximum={-4,8,0};
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&edited);pool.rebuild(0,state.value,true);check(0,0);
+        terrainSpawn.minimum=terrainSpawn.maximum={-11.4375f,6.0625f,-7.4375f};
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),terrainSpawn,.0625f,&edited);pool.rebuild(0,state.value);check(terrainSpawn.count,0);
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&edited);pool.rebuild(0,state.value,true);check(0,0);
+        // A single mixed brush must not spend free ranks on blocked requests.
+        terrainStore.setMaterial(occupied,0,terrainStore.revision());GpuVoxelWorld mixedWorld(terrainStore,{});VoxelContactContext mixedContext{mixedWorld,terrainStore,{}};
+        Command mixedSpawn=terrainSpawn;mixedSpawn.count=257;mixedSpawn.sequence=29;
+        mixedSpawn.minimum={-11.49f,6.0625f,-7.4375f};mixedSpawn.maximum={-11.2f,6.0625f,-7.4375f};
+        auto hash=[](uint32_t x){x^=x>>16;x*=0x7feb352du;x^=x>>15;x*=0x846ca68bu;x^=x>>16;return x;};
+        unsigned clearRequests=0;const auto voxelLower=*terrain::relativeCorner(occupied,{});
+        for(unsigned request=0;request<257;++request) {
+            const float random=float(hash(29u^hash(request))>>8)/16777216.0f;
+            const double x=std::lerp(double(mixedSpawn.minimum[0]),double(mixedSpawn.maximum[0]),double(random));
+            clearRequests+=reference::voxelDistance({x,6.0625,-7.4375},voxelLower)>=.0625;
+        }
+        require(clearRequests>0 && clearRequests<257,"Mixed terrain fixture is not mixed");
+        const auto accepted=std::min(capacity,clearRequests);
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),mixedSpawn,.0625f,&mixedContext);pool.rebuild(0,state.value);check(accepted,257-accepted);
+        for(const auto& particle:particles)if(particle.identity[1]&1u)
+            require(reference::voxelDistance({particle.positionRadius[0],particle.positionRadius[1],particle.positionRadius[2]},voxelLower)>=.0625,"Mixed brush spawned inside terrain");
+        pool.apply(0,state.value,materials.value,uint32_t(packed.size()),clearTerrain,.0625f,&mixedContext);pool.rebuild(0,state.value,true);check(0,0);
         if(capacity==1) {
             // Exhausted generations must never wrap to a previously valid handle.
             particles[0].identity[3]=0xffffffffu;
@@ -159,7 +220,7 @@ void runGpuPoolTest(const std::filesystem::path& assets) {
             require(particles[0].identity[3]==0xffffffffu,"Slot generation wrapped");
         }
         require(diagnostics.request(1,pool.counts(),snapshotTick++),"Shutdown diagnostic request failed");
-        std::cout<<"GPU pool ownership/full/reuse/lifetime/delayed diagnostics passed: "<<capacity<<" slots\n";
+        std::cout<<"GPU pool ownership/full/reuse/lifetime/voxel-spawn/delayed diagnostics passed: "<<capacity<<" slots\n";
     }
 }
 }

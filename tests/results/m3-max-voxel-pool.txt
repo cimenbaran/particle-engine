@@ -1,0 +1,37 @@
+TERRAIN-AWARE POOL ALLOCATION VALIDATION
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Workgroup 128: complete --gpu-test exit 0; native CTest 21/21 pass.
+Workgroup 256: complete --gpu-test exit 0; native CTest 21/21 pass.
+Pool capacities: 1, 127, 128, 129, 255, 256, 257, 16384.
+
+Each capacity validates:
+- Occupied-voxel, outside-radius-inset-residency and non-solid spawn rejection.
+- Rejected candidates leave all particle bytes and generations unchanged.
+- Exact top-face tangency is accepted with radius .0625m.
+- Stable active/free ownership; accepted slots advance generation exactly once.
+- Foreign source, stale revision, wrong origin and unsupported radius reject on
+  the host without particle mutation.
+- Publishing edited occupancy permits spawning where a voxel was removed.
+- A 257-request mixed brush counts admissible positions using an independent
+  double voxel-distance calculation and deterministic request samples. Accepted
+  count is min(clear requests, capacity); rejected count is 257 minus accepted.
+  Thus blocked requests do not consume free ranks. All accepted spheres are
+  independently checked against the occupied voxel.
+- Original full/overflow, impulse filtering/order, removal, lifetime, generation
+  exhaustion and asynchronous diagnostic checks remain in the suite.
+
+The fixture residency x=[-12,-4), y=[0,8), z=[-8,0) includes positions outside
+legacy sandbox x bounds. No CPU particle ownership/allocation was introduced.
+The generic and terrain spawn variants share the same allocation implementation.
+
+Ignored local logs:
+  out/voxel-pool-gpu128.log
+  out/voxel-pool-gpu256.log
+  out/voxel-pool-ctest128.log
+  out/voxel-pool-ctest256.log
+
+Scope: component-level terrain spawn validation. The live basin still uses fixed
+seed particles. Particle spacing, basin command-queue integration and physical
+terrain conversion remain pending. No performance acceptance is claimed.

@@ -1,5 +1,6 @@
 #pragma once
 #include "core/Commands.hpp"
+#include "GpuVoxelWorld.hpp"
 #include <bgfx/bgfx.h>
 #include <filesystem>
 namespace pw {
@@ -12,8 +13,10 @@ public:
     ParticlePool(const ParticlePool&)=delete;
     ParticlePool& operator=(const ParticlePool&)=delete;
     void rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,bool resetDiagnostics=false);
+    // Optional current terrain rejects non-solid/overlapping/outside spawns
+    // before reserving slots. Requires .0625m radius; no particle-pair exclusion.
     void apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-               bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius=0.045f);
+               bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius=0.045f,const VoxelContactContext* terrain=nullptr);
     bgfx::DynamicIndexBufferHandle counts() const {return counts_;}
     bgfx::DynamicIndexBufferHandle freeSlots() const {return free_;}
     bgfx::DynamicIndexBufferHandle activeSlots() const {return active_;}
@@ -22,7 +25,7 @@ private:
     void release();
     std::uint32_t capacity_;
     bgfx::DynamicIndexBufferHandle counts_=BGFX_INVALID_HANDLE,free_=BGFX_INVALID_HANDLE,active_=BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,classify_=BGFX_INVALID_HANDLE,spawn_=BGFX_INVALID_HANDLE,brush_=BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,classify_=BGFX_INVALID_HANDLE,spawn_=BGFX_INVALID_HANDLE,voxelSpawn_=BGFX_INVALID_HANDLE,brush_=BGFX_INVALID_HANDLE;
     bgfx::UniformHandle pool_=BGFX_INVALID_HANDLE,min_=BGFX_INVALID_HANDLE,max_=BGFX_INVALID_HANDLE,value_=BGFX_INVALID_HANDLE;
 };
 }

@@ -12,7 +12,7 @@ ParticlePool::ParticlePool(const std::filesystem::path& assets,std::uint32_t cap
         free_=bgfx::createDynamicIndexBuffer(capacity,flags);
         active_=bgfx::createDynamicIndexBuffer(capacity,flags);
         clear_=loadCompute(assets,"cs_pool_clear"); classify_=loadCompute(assets,"cs_pool_classify");
-        spawn_=loadCompute(assets,"cs_pool_spawn"); brush_=loadCompute(assets,"cs_pool_brush");
+        spawn_=loadCompute(assets,"cs_pool_spawn");voxelSpawn_=loadCompute(assets,"cs_pool_spawn_voxel"); brush_=loadCompute(assets,"cs_pool_brush");
         pool_=bgfx::createUniform("u_pool",bgfx::UniformType::Vec4);
         min_=bgfx::createUniform("u_brushMin",bgfx::UniformType::Vec4);
         max_=bgfx::createUniform("u_brushMax",bgfx::UniformType::Vec4);
@@ -24,7 +24,7 @@ ParticlePool::ParticlePool(const std::filesystem::path& assets,std::uint32_t cap
 }
 void ParticlePool::release() {
     for(auto h:{counts_,free_,active_}) if(bgfx::isValid(h)) bgfx::destroy(h);
-    for(auto h:{clear_,classify_,spawn_,brush_}) if(bgfx::isValid(h)) bgfx::destroy(h);
+    for(auto h:{clear_,classify_,spawn_,voxelSpawn_,brush_}) if(bgfx::isValid(h)) bgfx::destroy(h);
     for(auto h:{pool_,min_,max_,value_}) if(bgfx::isValid(h)) bgfx::destroy(h);
 }
 ParticlePool::~ParticlePool() {release();}
@@ -39,7 +39,11 @@ void ParticlePool::rebuild(std::uint16_t view,bgfx::DynamicVertexBufferHandle st
     bgfx::dispatch(view,classify_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,
-                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius) {
+                        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const Command& command,float radius,const VoxelContactContext* terrain) {
+    if(terrain && (radius!=.0625f || !terrain->world.isCurrent(terrain->source,terrain->origin)))
+        throw std::invalid_argument("Pool terrain requires current occupancy and common granular radius");
+    if(terrain && (state.idx==terrain->world.buffer().idx || materials.idx==terrain->world.buffer().idx))
+        throw std::invalid_argument("Pool terrain buffer alias");
     if(radius!=0.045f && radius!=0.0625f) throw std::invalid_argument("Unsupported pool radius");
     CommandLimits limits;limits.materialCount=materialCount;
     if(!validate(command,limits,command.tick).empty()) throw std::runtime_error("Invalid pool command");
@@ -57,13 +61,15 @@ void ParticlePool::apply(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(command.type==CommandType::SpawnBrush) {
         bgfx::setBuffer(1,counts_,bgfx::Access::ReadWrite);bgfx::setBuffer(2,free_,bgfx::Access::Read);
         bgfx::setBuffer(3,materials,bgfx::Access::Read);
-        bgfx::dispatch(view,spawn_,pw::dispatchGroups(command.count));
+        if(terrain)bgfx::setBuffer(4,terrain->world.buffer(),bgfx::Access::Read);
+        bgfx::dispatch(view,terrain?voxelSpawn_:spawn_,pw::dispatchGroups(command.count));
     } else bgfx::dispatch(view,brush_,pw::dispatchGroups(capacity_));
 }
 void ParticlePool::stageShaders(ShaderReload& reload) {
     reload.compute(clear_,"cs_pool_clear");
     reload.compute(classify_,"cs_pool_classify");
     reload.compute(spawn_,"cs_pool_spawn");
+    reload.compute(voxelSpawn_,"cs_pool_spawn_voxel");
     reload.compute(brush_,"cs_pool_brush");
 }
 }
