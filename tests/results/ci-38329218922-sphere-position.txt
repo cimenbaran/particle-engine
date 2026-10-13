@@ -1,0 +1,17 @@
+Windows sphere normalization candidate: position mismatch
+
+Source d9ba21eed69e290709fe1acca5890d23ee92fb5a
+Run 38329218922, Windows workgroup128 job 115074875399.
+Compile and all 14 CPU tests passed. GPU suite passed through Jacobi142,
+velocity reconstruction64 and contact response74. Swept bounds then failed:
+  Particle World: GPU sweep position differs from CPU reference
+
+The position assertion did not include a fixture or slot, so this log cannot
+identify the failing geometry or prove the original oblique velocity issue fixed.
+No subsequent coordinator, stability or soak gates ran in this job. Workgroup256
+was still running when this record was made. Both macOS build jobs succeeded.
+
+Local full job log: out/ci-38329218922-wg128.log
+Follow-up adds fixture, slot, axis, profile, complete input/actual/expected vectors
+and aggregate event counters to position and velocity failures. No numerical
+comparison, tolerance or physics changes accompany that diagnostic improvement.

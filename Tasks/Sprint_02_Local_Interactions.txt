@@ -25,8 +25,9 @@ floor-traction budget (static_traction_floor_v2) improves Metal settling; Window
 validation remains required. Run 38325117568 failed both Windows shader builds
 on a partial typed UAV store. Run38326929216 confirms the full-vector store
 compiles, but both WARP variants fail sphere sweep fixture54 (0.334679 vs
-0.334936 reference). A sphere normalization refinement is awaiting Windows
-verification; see ../tests/results/ci-38326929216-sphere-sweep.txt. See
+0.334936 reference). The normalization refinement still fails a position comparison on WARP128
+(run 38329218922); more detailed fixture diagnostics are being added. See
+../tests/results/ci-38329218922-sphere-position.txt; see ../tests/results/ci-38326929216-sphere-sweep.txt. See
 ../tests/results/ci-38321953983-static-friction.txt. Do not widen the gate.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain has a tested CPU sphere-sweep oracle in

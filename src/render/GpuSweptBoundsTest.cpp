@@ -14,6 +14,8 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <vector>
 namespace pw {
@@ -79,8 +81,19 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
             events+=expected.events;planes+=expected.planes;
             double finalSpeed=0,initialEnergy=0;
             for(unsigned a=0;a<3;++a) {
-                require(std::isfinite(actual[i].positionRadius[a]) && std::abs(actual[i].positionRadius[a]-expected.state.position[a])<2e-4,"GPU sweep position differs from CPU reference");
-                require(std::isfinite(actual[i].velocityInvMass[a]) && std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a])),("GPU sweep velocity differs from CPU reference fixture "+std::to_string(cases)+" slot "+std::to_string(i)+" axis "+std::to_string(a)+" actual "+std::to_string(actual[i].velocityInvMass[a])+" expected "+std::to_string(expected.state.velocity[a])+" fixture GPU events "+std::to_string(stats[2])+" incident normals "+std::to_string(stats[3])).c_str());
+                auto mismatch=[&](const char* field) {
+                    std::ostringstream message;message<<std::setprecision(17)
+                        <<"GPU sweep "<<field<<" differs from CPU reference fixture "<<cases<<" slot "<<i<<" axis "<<a
+                        <<" dt "<<dt<<" restitution "<<e<<" friction "<<mu
+                        <<" GPU events "<<stats[2]<<" incident normals "<<stats[3];
+                    for(unsigned axis=0;axis<3;++axis)message<<" | axis "<<axis
+                        <<" initial p/v "<<p.positionRadius[axis]<<"/"<<p.velocityInvMass[axis]
+                        <<" actual p/v "<<actual[i].positionRadius[axis]<<"/"<<actual[i].velocityInvMass[axis]
+                        <<" expected p/v "<<expected.state.position[axis]<<"/"<<expected.state.velocity[axis];
+                    throw std::runtime_error(message.str());
+                };
+                if(!std::isfinite(actual[i].positionRadius[a]) || !(std::abs(actual[i].positionRadius[a]-expected.state.position[a])<2e-4))mismatch("position");
+                if(!std::isfinite(actual[i].velocityInvMass[a]) || !(std::abs(actual[i].velocityInvMass[a]-expected.state.velocity[a])<2e-4*std::max(1.0,std::abs(expected.state.velocity[a]))))mismatch("velocity");
                 const double v=actual[i].velocityInvMass[a];finalSpeed+=v*v;initialEnergy+=start.velocity[a]*start.velocity[a];
                 const double lo=a==1?0.0625:-7.9375,hi=a==1?15.9375:7.9375;
                 require(actual[i].positionRadius[a]>=lo && actual[i].positionRadius[a]<=hi,"GPU sweep escaped bounds");

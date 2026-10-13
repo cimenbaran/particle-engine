@@ -56,7 +56,9 @@ results are recorded in tests/results/m3-max-sphere-normal-refinement.txt. The
 
 D3D11 WARP run 38326929216 failed oblique sphere friction before reaching later
 sphere integration/stability tests. Source d9ba21e refines direction/normal
-normalization and adds rotated oblique fixtures; its Windows result is pending.
+normalization and adds rotated oblique fixtures; WARP128 still fails a position
+comparison in run 38329218922. The old assertion did not identify the fixture.
+See tests/results/ci-38329218922-sphere-position.txt for the diagnostic follow-up.
 Collision-normal visualization, granular recording/replay, sustained sphere-scene
 soaks and reference-hardware validation remain open. The existing lifecycle soak
 uses an enclosure-only scene and cannot certify the interior sphere.
