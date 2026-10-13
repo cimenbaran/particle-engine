@@ -107,9 +107,18 @@ Validation and completion gates
 Handoff: Validated neighbor index, stable granular solver, measured settings
 and regression fixtures for resident terrain integration.
 
-New sphere stability gate (granular_stability_sphere_v2): ten scenes, 4530 ticks.
+Historical floor-v2 sphere stability gate: ten scenes, 4530 ticks.
 Both Metal workgroups fail sphere_drop_64 at tick570 (0.239068 m/s, limit0.1).
 The sphere stack and dissipative shots pass; containment and overlap gates pass.
 The failure involves floor support after the drop, not observed sphere penetration.
-Keep the regression and investigate position-level floor drift. See
+The failing regression is retained. See
 ../tests/results/m3-max-sphere-stability.txt and its extracted support cluster.
+
+The reduced three-body floor cluster independently reproduces the collapse.
+Stage traces identify exact-zero prior vertical velocity as an invalid traction
+activation condition: small upward contact-response velocity is overcome by
+next-substep gravity, but v2 grants no remaining floor budget. Approach-speed
+traction v3 uses max(0,g*dt-oldVy), with existing drag/cap and spent-friction
+accounting. The suite now includes eleven scenes and 4650 ticks; current results
+are recorded in ../tests/results/m3-max-floor-approach.txt. Windows and a fresh
+long soak remain required before closing stability coverage.

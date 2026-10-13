@@ -16,11 +16,13 @@ zero-gravity dissipative fixture. There are also 129 high-speed wall shots
 (30 ticks) and a grazing floor particle (60 ticks). The sphere extension adds
 64 grains falling onto a radius-1.25 sphere (600 ticks), a four-body stack on
 the same sphere (600 ticks), and nine 12 m/s shots at a radius-0.9375 sphere
-with zero gravity (240 ticks). Total: ten scenes and 4,530 ticks. The original
+with zero gravity (240 ticks). A reduced floor-support cluster adds three grains over 120 ticks.
+Total: eleven scenes and 4,650 ticks. The original
 seven fixtures and thresholds are unchanged. Workload: granular_stability_sphere_v2.
 The initial arrays and deterministic seeded velocities are recorded in JSON.
 
-At tick 1, every 30 ticks and the final tick, readback checks finite state,
+At tick 1, every 30 ticks and the final tick (every tick for the reduced
+floor-support cluster), readback checks finite state,
 immutable input bytes, persistent identity/material/mass, lifetime arithmetic,
 inset enclosure containment and the speed cap. Solver faults latch every tick.
 Age is checked against repeated float substeps; drift from real-valued elapsed
@@ -74,6 +76,22 @@ gate. Disabled spheres report null. Sphere drop/stack must also pass the same
 final-120-tick settling window; sphere impacts must pass the existing closed
 energy check. No threshold is relaxed for terrain.
 
-Current Metal result: the sphere drop fails the settling speed window at tick570
+Historical floor-v2 Metal result: the sphere drop fails the settling speed window at tick570
 (0.239068 m/s). Both workgroups reproduce it; sphere containment, stack and
 impact-energy cases pass. See tests/results/m3-max-sphere-stability.txt.
+
+Reduced floor-support cluster
+The three-grain fixture is extracted from sphere_drop_64 at tick480, with the
+sphere and all other grains removed. It retains the same material/gravity/profile,
+uses every-tick samples over 120 ticks and applies the original speed/overlap
+settling limits. It reproduced the collapse independently (0.715181 m/s peak).
+For this small fixture only, last_substep_stages records force, sweep, position
+correction, reconstruction, response and finish states through read-only exports
+of existing buffers. No new GPU solver storage is allocated. The finish snapshot
+must match the committed tick byte-for-byte. These extra synchronized readbacks
+make the runner unsuitable for performance measurement. Diagnostics must be
+consumed before the next submit invalidates the component snapshots.
+
+Approach-speed floor traction v3 passes all eleven scenes on Metal128/256 with
+unchanged gates. Both floor anchors in the reduced cluster remain at their initial
+positions. See tests/results/m3-max-floor-approach.txt; Windows remains pending.

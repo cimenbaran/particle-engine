@@ -25,6 +25,12 @@ public:
     bgfx::DynamicIndexBufferHandle occupancyStatus() const{return occupancy_.status();}
     void resetFailures(std::uint16_t view);
     GranularStepPlan plan() const{return plan_;}
+    // Diagnostic read-only snapshots for nonzero capacity after submit. Valid until
+    // the next submit; consume in a later sequential view. No readback/allocation.
+    // Force, swept prediction, corrected pose, reconstructed velocity, response, finish.
+    std::array<bgfx::DynamicVertexBufferHandle,6> diagnosticStates() const {
+        return {forced_,sweep_.output(),contacts_.output(),velocity_.output(),response_.output(),finished_};
+    }
 private:
     void release();
     void collect(std::uint16_t view,bgfx::DynamicIndexBufferHandle source,float phase,float mode);

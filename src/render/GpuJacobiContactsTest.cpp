@@ -100,11 +100,11 @@ ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxa
             if(start) {
                 const auto& previous=(*start)[i];const auto& material=(*materials)[a.identity[0]];
                 double remaining=0;
-                if(floor.gravity>0 && a.positionRadius[1]==0.0625f && previous.positionRadius[1]==0.0625f && previous.velocityInvMass[1]==0 &&
+                if(floor.gravity>0 && a.positionRadius[1]==0.0625f && previous.positionRadius[1]==0.0625f && std::abs(previous.velocityInvMass[1])<=floor.speedLimit &&
                    normalDelta[0]==0 && normalDelta[2]==0 && std::abs(previous.velocityInvMass[0])<=floor.speedLimit && std::abs(previous.velocityInvMass[2])<=floor.speedLimit){
                     const double damping=std::max(0.0,1.0-double(material.mechanical[3])*floor.substepSeconds);
                     double tangentSpeed=std::hypot(double(previous.velocityInvMass[0]),double(previous.velocityInvMass[2]))*damping;
-                    double normalSpeed=double(floor.gravity)*floor.substepSeconds*damping;
+                    double normalSpeed=std::max(0.0,double(floor.gravity)*floor.substepSeconds-previous.velocityInvMass[1])*damping;
                     const double speed=std::hypot(tangentSpeed,normalSpeed);
                     if(speed>floor.speedLimit){const double scale=double(floor.speedLimit)/speed*0.9999995231628418;tangentSpeed*=scale;normalSpeed*=scale;}
                     remaining=reference::floorStaticBudget(tangentSpeed,normalSpeed,floor.substepSeconds,material.mechanical[1]);
@@ -299,6 +299,12 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     for(float speed:{0.0f,0.01f,0.03f,1.0f})for(unsigned iterations:{1u,4u}){
         pair=fixture(1);pair[0].positionRadius[0]=0.00025f;pair[0].positionRadius[1]=0.0625f;baseline=pair;
         baseline[0].positionRadius[0]=0;baseline[0].velocityInvMass[0]=speed;baseline[0].velocityInvMass[1]=baseline[0].velocityInvMass[2]=0;
+        check(pair,iterations,1,0.03125f,nullptr,true,&baseline,{9.81f,0.01f,12});
+    }
+    for(float vertical:{-0.1f,0.00055f,0.04f,0.0981f,0.2f})for(unsigned iterations:{1u,4u}){
+        pair=fixture(1);pair[0].positionRadius[0]=0.00025f;pair[0].positionRadius[1]=0.0625f;baseline=pair;
+        baseline[0].positionRadius[0]=0;baseline[0].velocityInvMass[0]=baseline[0].velocityInvMass[2]=0;
+        baseline[0].velocityInvMass[1]=vertical;
         check(pair,iterations,1,0.03125f,nullptr,true,&baseline,{9.81f,0.01f,12});
     }
     for(unsigned mode=0;mode<7;++mode){

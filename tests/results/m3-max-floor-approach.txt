@@ -1,0 +1,33 @@
+APPROACH-SPEED FLOOR TRACTION V3
+M3 Max 48 GiB, Metal, development worktree based on 91064ae.
+All eleven stability scenes pass on workgroups128/256 without changing gates.
+Full GPU suites pass (142 Jacobi,44 coordinator,88 settling fixtures); 14/14 CTests each.
+The 128 stability report predates the algorithm label update and diagnostic finish
+byte-comparison assertion; physics is the same. Its label remains floor_v2.
+The 256 report includes the final label/assertion.
+Windows and a clean installed ten-minute soak remain pending.
+
+WG128 report sha256=e1741d68473f394fc359ea4340f10bb7af81a90a9f72832c7760bd004d980ccf
+wall_pile_64 tail max speed=0.001959732655878344
+sphere_drop_64 tail max speed=0.000717350312486011
+floor_support_cluster_3 tail max speed=0.0010557640343904495
+Reduced cluster maximum floor-anchor displacement=0.0 m
+out/floor-approach-gpu128.log sha256=30af84160e40193d92f2edff0ae6ef2cbad26b9e203e33c3df852cba237452e8
+out/floor-approach-ctest128.log sha256=0ba13f6d385a1b81f39a93b0f748985ec92ff0d17b22c66d0d09613da8558c64
+
+WG256 report sha256=da1add21b2c11f272a52d0f0f1301cbf8eaf988ee71e992b783f922214f4c459
+wall_pile_64 tail max speed=0.001959732655878344
+sphere_drop_64 tail max speed=0.000717350312486011
+floor_support_cluster_3 tail max speed=0.0010557640343904495
+Reduced cluster maximum floor-anchor displacement=0.0 m
+out/floor-approach-gpu256.log sha256=afe9754dc8f77730ba0f683981f0110520c6d56c2dad851ca390fac5ca4d4dbf
+out/floor-approach-ctest256.log sha256=16278bf5b6e60a1fc7e0243396c935f7f849427442fcae39e9d0bdbe7f1bd317
+
+Before the fix, reduced-cluster peak speed was0.7151814103126526 m/s.
+Snapshots with/without stage diagnostics are equal at all120 baseline ticks.
+Tick2 last substep, lower grain: force vy=-0.04032637; sweep velocity0;
+Jacobi x shifts -1.40598667 -> -1.40603554; reconstruction vx=-0.01173019.
+Previous response supplied upward vy about0.000544. The exact-zero baseline
+condition withheld unspent floor support despite the actual inward approach.
+V3 uses the post-force approach while retaining spent-friction accounting.
+Raw baseline reports: out/floor-cluster128.json, out/floor-stage128.json.

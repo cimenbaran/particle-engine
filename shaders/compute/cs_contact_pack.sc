@@ -25,11 +25,14 @@ void main() {
   if(u_contact_floor.x>0.0) {
     vec3 velocity=b_start[id*4u+1u].xyz;float drag=b_materials[identity.x*4u].w;
     valid=valid && contactFinite3(velocity) && contactFinite(drag) && drag>=0.0 && drag<=100.0;
-    if(valid && p.y==p.w && velocity.y==0.0 && abs(velocity.x)<=u_contact_floor.z && abs(velocity.z)<=u_contact_floor.z) {
+    if(valid && p.y==p.w && abs(velocity.y)<=u_contact_floor.z && abs(velocity.x)<=u_contact_floor.z && abs(velocity.z)<=u_contact_floor.z) {
       float damping=max(0.0,1.0-drag*u_contact_floor.y);
-      float tangent=length(velocity.xz)*damping,normal=u_contact_floor.x*u_contact_floor.y*damping;
+      float tangent=length(velocity.xz)*damping,normal=max(0.0,u_contact_floor.x*u_contact_floor.y-velocity.y)*damping;
       float speed=sqrt(tangent*tangent+normal*normal);
       if(speed>u_contact_floor.z){float scale=(u_contact_floor.z/speed)*0.9999995231628418;tangent*=scale;normal*=scale;}
+      // Use the actual post-force approach speed. A small upward velocity
+      // can still be overcome by gravity before the sweep; exact vy==0 loses
+      // floor traction for these supported substeps. Separating motion gets zero.
       // The sweep spent min(tangent,mu*normal) stopping existing sliding.
       // Only the unused static traction may resist later position corrections.
       b_packed[id*8u+6u]=vec4(max(0.0,mu*normal-tangent)*u_contact_floor.y,0.0,0.0,0.0);

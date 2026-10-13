@@ -26,7 +26,7 @@ template<class T> struct Handle {
 struct Scene {
     std::string name;std::vector<ParticleGpu> state;float gravity=9.81f;
     AnalyticSphere obstacle{};
-    unsigned ticks=600;bool settling=true,closed=false,requiresCap=false;
+    unsigned ticks=600,sampleEvery=30;bool traceStages=false;bool settling=true,closed=false,requiresCap=false;
 };
 ParticleGpu body(unsigned id,float x,float y,float z) {return {{x,y,z,0.0625f},{0,0,0,1},{293.15f,0,0,0},{0,1,id,1}};}
 double energy(const std::vector<ParticleGpu>& state) {
@@ -101,7 +101,7 @@ Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
         for(tick=1;tick<=scene.ticks;++tick){
             solver.submit(0,current,materials.value,1);current=solver.output();
             for(unsigned substep=0;substep<solver.plan().substeps;++substep)expectedAge+=solver.plan().substepSeconds;
-            if(tick!=1 && tick%30!=0 && tick!=scene.ticks){bgfx::frame();SDL_PumpEvents();continue;}
+            if(tick!=1 && tick%scene.sampleEvery!=0 && tick!=scene.ticks){bgfx::frame();SDL_PumpEvents();continue;}
             bgfx::setViewMode(1,bgfx::ViewMode::Sequential);
             const float params[]{0,float(count),0,4};
             for(auto pair:{std::pair{current,image.value},std::pair{input.value,oldImage.value}}){
@@ -131,6 +131,19 @@ Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
             result["samples"].back().update(inspectSample(state));
             result["samples"].back()["minimum_sphere_gap"]=scene.obstacle.radius>0?Json(minimumSphereGap):Json(nullptr);
             if(minimumSphereGap< -1e-6)throw std::runtime_error("Particle penetrated sphere terrain beyond float geometry allowance");
+            if(scene.traceStages) {
+                constexpr const char* names[]{"force","sweep","position","reconstruction","response","finish"};
+                const auto snapshots=solver.diagnosticStates();Json stages=Json::object();
+                for(unsigned stage=0;stage<snapshots.size();++stage) {
+                    bgfx::setUniform(uniform.value,params);bgfx::setBuffer(0,snapshots[stage],bgfx::Access::Read);
+                    bgfx::setImage(1,image.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,exporter.value,dispatchGroups(count));
+                    src.handle=image.value;dst.handle=staging.value;bgfx::blit(2,dst,src);
+                    std::vector<ParticleGpu> intermediate(count);ready=bgfx::read(dst,intermediate.data());while(bgfx::frame()<ready)SDL_PumpEvents();
+                    if(stage==5 && std::memcmp(intermediate.data(),state.data(),count*sizeof(ParticleGpu)))throw std::runtime_error("Diagnostic finish snapshot differs from committed tick");
+                    stages[names[stage]]=inspectSample(intermediate)["particle_state"];
+                }
+                result["samples"].back()["last_substep_stages"]=std::move(stages);
+            }
             if(final.maxSpeed>12.0001)throw std::runtime_error("Speed limit exceeded");
             if(tick==scene.ticks/2)tailEnergy=final.kinetic;
             if(tick>=scene.ticks-std::min(120u,scene.ticks)) {tailMaxSpeed=std::max(tailMaxSpeed,final.maxSpeed);tailOverlapPassed&=std::uint64_t(final.deep)*100<=final.contacts;}
@@ -168,7 +181,14 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
     sphereImpact.gravity=0;sphereImpact.settling=false;sphereImpact.closed=true;sphereImpact.ticks=240;
     for(unsigned y=0;y<3;++y)for(unsigned z=0;z<3;++z){auto shot=body(unsigned(sphereImpact.state.size()),-2,4+(float(y)-1)*0.25f,(float(z)-1)*0.25f);shot.velocityInvMass[0]=12;sphereImpact.state.push_back(shot);}
     scenes.push_back(sphereImpact);
-    Json report={{"schema_version",1},{"workload","granular_stability_sphere_v2"},{"position_friction","static_traction_floor_v2"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
+    Scene floorCluster;floorCluster.name="floor_support_cluster_3";floorCluster.ticks=120;floorCluster.sampleEvery=1;floorCluster.traceStages=true;
+    floorCluster.state={body(0,-1.4058891534805298f,0.0625f,-1.4058891534805298f),
+        body(1,-1.2682591676712036f,0.0625f,-1.2682591676712036f),
+        body(2,-1.3370741605758667f,0.1408998966217041f,-1.3370741605758667f)};
+    floorCluster.state[2].velocityInvMass[0]=-3.926095559769749e-13f;
+    floorCluster.state[2].velocityInvMass[1]=-0.0047509451396763325f;
+    floorCluster.state[2].velocityInvMass[2]=-3.926095559769749e-13f;scenes.push_back(floorCluster);
+    Json report={{"schema_version",1},{"workload","granular_stability_sphere_v2"},{"position_friction","static_traction_approach_v3"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
     for(const auto& scene:scenes){
         Json result;
         try {result=sceneCheck(assets,scene);}
@@ -176,7 +196,7 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
         if(!result["passed"].get<bool>())report["passed"]=false;report["scenes"].push_back(std::move(result));
     }
     const auto* caps=bgfx::getCaps();report["machine"]={{"platform",SDL_GetPlatform()},{"ram_mb",SDL_GetSystemRAM()},{"vendor_id",caps->vendorId},{"device_id",caps->deviceId}};
-    report["notes"]={"Snapshots at tick 1 and every 30 ticks; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark.","Sphere scenes additionally require sampled surface gap >= -1e-6 m (float geometry allowance); disabled spheres report null gaps.","Each verified sample records all particle positions/velocities and the fastest particle nearby-contact geometry; these fields do not change gates.","Fastest-particle wall gaps are x-min, x-max, y-min, y-max, z-min, z-max; nearby normals point toward that particle, and negative normal speed means approach."};
+    report["notes"]={"Snapshots at tick 1 and every 30 ticks, except the reduced floor cluster sampled every tick; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark.","Sphere scenes additionally require sampled surface gap >= -1e-6 m (float geometry allowance); disabled spheres report null gaps.","Each verified sample records all particle positions/velocities and the fastest particle nearby-contact geometry; these fields do not change gates.","Fastest-particle wall gaps are x-min, x-max, y-min, y-max, z-min, z-max; nearby normals point toward that particle, and negative normal speed means approach."};
     return report;
 }
 }

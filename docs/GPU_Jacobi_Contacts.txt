@@ -115,14 +115,14 @@ dense iterations, six wall planes and a two-plane corner.
 
 FloorTractionProfile optionally supplies gravity, substep seconds and speed limit
 for the unspent resting-floor budget. The live coordinator supplies it. Defaults
-keep isolated normal/static-pair callers unchanged. See the v2 section of
+keep isolated normal/static-pair callers unchanged. See the v3 section of
 Position_Friction_Reference.txt for activation, budget accounting and limitations.
-The current GPU test total is 100 fixtures.
+The current GPU test total is 142 fixtures, including sphere constraints.
 
 Optional sphere correction constraint
 The constructor accepts an AnalyticSphere after the bounded flag. An enabled
 sphere requires the bounded profile and the same enclosure clearance validation
-as GpuSweptBounds. It is disabled by default, including in the live coordinator.
+as GpuSweptBounds. It is disabled by default; the live sphere preset enables the same profile.
 The sphere entry calculation is shared in sphere_contact.sh; the independent
 CPU sweep remains the test oracle.
 

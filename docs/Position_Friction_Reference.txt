@@ -86,3 +86,23 @@ wall-pile tail maximum is 0.011631010079263555 m/s, versus 0.022653669133305222
 for the prior profile. Resting-pile results are unchanged. This is a candidate
 correction, not proof that the Windows wall-pile failure is fixed. A fresh WARP
 run must pass the same 0.1 m/s gate before cross-backend stability can be closed.
+
+Approach-speed floor traction (static_traction_approach_v3)
+The reduced three-grain cluster reproduced the sphere-drop floor collapse with
+no terrain present. Final-substep traces showed particle velocity response adding
+an upward speed about 0.000544 m/s while the grain remained on the floor. Gravity
+then produced an approach speed about 0.040326 m/s, and the sweep stopped it.
+The v2 exact-zero prior-vertical-velocity condition nonetheless disabled traction,
+allowing Jacobi to move the supporting grains apart.
+
+For an original pose exactly on the floor, v3 computes the actual post-force
+normal approach max(0, gravity*dt - oldVy), then applies drag and the same speed
+cap jointly with the tangent speed. Unspent budget remains
+max(0, mu*normalApproach - tangentSpeed)*dt. Prior velocity components beyond the
+cap conservatively disable this extra budget; current-floor and side-projection
+conditions remain unchanged. A separating post-force velocity gives zero budget.
+No arbitrary low-speed cutoff, sleeping or additional kinetic friction is added.
+Ten new GPU fixtures cover small upward, approaching, gravity-canceling and
+separating prior velocities over one/four iterations, against double arithmetic.
+The separate six-stage diagnostic readbacks leave all 120 reduced-cluster
+particle snapshots identical to the same run without those readbacks.
