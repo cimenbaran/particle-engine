@@ -23,6 +23,8 @@ public:
     // max hash probes/query, collected contact solves. Never a total pair count.
     bgfx::DynamicIndexBufferHandle neighborhoodStatus() const{return neighborhood_;}
     bgfx::DynamicIndexBufferHandle occupancyStatus() const{return occupancy_.status();}
+    // Candidate low/high and directed-contact low/high; successful phases only.
+    bgfx::DynamicIndexBufferHandle contactTotals() const{return totals_;}
     void resetFailures(std::uint16_t view);
     GranularStepPlan plan() const{return plan_;}
     // Diagnostic read-only snapshots for nonzero capacity after submit. Valid until
@@ -33,6 +35,7 @@ public:
     }
 private:
     void release();
+    void total(std::uint16_t view,bgfx::DynamicVertexBufferHandle records,bgfx::DynamicIndexBufferHandle status,float mode);
     void collect(std::uint16_t view,bgfx::DynamicIndexBufferHandle source,float phase,float mode);
     std::uint32_t capacity_,iterations_;
     GranularStepProfile profile_;
@@ -47,10 +50,10 @@ private:
     GpuContactVelocity response_;
     std::array<bgfx::DynamicVertexBufferHandle,2> outputs_{{BGFX_INVALID_HANDLE,BGFX_INVALID_HANDLE}};
     bgfx::DynamicVertexBufferHandle forced_=BGFX_INVALID_HANDLE,finished_=BGFX_INVALID_HANDLE,output_=BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle neighborhood_=BGFX_INVALID_HANDLE,zero_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE,phaseStatus_=BGFX_INVALID_HANDLE,latched_=BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle clear_=BGFX_INVALID_HANDLE,force_=BGFX_INVALID_HANDLE,finish_=BGFX_INVALID_HANDLE;
+    bgfx::DynamicIndexBufferHandle totals_=BGFX_INVALID_HANDLE,neighborhood_=BGFX_INVALID_HANDLE,zero_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE,phaseStatus_=BGFX_INVALID_HANDLE,latched_=BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle totalProgram_=BGFX_INVALID_HANDLE,clear_=BGFX_INVALID_HANDLE,force_=BGFX_INVALID_HANDLE,finish_=BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle collect_=BGFX_INVALID_HANDLE,apply_=BGFX_INVALID_HANDLE,latch_=BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle params_=BGFX_INVALID_HANDLE,step_=BGFX_INVALID_HANDLE,collection_=BGFX_INVALID_HANDLE,sphere_=BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle totalParams_=BGFX_INVALID_HANDLE,params_=BGFX_INVALID_HANDLE,step_=BGFX_INVALID_HANDLE,collection_=BGFX_INVALID_HANDLE,sphere_=BGFX_INVALID_HANDLE;
 };
 void runGpuGranularStepTest(const std::filesystem::path& assets);
 }

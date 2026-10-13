@@ -1,0 +1,40 @@
+GRANULAR CONTACT TOTALS
+
+GpuGranularStep exposes contactTotals(): four words, candidate low/high followed
+by directed-contact low/high. Both values are exact unsigned 64-bit integers.
+They reset each tick and on resetFailures, including empty ticks. Read them after
+the completed tick and before another submit reuses the buffer.
+
+Candidate visits include self and count every index candidate examined by the
+position solver and the response degree/velocity traversals. The two response
+walks use identical immutable positions and search parameters; the retained
+degree-pass candidate count is counted twice. Directed contacts count penetrating
+particle contacts per position iteration and response-union contacts once per
+response solve. Repeated contacts across substeps/iterations and both directions
+are included. They are neither unique pairs nor impulse counts. Plane/sphere
+terrain contacts are outside these particle-pair totals.
+
+A separate reduction runs after each contact solve, reading existing diagnostic
+rows. Each workgroup sums low/high words in shared memory (16 bytes per thread),
+then atomically adds its low words and high words including carry. Only four
+atomic updates per workgroup are needed. No float conversion or native 64-bit
+GPU atomic support is required. The supported capacity/iteration/substep limits
+keep per-tick totals below 2^47. Failed phases contribute zero; other successful
+phases may still contribute during a tick that rolls back. Consumers must match
+the tick of the authoritative solver status before treating totals as complete.
+
+The app has an independent 16-byte delayed diagnostic ring. It shows totals only
+when their tick matches the solver-status tick, and labels a failed tick as
+successful-phase totals only. Reset invalidates old in-flight samples and mode
+teardown waits for readbacks, matching the other rings. The reducer adds one
+16-byte GPU counter allocation; its ring adds 64 GPU and 48 host bytes. The
+solver payload is now 1312*N+304+4*S+16*H; five optional diagnostic rings use
+320 GPU and240 host bytes. No per-particle storage is added. Added reduction
+cost requires measurement before making performance claims.
+
+Synthetic GPU checks use both record layouts, eight workgroup-edge capacities,
+three successive additions, and UINT32_MAX-scale rows to exercise shared and
+global carries. A fourth, failed phase must leave sums unchanged. Coordinator
+checks cover exact closed-pair candidate totals (96), nonzero contacts, empty
+reset, tick reuse, fault paths and all-pairs upper bounds. The live app fixture
+checks the delayed totals snapshot alongside ownership/solver diagnostics.

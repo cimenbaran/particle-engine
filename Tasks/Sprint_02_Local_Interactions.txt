@@ -44,7 +44,9 @@ at both workgroup sizes; its separate pile-stability gate still fails.
 
 Material, speed, velocity-direction, spatial-cell and settling debug views are available in the live
 granular UI; see ../docs/Particle_Debug_Views.txt. Collision normals and detailed
-total pair/timing instrumentation remain open. The UI now reports per-tick
+per-pass timing instrumentation remain open. Exact 64-bit candidate-visit and
+directed-contact totals are now available; repeated passes are counted, so these
+are not unique pairs. See ../docs/Contact_Totals.txt. The UI now reports per-tick
 maximum candidates/query and probes/query, contact-solve counts and partial-error
 status through a separate delayed diagnostic ring. These are maxima, not totals.
 Cell occupancy snapshots now show occupied cells, indexed solids, maximum and

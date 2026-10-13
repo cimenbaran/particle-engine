@@ -32,7 +32,38 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     GranularHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
     GranularHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     GranularHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
-    std::array<std::uint32_t,4> stats{},neighborhood{};unsigned cases=0;
+    std::array<std::uint32_t,4> stats{},neighborhood{},totals{};unsigned cases=0;
+    {
+        GranularHandle reducer(loadCompute(assets,"cs_contact_totals"));
+        GranularHandle totalsUniform(bgfx::createUniform("u_contact_totals",bgfx::UniformType::Vec4));
+        for(unsigned count:{1u,127u,128u,129u,255u,256u,257u,1024u})for(unsigned mode:{0u,1u}) {
+            std::vector<std::array<std::uint32_t,4>> rows(count*2);
+            const std::uint32_t candidates=0xfffffffdu,contacts=0xffffffefu;
+            for(unsigned i=0;i<count;++i)rows[i*2+1]=mode?std::array<std::uint32_t,4>{0,contacts,candidates,0}:std::array<std::uint32_t,4>{contacts,candidates,0,0};
+            GranularHandle records(bgfx::createDynamicVertexBuffer(bgfx::copy(rows.data(),std::uint32_t(rows.size()*16)),layout,BGFX_BUFFER_COMPUTE_READ));
+            const std::array<std::uint32_t,4> zero{};
+            GranularHandle counters(bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE));
+            GranularHandle phase(bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ));
+            GranularHandle image(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
+            GranularHandle staging(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
+            bgfx::setViewMode(0,bgfx::ViewMode::Sequential);
+            for(unsigned pass=0;pass<3;++pass){
+                const float params[]{float(count),float(mode),0,0};bgfx::setUniform(totalsUniform.value,params);
+                bgfx::setBuffer(0,records.value,bgfx::Access::Read);bgfx::setBuffer(1,counters.value,bgfx::Access::ReadWrite);bgfx::setBuffer(2,phase.value,bgfx::Access::Read);
+                bgfx::dispatch(0,reducer.value,dispatchGroups(count));
+            }
+            const std::array<std::uint32_t,4> failure{1,0,0,0};
+            GranularHandle failedPhase(bgfx::createDynamicIndexBuffer(bgfx::copy(failure.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ));
+            const float failedParams[]{float(count),float(mode),0,0};bgfx::setUniform(totalsUniform.value,failedParams);
+            bgfx::setBuffer(0,records.value,bgfx::Access::Read);bgfx::setBuffer(1,counters.value,bgfx::Access::ReadWrite);bgfx::setBuffer(2,failedPhase.value,bgfx::Access::Read);
+            bgfx::dispatch(0,reducer.value,dispatchGroups(count));
+            bgfx::setBuffer(0,counters.value,bgfx::Access::Read);bgfx::setImage(1,image.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,statsExporter.value,1);
+            bgfx::TextureRegion src,dst;src.handle=image.value;dst.handle=staging.value;bgfx::blit(2,dst,src);std::array<std::uint32_t,4> result{};
+            auto ready=bgfx::read(dst,result.data());while(bgfx::frame()<ready)SDL_PumpEvents();
+            require((std::uint64_t(result[0])+(std::uint64_t(result[1])<<32))==std::uint64_t(candidates)*count*3*(mode?2:1),"64-bit candidate sum/carry mismatch");
+            require((std::uint64_t(result[2])+(std::uint64_t(result[3])<<32))==std::uint64_t(contacts)*count*3,"64-bit contact sum/carry mismatch");
+        }
+    }
     auto check=[&](std::vector<ParticleGpu> input,unsigned ticks=1,float gravity=9.81f,bool oracle=true,bool error=false,GpuGranularStep* reused=nullptr,AnalyticSphere obstacle={}) {
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);
         auto owned=reused?nullptr:std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,gravity,false,obstacle);auto& solver=reused?*reused:*owned;
@@ -64,6 +95,14 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
         bgfx::setBuffer(0,solver.occupancyStatus(),bgfx::Access::Read);bgfx::setImage(1,statImage.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,statsExporter.value,1);
         src.handle=statImage.value;dst.handle=statStaging.value;bgfx::blit(2,dst,src);
         std::array<std::uint32_t,4> occupancy{};ready=bgfx::read(dst,occupancy.data());while(bgfx::frame()<ready)SDL_PumpEvents();
+        bgfx::setBuffer(0,solver.contactTotals(),bgfx::Access::Read);bgfx::setImage(1,statImage.value,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(1,statsExporter.value,1);
+        // The export and blit must be ordered in distinct sequential views.
+        bgfx::blit(2,dst,src);ready=bgfx::read(dst,totals.data());while(bgfx::frame()<ready)SDL_PumpEvents();
+        const std::uint64_t candidateTotal=std::uint64_t(totals[0])+(std::uint64_t(totals[1])<<32);
+        const std::uint64_t contactTotal=std::uint64_t(totals[2])+(std::uint64_t(totals[3])<<32);
+        require(contactTotal<=candidateTotal,"Contacts exceed candidate visits");
+        require(candidateTotal<=std::uint64_t(count)*count*solver.plan().substeps*6,"Candidate totals exceed all-pairs traversal bound");
+        if(!count)require(totals==std::array<std::uint32_t,4>{},"Empty tick retained contact totals");
         if(error)require((occupancy[0]&2)!=0 && occupancy[1]==0 && occupancy[2]==0 && occupancy[3]==0,"Failed tick exposed usable occupancy");
         else {
             require(occupancy[0]==0 && occupancy[1]<=occupancy[2] && occupancy[2]<=count && occupancy[3]<=occupancy[2],"Invalid granular occupancy");
@@ -108,7 +147,7 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     p=fixture(129);for(unsigned i=0;i<p.size();++i){if(i%4==0)p[i].velocityInvMass[3]=0;if(i%4==1)p[i].identity[0]=1;if(i%4==2)p[i].identity[0]=2;if(i%4==3)p[i].identity[1]=0;}check(p);
     p=fixture(1);p[0].thermalState[2]=0.01f;check(p,3);
     p=fixture(2);p[0].positionRadius[0]=-0.0625f;p[1].positionRadius[0]=0.0625f;p[0].velocityInvMass[0]=1;p[1].velocityInvMass[0]=-1;
-    auto pair=check(p,1,0,false);require(stats[2]>0,"Granular contacts missing");require(neighborhood[1]==2 && neighborhood[2]>0,"Closed pair neighborhood metrics missing");require(std::abs(pair[0].velocityInvMass[0]+pair[1].velocityInvMass[0])<1e-5,"Closed pair momentum changed");
+    auto pair=check(p,1,0,false);require(stats[2]>0,"Granular contacts missing");require(neighborhood[1]==2 && neighborhood[2]>0,"Closed pair neighborhood metrics missing");require(totals[0]==96 && totals[1]==0 && totals[2]>0 && totals[3]==0,"Closed pair totals mismatch");require(std::abs(pair[0].velocityInvMass[0]+pair[1].velocityInvMass[0])<1e-5,"Closed pair momentum changed");
     double pairEnergy=0;for(const auto& body:pair)for(unsigned a=0;a<3;++a)pairEnergy+=double(body.velocityInvMass[a])*body.velocityInvMass[a];
     require(pairEnergy<=2.00001,"Closed pair gained kinetic energy");
     require(pair[0].velocityInvMass[0]<0 && pair[1].velocityInvMass[0]>0,"Closed pair did not rebound");

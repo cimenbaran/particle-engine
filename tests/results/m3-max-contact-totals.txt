@@ -1,0 +1,19 @@
+64-BIT GRANULAR CONTACT TOTALS
+M3 Max48 GiB, Metal, development worktree based on3aed7bc.
+Full GPU suites and14/14 CTests passed at128/256 threads.
+16 synthetic reducer cases cover both layouts, eight capacities, three additions
+and a failed phase, with UINT32_MAX-scale inputs crossing local/global carries.
+Coordinator fixtures verify96 candidate visits for a closed pair, per-tick reset,
+empty/fault/recovery cases and bounds; the app fixture validates ring readback.
+All281 particle-state samples across11 stability scenes exactly match the
+pre-counter floor-approach128 report. The eleven stability gates pass.
+Native capacity257 UI observed total candidate visits161104 and directed contacts
+7852 at diagnostic tick686, with the repeated-pass/non-unique-pair label.
+The prior clean3aed7bc soak continued concurrently; its installed bundle was
+not replaced. Native reset/empty UI confirmation is not claimed here.
+Windows compilation/runtime validation remains pending.
+out/contact-totals-final128.log sha256=30af84160e40193d92f2edff0ae6ef2cbad26b9e203e33c3df852cba237452e8
+out/contact-totals256.log sha256=afe9754dc8f77730ba0f683981f0110520c6d56c2dad851ca390fac5ca4d4dbf
+out/contact-totals-ctest128.log sha256=bbf8c3adb9e88e2996299a45cf6f945edf3690569c48281165d3dde73e3ee21d
+out/contact-totals-ctest256.log sha256=c32ec88dc88c3a48c0acd231b69f2cfee170f40a0f6904920a22e22376ebeeb6
+out/contact-totals-stability128.json sha256=a63ece862fae91d382f954d4f6d1516e25b7f8b58b9bb0559bbb16fec8f73bea

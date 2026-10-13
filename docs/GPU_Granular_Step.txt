@@ -99,3 +99,9 @@ six signed-axis impacts and 240-tick sphere/wall paths, a 120-tick two-body stac
 and overlap rollback, recovery, latched failure and reset. Full GPU suites pass
 at 128 and 256 threads on Metal; current sphere D3D11 validation is pending.
 See tests/results/m3-max-sphere-granular-step.txt.
+
+Contact totals
+The coordinator now aggregates 64-bit candidate visits and directed particle
+contacts across its substeps, with a separate delayed UI ring. These include
+repeat visits and are not unique pairs. See Contact_Totals.txt for counting,
+failed-phase handling, exact carry tests, and resource costs.

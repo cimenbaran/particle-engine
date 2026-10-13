@@ -21,6 +21,8 @@ public:
     // errors (1 upstream, 2 index, 4 snapshot/profile/bound, 8 arithmetic),
     // maximum degree, candidates and probes. Any error copies input unchanged.
     bgfx::DynamicIndexBufferHandle status() const {return status_;}
+    // Read-only diagnostic rows, valid until the next submit.
+    bgfx::DynamicVertexBufferHandle diagnosticRecords() const{return result_;}
 private:
     std::uint32_t capacity_;
     float bound_,slop_,threshold_;

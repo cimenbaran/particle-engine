@@ -27,16 +27,18 @@ GpuGranularStep::GpuGranularStep(const std::filesystem::path& assets,std::uint32
         const std::array<std::uint32_t,4> zero{};
         zero_=bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ);
         latched_=bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
+        totals_=bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         neighborhood_=bgfx::createDynamicIndexBuffer(bgfx::copy(zero.data(),16),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         status_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         phaseStatus_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
+        totalProgram_=loadCompute(assets,"cs_contact_totals");totalParams_=bgfx::createUniform("u_contact_totals",bgfx::UniformType::Vec4);
         clear_=loadCompute(assets,"cs_velocity_clear");apply_=loadCompute(assets,"cs_velocity_apply");
         force_=loadCompute(assets,"cs_granular_force");finish_=loadCompute(assets,"cs_granular_finish");collect_=loadCompute(assets,"cs_granular_collect");latch_=loadCompute(assets,"cs_granular_latch");
         params_=bgfx::createUniform("u_velocity",bgfx::UniformType::Vec4);step_=bgfx::createUniform("u_granular",bgfx::UniformType::Vec4);
         sphere_=bgfx::createUniform("u_granular_sphere",bgfx::UniformType::Vec4);
         collection_=bgfx::createUniform("u_collect",bgfx::UniformType::Vec4);
         for(auto h:outputs_)if(!bgfx::isValid(h))throw std::runtime_error("Granular output allocation failed");
-        if(!bgfx::isValid(neighborhood_) || !bgfx::isValid(forced_) || !bgfx::isValid(finished_) || !bgfx::isValid(zero_) || !bgfx::isValid(status_) || !bgfx::isValid(phaseStatus_) || !bgfx::isValid(latched_) ||
+        if(!bgfx::isValid(totals_) || !bgfx::isValid(totalParams_) || !bgfx::isValid(neighborhood_) || !bgfx::isValid(forced_) || !bgfx::isValid(finished_) || !bgfx::isValid(zero_) || !bgfx::isValid(status_) || !bgfx::isValid(phaseStatus_) || !bgfx::isValid(latched_) ||
            !bgfx::isValid(params_) || !bgfx::isValid(step_) || !bgfx::isValid(collection_) || !bgfx::isValid(sphere_))throw std::runtime_error("Granular resources unavailable");
     }catch(...){release();throw;}
 }
@@ -44,9 +46,14 @@ GpuGranularStep::~GpuGranularStep(){release();}
 void GpuGranularStep::release() {
     for(auto h:outputs_)if(bgfx::isValid(h))bgfx::destroy(h);
     for(auto h:{forced_,finished_})if(bgfx::isValid(h))bgfx::destroy(h);
-    for(auto h:{zero_,status_,phaseStatus_,latched_,neighborhood_})if(bgfx::isValid(h))bgfx::destroy(h);
-    for(auto h:{clear_,force_,finish_,collect_,apply_,latch_})if(bgfx::isValid(h))bgfx::destroy(h);
-    for(auto h:{params_,step_,collection_,sphere_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{zero_,status_,phaseStatus_,latched_,neighborhood_,totals_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{totalProgram_,clear_,force_,finish_,collect_,apply_,latch_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{totalParams_,params_,step_,collection_,sphere_})if(bgfx::isValid(h))bgfx::destroy(h);
+}
+void GpuGranularStep::total(std::uint16_t view,bgfx::DynamicVertexBufferHandle records,bgfx::DynamicIndexBufferHandle status,float mode) {
+    const float params[]{float(capacity_),mode,0,0};bgfx::setUniform(totalParams_,params);
+    bgfx::setBuffer(0,records,bgfx::Access::Read);bgfx::setBuffer(1,totals_,bgfx::Access::ReadWrite);bgfx::setBuffer(2,status,bgfx::Access::Read);
+    bgfx::dispatch(view,totalProgram_,dispatchGroups(capacity_));
 }
 void GpuGranularStep::collect(std::uint16_t view,bgfx::DynamicIndexBufferHandle source,float phase,float mode) {
     const float p[]{phase,mode,0,0};bgfx::setUniform(collection_,p);
@@ -57,6 +64,7 @@ void GpuGranularStep::resetFailures(std::uint16_t view) {
     occupancy_.reset(view,zero_);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,latched_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,neighborhood_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
+    bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,totals_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
 }
 void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,bgfx::DynamicVertexBufferHandle materials,std::uint32_t count) {
     if(!bgfx::isValid(input) || !bgfx::isValid(materials) || input.idx==materials.idx || !count || count>65536)
@@ -66,6 +74,7 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
     output_=input.idx==outputs_[0].idx?outputs_[1]:outputs_[0];bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     bgfx::setBuffer(0,latchFailures_?latched_:zero_,bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,neighborhood_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
+    bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,totals_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(!capacity_){occupancy_.reset(view,zero_);return;}
     const float p[]{float(capacity_),plan_.substepSeconds,float(count),0},q[]{gravity_,profile_.speedLimit,0,0};
     auto current=input;
@@ -77,9 +86,9 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
         sweep_.submit(view,forced_,materials,count,status_,plan_.substepSeconds,profile_.speedLimit,0.5f,16,obstacle_);collect(view,sweep_.status(),2,1);
         const auto substepStart=current;
         const auto predicted=sweep_.output();current=predicted;
-        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart,{gravity_,plan_.substepSeconds,profile_.speedLimit});current=contacts_.output();collect(view,contacts_.status(),4,2);}
+        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart,{gravity_,plan_.substepSeconds,profile_.speedLimit});current=contacts_.output();collect(view,contacts_.status(),4,2);total(view,contacts_.diagnosticRecords(),contacts_.status(),0);}
         velocity_.submit(view,predicted,current,materials,count,status_,plan_.substepSeconds,VelocityReconstructionMode::Correction);collect(view,velocity_.status(),8,0);
-        response_.submit(view,predicted,velocity_.output(),materials,count,status_);collect(view,response_.status(),16,2);
+        response_.submit(view,predicted,velocity_.output(),materials,count,status_);collect(view,response_.status(),16,2);total(view,response_.diagnosticRecords(),response_.status(),1);
         bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,phaseStatus_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
         bgfx::setUniform(params_,p);bgfx::setUniform(step_,q);
         const float sphere[]{obstacle_.centre[0],obstacle_.centre[1],obstacle_.centre[2],obstacle_.radius};bgfx::setUniform(sphere_,sphere);

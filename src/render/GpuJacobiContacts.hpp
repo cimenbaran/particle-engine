@@ -31,6 +31,8 @@ public:
     // Snapshot index for the most recent iteration; rebuilt on the next submit.
     bgfx::DynamicIndexBufferHandle cellRanges() const{return ranges_.ranges();}
     bgfx::DynamicIndexBufferHandle cellMetadata() const{return ranges_.metadata();}
+    // Read-only diagnostic rows, valid until the next submit.
+    bgfx::DynamicVertexBufferHandle diagnosticRecords() const{return corrections_;}
 private:
     std::uint32_t capacity_;
     float relaxation_,maxCorrection_;

@@ -90,13 +90,14 @@ release provenance or Windows runtime evidence.
 
 GRANULAR OPTIONAL RESOURCES
 
-With collisions enabled, the coordinator requests 1312*N + 288 + 4*S + 16*H
+With collisions enabled, the coordinator requests 1312*N + 304 + 4*S + 16*H
 bytes, where N=max(1,capacity), S is the recursive scan scratch word count and
 H=bit_ceil(2*capacity+2). The positional static-friction packing buffer adds
 128*N bytes to the earlier 1184*N profile. It is allocated even when an isolated
 Jacobi caller omits a baseline. It packs current state, immutable substep pose
 and validated friction metadata to retain the six-compute-binding limit.
 Live settling adds its own 80*N + 96 + 2*S + 8*H payload. Solver/tracker diagnostic
-rings plus the neighborhood and occupancy rings add 256 GPU payload bytes and 192 host readback bytes. These totals retain
+rings plus neighborhood, occupancy and contact-total rings add 320 GPU payload
+bytes and 240 host readback bytes. These totals retain
 the exclusions and deferred-allocation caveats above; they are not measured
 resident-memory peaks. See Interactive_Granular.txt and GPU_Settling.txt.
