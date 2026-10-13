@@ -1,0 +1,21 @@
+CI compiler cache
+=================
+
+The native build workflow uses sccache v0.16.0 with GitHub Actions cache storage
+for C and C++ compilation on macOS and Windows. The setup action is pinned to
+the commit behind v0.0.11. Local CMake presets retain their normal compilers.
+
+Only compiler results are cached. Configure, shader generation, linking,
+packaging and every existing validation step still execute normally. The setup
+action reports cache statistics in its post-run step. Compare compiler cache
+hits and compile-step durations across subsequent runs before claiming a
+speedup; the initial run may have no reusable entries.
+
+The cache integration passed actionlint 1.7.12 (shellcheck and pyflakes disabled)
+and git diff --check locally. Hosted cold/warm cache behavior remains to be
+verified after this workflow is pushed. A passing cached build does not replace
+Metal or D3D11 hardware validation.
+
+Upstream setup and cache documentation:
+https://github.com/Mozilla-Actions/sccache-action/tree/v0.0.11
+https://github.com/mozilla/sccache/blob/v0.16.0/docs/GHA.md
