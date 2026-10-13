@@ -88,5 +88,21 @@ int main() {
     bodies[0].position[1]=0.065;CHECK(!settlingSupport(bodies,0).hold);
     bodies[0].position[1]=0.05;CHECK(!settlingSupport(bodies,0).hold);
     bodies[0].position[1]=std::numeric_limits<double>::quiet_NaN();CHECK(!settlingSupport(bodies,0).hold);
+    bodies[0].position={0,5,0};
+    CHECK(settlingSupport(bodies,0,{0,4,0},0.9375).enter);
+    CHECK(!settlingSupport(bodies,0).hold);
+    bodies[0].position[1]=5.001;
+    CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).enter && settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    bodies[0].position[1]=5.003;CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    bodies[0].position={1,4,0};CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    bodies[0].position={0,3,0};CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    bodies[0].position={0,4,0};CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    bodies[0].position={0,4.99,0};CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
+    for(double ny:{0.499,0.501,0.8}) {
+        bodies[0].position={std::sqrt(1-ny*ny),4+ny,0};
+        CHECK(settlingSupport(bodies,0,{0,4,0},0.9375).enter==(ny>=0.5));
+    }
+    bodies[0].position={0,5,0};bodies[0].dynamic=false;
+    CHECK(!settlingSupport(bodies,0,{0,4,0},0.9375).hold);
     std::cout<<"Settling hysteresis: dwell, speed/contact dead bands, recycling, invalidation and counter bounds passed\n";
 }

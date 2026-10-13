@@ -6,15 +6,16 @@
 #include <stdexcept>
 namespace pw {
 namespace {
-std::uint32_t validate(std::uint32_t n,const SettlingProfile& p) {
+std::uint32_t validate(std::uint32_t n,const SettlingProfile& p,const AnalyticSphere& obstacle) {
+    validateAnalyticSphere(obstacle);
     validateSettlingProfile(p);
     if(n>1048576 || p.enterSpeed<0.001f || p.exitSpeed>12.0f)
         throw std::invalid_argument("GPU settling requires capacity <=1048576 and speeds 0.001..12 m/s");
     return n;
 }
 }
-GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile,bool latchFailures)
-    :capacity_(validate(capacity,profile)),profile_(profile),latchFailures_(latchFailures),keys_(assets,capacity_),sort_(assets,capacity_),ranges_(assets,capacity_),hash_(assets,capacity_) {
+GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capacity,SettlingProfile profile,bool latchFailures,AnalyticSphere obstacle)
+    :capacity_(validate(capacity,profile,obstacle)),profile_(profile),obstacle_(obstacle),latchFailures_(latchFailures),keys_(assets,capacity_),sort_(assets,capacity_),ranges_(assets,capacity_),hash_(assets,capacity_) {
     try {
         bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         history_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity_),layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
@@ -25,9 +26,10 @@ GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capac
         reset_=loadCompute(assets,"cs_settling_reset");clear_=loadCompute(assets,"cs_settling_clear");
         supportProgram_=loadCompute(assets,"cs_settling_support");reduce_=loadCompute(assets,"cs_settling_reduce");advance_=loadCompute(assets,"cs_settling_advance");
         params_=bgfx::createUniform("u_settling",bgfx::UniformType::Vec4);ticks_=bgfx::createUniform("u_settling_ticks",bgfx::UniformType::Vec4);
+        sphere_=bgfx::createUniform("u_settling_sphere",bgfx::UniformType::Vec4);
         neighbors_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(history_) || !bgfx::isValid(support_) || !bgfx::isValid(status_) || !bgfx::isValid(latched_) ||
-           !bgfx::isValid(params_) || !bgfx::isValid(ticks_) || !bgfx::isValid(neighbors_))throw std::runtime_error("Settling resources unavailable");
+           !bgfx::isValid(params_) || !bgfx::isValid(ticks_) || !bgfx::isValid(neighbors_) || !bgfx::isValid(sphere_))throw std::runtime_error("Settling resources unavailable");
     }catch(...){release();throw;}
 }
 GpuSettling::~GpuSettling(){release();}
@@ -36,7 +38,7 @@ void GpuSettling::release() {
     if(bgfx::isValid(status_))bgfx::destroy(status_);
     if(bgfx::isValid(latched_))bgfx::destroy(latched_);
     for(auto h:{reset_,clear_,supportProgram_,reduce_,advance_,latch_})if(bgfx::isValid(h))bgfx::destroy(h);
-    for(auto h:{params_,ticks_,neighbors_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{params_,ticks_,neighbors_,sphere_})if(bgfx::isValid(h))bgfx::destroy(h);
 }
 void GpuSettling::reset(std::uint16_t view) {
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
@@ -61,6 +63,8 @@ void GpuSettling::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     if(!capacity_){if(latchFailures_){bgfx::setBuffer(0,status_,bgfx::Access::Read);bgfx::setBuffer(1,latched_,bgfx::Access::ReadWrite);bgfx::dispatch(view,latch_,1);}return;}
     const float n[]{float(capacity_),float(hash_.tableSlots()),float(hash_.probeLimit()),0.127f};
     const std::array<std::uint32_t,4> ticks{profile_.acquireTicks,profile_.releaseTicks,0,0};
+    const float sphere[]{obstacle_.centre[0],obstacle_.centre[1],obstacle_.centre[2],obstacle_.radius};
+    bgfx::setUniform(sphere_,sphere);
     bgfx::setUniform(neighbors_,n);bgfx::setBuffer(0,state,bgfx::Access::Read);bgfx::setBuffer(1,sort_.output(),bgfx::Access::Read);
     bgfx::setBuffer(2,ranges_.ranges(),bgfx::Access::Read);bgfx::setBuffer(3,hash_.table(),bgfx::Access::Read);
     bgfx::setBuffer(4,hash_.metadata(),bgfx::Access::Read);bgfx::setBuffer(5,support_,bgfx::Access::ReadWrite);

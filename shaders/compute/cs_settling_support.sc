@@ -7,6 +7,7 @@ BUFFER_RO(b_table,uint,3);
 BUFFER_RO(b_meta,uint,4);
 BUFFER_RW(b_support,vec4,5);
 uniform vec4 u_neighbors;
+uniform vec4 u_settling_sphere;
 #include "contact_math.sh"
 void addSupport(uint query,float gap) {
   if(gap< -0.00625)return;
@@ -33,6 +34,12 @@ void main() {
   }
   if(velocity.w==0.0)return;
   b_support[slot]=vec4(0.0,0.0,0.0,1.0);addSupport(slot,b_state[slot*4u].y-0.0625);
+  if(u_settling_sphere.w>0.0) {
+    vec3 offset=b_state[slot*4u].xyz-u_settling_sphere.xyz;
+    float distance=sqrt(dot(offset,offset));
+    if(distance>0.000001 && offset.y>=0.5*distance)
+      addSupport(slot,distance-(u_settling_sphere.w+0.0625));
+  }
   uvec4 result=visitNeighbors(id,u_neighbors);
   if(result.w>1u){vec4 s=b_support[slot];s.z=uintBitsToFloat(8u);b_support[slot]=s;}
 }

@@ -19,7 +19,7 @@ values. The GPU validates this profile before allocating component resources.
 Capacity is 0..1048576. History has no effect on particle state or allocation.
 
 Support uses only live solids in the fresh index. Dynamic queries use floor and
-upward particle contacts; static solids can support others but never acquire a
+upward particle contacts and optional sphere terrain; static solids can support others but never acquire a
 candidate. Every indexed solid must have radius 0.0625, zero or positive normal
 inverse mass, and finite velocity. The index validates position, identity and
 material phase. Non-solid/dead particles are excluded without reading their
@@ -45,7 +45,7 @@ The tracker owns 32*N bytes for history/support, two 16-byte status buffers, and
 spatial index with two recursive scans. It can be optimized to share an index only
 when snapshot identity and lifetime are guaranteed; the current rebuild is explicit.
 
---gpu-test includes 45 fixtures comparing exact per-slot histories to the CPU
+--gpu-test includes 88 fixtures comparing exact per-slot histories to the CPU
 state machine and double all-pairs support oracle, plus bytewise unchanged particle
 inputs. Cases cover 0/1/127/128/129/255/256/257/1024 slots, dwell boundaries,
 speed/contact dead bands, contact-loss grace, impulse/recycling/exclusion/reset,
@@ -60,3 +60,21 @@ application fixture verifies acquisition while retaining active-list ownership,
 impulse release, same-generation scene reset, empty-scene clearing and mode
 teardown. No deposition is performed. See Interactive_Granular.txt.
 Windows runtime validation must be checked separately in the CI results.
+
+Optional sphere support
+The final constructor argument is AnalyticSphere, with radius zero disabling it.
+The profile must pass the same geometry validation as the granular solver. The
+caller must supply the same obstacle to both owners. This adds one uniform and
+no per-particle storage, compute bindings or readbacks.
+A sphere contributes support when its outward normal has Y >= 0.5. Surface gap
+uses sphere radius plus the common particle radius, with the existing 0.0001 m
+entry, 0.002 m hold and 0.00625 m maximum penetration thresholds. A coincident
+centre, lower hemisphere, side contact or deep intersection cannot contribute
+sphere support. Other qualifying support can still contribute. The tracker is
+an observer: the solver owns invalid-overlap rejection and upstream failures
+invalidate candidates globally, as before.
+43 added fixtures compare exact histories with double-precision sphere geometry:
+upper/lower/side normals, support-cone sides, entry/hold/separation/deep gaps,
+acquisition and grace transitions, upstream invalidation/reset, and six workgroup
+edge capacities. Particle state remains bytewise unchanged. Scene/rendering
+integration is separate; the default interactive scene still disables spheres.

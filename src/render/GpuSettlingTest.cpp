@@ -30,9 +30,9 @@ void runGpuSettlingTest(const std::filesystem::path& assets) {
     Handle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     unsigned cases=0;
     auto run=[&](std::vector<ParticleGpu> particles,unsigned ticks=1,GpuSettling* reused=nullptr,
-                 std::vector<SettlingState>* reusedHistory=nullptr,unsigned failure=0,unsigned upstreamError=0,SettlingProfile profile=SettlingProfile{}) {
+                 std::vector<SettlingState>* reusedHistory=nullptr,unsigned failure=0,unsigned upstreamError=0,SettlingProfile profile=SettlingProfile{},AnalyticSphere obstacle={}) {
         const auto count=std::uint32_t(particles.size()),storage=std::max(1u,count);
-        auto owned=reused?nullptr:std::make_unique<GpuSettling>(assets,count,profile);auto& tracker=reused?*reused:*owned;
+        auto owned=reused?nullptr:std::make_unique<GpuSettling>(assets,count,profile,false,obstacle);auto& tracker=reused?*reused:*owned;
         std::vector<SettlingState> local(count);auto& expected=reusedHistory?*reusedHistory:local;
         auto uploaded=particles;if(!count)uploaded.resize(1);
         Handle state(bgfx::createDynamicVertexBuffer(bgfx::copy(uploaded.data(),storage*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
@@ -43,7 +43,7 @@ void runGpuSettlingTest(const std::filesystem::path& assets) {
         for(unsigned tick=0;tick<ticks;++tick){
             tracker.submit(0,state.value,materialBuffer.value,3,sourceStatus.value);
             for(unsigned i=0;i<count;++i){
-                const auto& p=particles[i];auto support=failure?reference::SettlingSupport{}:reference::settlingSupport(bodies,i);
+                const auto& p=particles[i];auto support=failure?reference::SettlingSupport{}:reference::settlingSupport(bodies,i,{obstacle.centre[0],obstacle.centre[1],obstacle.centre[2]},obstacle.radius);
                 // One-axis threshold fixtures have exact speed; general geometry
                 // fixtures stay away from numerical classification boundaries.
                 float speed=std::hypot(p.velocityInvMass[0],p.velocityInvMass[1],p.velocityInvMass[2]);
@@ -128,6 +128,26 @@ void runGpuSettlingTest(const std::filesystem::path& assets) {
     GpuSettling emptyLatched(assets,0,{},true);std::vector<SettlingState> noHistory;
     run({},1,&emptyLatched,&noHistory,1,1);run({},1,&emptyLatched,&noHistory,1);
     emptyLatched.reset(0);run({},1,&emptyLatched,&noHistory);
+    const AnalyticSphere sphere{{0,4,0},0.9375f};
+    // Surface normals above/below the support cone, entry/hold gaps, and deep overlap.
+    for(float normalY:{1.0f,0.8f,0.501f,0.499f,0.0f,-1.0f})for(float gap:{0.0f,0.00005f,0.001f,0.003f,-0.01f}) {
+        p=fixture(1);p[0].positionRadius[0]=std::sqrt(1-normalY*normalY)*(1+gap);
+        p[0].positionRadius[1]=4+normalY*(1+gap);p[0].positionRadius[2]=0;
+        run(p,30,nullptr,nullptr,0,0,{},sphere);
+    }
+    GpuSettling curved(assets,1,{},false,sphere);std::vector<SettlingState> curvedHistory(1);
+    p=fixture(1);p[0].positionRadius[0]=0;p[0].positionRadius[1]=5;p[0].positionRadius[2]=0;
+    run(p,30,&curved,&curvedHistory,0,0,{},sphere);require(curvedHistory[0].candidate,"Sphere support failed to acquire");
+    p[0].positionRadius[1]=5.001f;run(p,8,&curved,&curvedHistory,0,0,{},sphere);require(curvedHistory[0].candidate,"Sphere hold gap lost candidate");
+    p[0].positionRadius[1]=5.003f;run(p,2,&curved,&curvedHistory,0,0,{},sphere);require(curvedHistory[0].candidate,"Sphere grace released early");
+    run(p,1,&curved,&curvedHistory,0,0,{},sphere);require(!curvedHistory[0].candidate,"Sphere unsupported candidate retained");
+    p[0].positionRadius[1]=5;run(p,30,&curved,&curvedHistory,0,0,{},sphere);
+    run(p,1,&curved,&curvedHistory,1,1,{},sphere);require(!curvedHistory[0].candidate,"Sphere upstream failure retained candidate");
+    curved.reset(0);curvedHistory.assign(1,{});run(p,1,&curved,&curvedHistory,0,0,{},sphere);
+    for(unsigned n:{127u,128u,129u,255u,256u,257u}) {
+        p=fixture(n);for(auto& body:p){body.positionRadius[0]=0;body.positionRadius[1]=5;body.positionRadius[2]=0;}
+        run(p,1,nullptr,nullptr,0,0,immediate,sphere);
+    }
     bool rejected=false;try{SettlingProfile invalid;invalid.enterSpeed=0;GpuSettling bad(assets,1,invalid);}catch(const std::invalid_argument&){rejected=true;}
     require(rejected,"GPU settling accepted unsupported speed profile");
     std::cout<<"GPU settling passed: "<<cases<<" fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes\n";

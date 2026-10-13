@@ -1,0 +1,17 @@
+OPTIONAL SPHERE SETTLING SUPPORT
+M3 Max 48 GiB, Metal; development worktree based on 9687e98.
+Full GPU suites pass at 128 and 256 threads; 88 settling fixtures each.
+14/14 CTests pass for each GPU configuration; 9/9 core-only CTests pass.
+43 new fixtures compare exact histories against double sphere geometry and CPU state transitions.
+No particle mutations or additional GPU buffers. Live sphere scene not enabled yet.
+D3D11 sphere tracker validation pending.
+out/sphere-settling128.log sha256=06df2c459a6c47ebc628e8fc565e36851d8f7ceb460e19f25a1d3d1016a05afe
+GPU settling passed: 88 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+out/sphere-settling256.log sha256=40fb31cd3986885639e283f89003c60e268a896152981ba0e97324582ae070c8
+GPU settling passed: 88 fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes
+out/sphere-settling-ctest128.log sha256=5f6da8baba6c8e6693226b581afcbb505b8083d7610bede36e860cabef94e255
+100% tests passed, 0 tests failed out of 14
+out/sphere-settling-ctest256.log sha256=c2bc85c5471298b46ab6c6f1b0c7c9522ca8815a093d79a7c115460a30e1efb3
+100% tests passed, 0 tests failed out of 14
+out/sphere-settling-core-tests.log sha256=a624abc3e2013acc36e5284c1b2a5919d59a226e734d3181d29c809192e3d54b
+100% tests passed, 0 tests failed out of 9
