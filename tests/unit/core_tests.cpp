@@ -89,6 +89,7 @@ int main() {
     };
     CHECK(parse({"app","--scene","scene.json","--frames","2"}).scene=="scene.json");
     CHECK(parse({"app"}).capacity==16384);
+    CHECK(parse({"app","--terrain-preview","--frames","2"}).terrainPreview);
     CHECK(parse({"app","--granular-check","--report","check.json","--software-gpu"}).granularCheck);
     CHECK(parse({"app","--granular"}).granular && parse({"app","--granular"}).capacity==512 && parse({"app","--granular"}).cosmeticCapacity==0);
     CHECK(parse({"app","--granular","--capacity","129","--frames","8"}).capacity==129);
@@ -109,6 +110,8 @@ int main() {
     const auto run=parse({"app","--capacity","1000000","--benchmark","report","--warmup","0","--no-indirect"});
     CHECK(run.capacity==1000000 && run.frames==600 && run.warmup==0 && !run.indirect);
     for(const auto& args:std::vector<std::vector<std::string>>{
+        {"app","--terrain-preview","--granular"},{"app","--terrain-preview","--gpu-test"},{"app","--terrain-preview","--scene","x"},
+        {"app","--terrain-preview","--capacity","64"},{"app","--terrain-preview","--report","x"},
         {"app","--software-gpu"},{"app","--software-gpu","--frames","2"},
         {"app","--software-gpu","--benchmark","x"},
         {"app","--software-gpu","--soak","1","--report","x"},

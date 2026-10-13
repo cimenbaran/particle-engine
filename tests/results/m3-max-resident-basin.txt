@@ -1,0 +1,27 @@
+RESIDENT BASIN / TERRAIN RENDERING — MACOS / METAL
+
+Metal workgroups 128 and 256:
+- Complete --gpu-test suites passed.
+- Six GPU face images verify solid color, directional lighting and depth.
+- Negative voxel coordinates, empty rebuild, seam suppression and stale mesh /
+  occupancy publication rejection passed.
+- Native CTest: 21/21 in each configuration.
+- CPU-only CTest: 16/16.
+
+Recipe seed 1337: 404,546 occupied voxels, 170,188 exposed faces.
+CPU test compares all 8,388,608 resident voxel locations for repeatability;
+seed 42 differs at 1,566 sand voxel locations.
+
+Native UI inspection on Metal128:
+- Full basin, stone ledge, sand slope, dry pool recess and wood patch visible.
+- Seed changed to 42 and Rebuild basin pressed.
+- New publication displayed: 404,578 occupied voxels, 170,228 exposed faces.
+- Escape closed the preview normally (process exit 0).
+- A separate --terrain-preview --frames 180 smoke run exited 0 on Metal128.
+
+Local ignored logs: out/basin-{gpu128,gpu256,ctest128,ctest256,core-tests,
+preview,smoke128}.log.
+
+The inspection mode is static. These checks do not establish live voxel particle
+response, water, heat, transaction safety, dirty-mesh reuse, performance budgets
+or Windows certification.

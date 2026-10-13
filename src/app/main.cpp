@@ -1,3 +1,5 @@
+#include "TerrainPreview.hpp"
+#include "render/VoxelTerrain.hpp"
 #include "core/ComputeDispatch.hpp"
 #include "platform/Window.hpp"
 #include "Benchmark.hpp"
@@ -974,6 +976,7 @@ int main(int argc, char** argv) {
         const char* basePath=SDL_GetBasePath();
         if(!basePath) throw std::runtime_error("SDL cannot resolve application assets");
         const std::filesystem::path assets=std::filesystem::path(basePath)/"assets";
+        if(options.terrainPreview)return pw::runTerrainPreview(window,assets,options.frames);
         pw::runGpuLayoutTest(assets);
         pw::runGpuPoolTest(assets);
         pw::runGpuVisibilityTest(assets);
@@ -985,7 +988,7 @@ int main(int argc, char** argv) {
             std::ofstream file(destination);file<<report.dump(2)<<'\n';file.close();if(!file)throw std::runtime_error("Cannot write granular stability report");
             return report["passed"].get<bool>()?0:1;
         }
-        if(gpuTestOnly) {pw::runGpuVoxelWorldTest(assets);pw::runGpuVoxelSweepTest(assets);pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runGpuSpatialKeysTest(assets);pw::runGpuCellRangesTest(assets);pw::runGpuCellHashTest(assets);pw::runGpuNeighborsTest(assets);pw::runGpuJacobiContactsTest(assets);pw::runGpuVelocityReconstructionTest(assets);pw::runGpuContactVelocityTest(assets);pw::runGpuSweptBoundsTest(assets);pw::runGpuGranularStepTest(assets);pw::runGpuSettlingTest(assets);pw::runGpuParticleDebugTest(assets);pw::runGpuContactNormalsTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
+        if(gpuTestOnly) {pw::runVoxelTerrainTest(assets);pw::runGpuVoxelWorldTest(assets);pw::runGpuVoxelSweepTest(assets);pw::runGpuPrefixScanTest(assets);pw::runGpuRadixSortTest(assets);pw::runGpuSpatialKeysTest(assets);pw::runGpuCellRangesTest(assets);pw::runGpuCellHashTest(assets);pw::runGpuNeighborsTest(assets);pw::runGpuJacobiContactsTest(assets);pw::runGpuVelocityReconstructionTest(assets);pw::runGpuContactVelocityTest(assets);pw::runGpuSweptBoundsTest(assets);pw::runGpuGranularStepTest(assets);pw::runGpuSettlingTest(assets);pw::runGpuParticleDebugTest(assets);pw::runGpuContactNormalsTest(assets);pw::runImGuiRendererTest(assets);pw::runShaderReloadTest(assets);runGpuPoolIsolationTest(assets);return 0;}
         std::optional<pw::CommandRecording> replay;
         if(!options.replay.empty()) replay=pw::loadRecording(options.replay,pw::loadMaterials(assets/"materials/default.json"));
         pw::ScenePreset granularScene;granularScene.name="Granular sand drop";granularScene.count=std::min(256u,options.capacity);

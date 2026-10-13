@@ -7,7 +7,7 @@
 namespace pw {
 struct RunOptions {
     std::uint32_t capacity=16384,cosmeticCapacity=16384,frames=0,warmup=120,soakSeconds=0;
-    bool gpuTest=false,indirect=true,softwareGpu=false,granular=false,granularCheck=false;
+    bool terrainPreview=false,gpuTest=false,indirect=true,softwareGpu=false,granular=false,granularCheck=false;
     std::string benchmark,report,capabilities,scene,replay;
 };
 inline RunOptions parseOptions(int argc,char** argv) {
@@ -33,13 +33,18 @@ inline RunOptions parseOptions(int argc,char** argv) {
         else if(arg=="--capabilities") {options.capabilities=value(i);if(options.capabilities.empty()) throw std::runtime_error("Empty capability report path");}
         else if(arg=="--scene") {options.scene=value(i);if(options.scene.empty()) throw std::runtime_error("Empty scene path");}
         else if(arg=="--replay") {options.replay=value(i);if(options.replay.empty()) throw std::runtime_error("Empty replay path");}
+        else if(arg=="--terrain-preview") options.terrainPreview=true;
         else if(arg=="--granular-check") options.granularCheck=true;
         else if(arg=="--granular") options.granular=true;
         else if(arg=="--no-indirect") options.indirect=false;
         else if(arg=="--gpu-test") options.gpuTest=true;
         else if(arg=="--software-gpu") options.softwareGpu=true;
-        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--granular] [--granular-check --report path.json] [--gpu-test] [--software-gpu] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
+        else throw std::runtime_error("Usage: ParticleWorld [--capacity 1..1048576] [--cosmetic-capacity 0..150000] [--frames N] [--granular] [--terrain-preview] [--granular-check --report path.json] [--gpu-test] [--software-gpu] [--no-indirect] [--benchmark output-prefix --warmup N] [--soak seconds --report path.json] [--capabilities path.json] [--scene path.json] [--replay recording.json --report result.json]");
     }
+    if(options.terrainPreview && (options.granular || options.granularCheck || options.gpuTest || options.soakSeconds ||
+       !options.scene.empty() || !options.replay.empty() || !options.report.empty() || !options.capabilities.empty() ||
+       !options.benchmark.empty() || options.softwareGpu || specifiedWarmup || specifiedCapacity || specifiedCosmetics))
+        throw std::runtime_error("--terrain-preview supports inspection and --frames only");
     if(options.granularCheck && (options.report.empty() || options.granular || options.gpuTest || options.soakSeconds ||
        !options.benchmark.empty() || !options.replay.empty() || !options.capabilities.empty() || !options.scene.empty() ||
        options.frames || specifiedWarmup || specifiedCapacity || specifiedCosmetics))

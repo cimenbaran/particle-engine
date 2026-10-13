@@ -1,0 +1,53 @@
+RESIDENT BASIN GENERATION AND SURFACE INSPECTION
+
+Open the installed Mac app's terrain inspection mode:
+  open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-preview
+Or run its executable with --terrain-preview --frames 180 for a bounded smoke run.
+The normal launch still opens the particle sandbox. The inspection mode contains
+no particle simulation or editing commands; it does not claim voxel response,
+water, burning, destruction or deposition. Escape closes it.
+
+The version 1 deterministic recipe uses 256 chunks across [-16,16) x [0,16) x
+[-16,16) metres. Each chunk has 32 cubed voxels with .125 m spacing. It produces
+stone flooring and a two-voxel-thick rim, a four-metre stone ledge, a sand slope,
+a shallow dry pool recess, and a 2 x 2 m wood patch. Integer hashing varies the
+top layer of the sand slope by seed. There is no floating-point random generator
+or GPU-dependent scene generation. Water and thermal state will be introduced
+with their solvers rather than represented as solid occupancy now.
+
+The generator validates distinct material IDs, creates unique voxel edits, and
+commits one CPU batch into a fresh store. Seed 1337 contains 404,546 occupied
+voxels and 170,188 exposed faces. CPU tests compare every voxel in all 256 chunks
+for repeatability, check named feature locations, and verify that seed changes
+affect sand occupancy. Seeds 1337 and 42 differ at 1,566 voxel locations.
+
+VoxelTerrain builds an immutable mesh from the exposed-face extractor. Hidden
+faces across chunk boundaries are omitted. Vertices are origin-relative positions
+and packed material color with directional face lighting; indices are uint32.
+The payload is 88 bytes per face: four 16-byte vertices and six uint32 indices.
+A 1,048,576-face guard prevents an unbounded mesh allocation. No greedy merging,
+chunk culling, dirty-mesh reuse or LOD is implemented yet. All occupied materials
+must be solid. The full resident occupancy remains independent of camera view.
+
+Both constructor and draw require the exact source store, shared origin and
+current GpuVoxelWorld revision. A stale mesh cannot draw alongside newer occupancy.
+Inspection rebuilds stage a fresh store, occupancy snapshot and mesh before
+replacing the prior publication together on the main thread. Failure leaves the
+prior publication intact. This is a static render publication, not a terrain /
+particle edit transaction or GPU acknowledgement. Mesh and occupancy GPU payload
+for seed 1337 is about 46.3 MiB, excluding allocator overhead and temporary CPU /
+upload buffers. Rebuilds temporarily hold old and new publications concurrently.
+
+Material hot reload is not enabled in inspection mode.
+The panel offers orbit, distance, height and a nonnegative integer seed. Rebuild
+regenerates the basin. Material colors come from the existing material library.
+Native UI inspection confirmed the seed 1337 view and a successful seed 42 rebuild
+(404,578 voxels / 170,228 faces). GPU image tests read rendered pixels for all six
+faces, including negative coordinates, depth ordering, solid material color,
+empty rebuilds and stale publication rejection. A chunk-seam fixture checks that
+two adjacent voxels produce ten exposed faces.
+
+Remaining integration: live collision response in prediction, position correction,
+velocity finishing and settling; the full basin simulation grid; consistent
+terrain edits and physical debris/deposition transactions; dirty chunk mesh reuse;
+origin rebases at tick boundaries, fluids, thermal state and persistence.

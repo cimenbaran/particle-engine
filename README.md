@@ -4,6 +4,8 @@ Native C++20 GPU material sandbox based on the five sprint plans in `Tasks/`.
 The foundation includes ballistic simulation and an experimental GPU granular
 mode with pair contacts and bounded walls. Water, reactions and persistent terrain
 remain planned; cross-platform granular stability and release gates are still open.
+A resident voxel basin can be inspected with `--terrain-preview`; its live particle
+collision response is not connected yet. Development currently prioritizes macOS.
 
 ## Build
 
@@ -48,6 +50,16 @@ Package with `cmake --install build/macos-release --prefix out/macos-release`
 (or substitute `windows-release`). Packages include precompiled backend shaders;
 a shader compiler is needed only when building. Builds reuse a verified shared
 [shader cache](docs/Shader_Pipeline.txt). Signing/notarization are pending.
+
+## Resident terrain inspection
+
+```sh
+open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-preview
+```
+
+Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
+panel controls the camera and rebuilds the seed. This static mode is separate
+from particle simulation; see [resident basin status](docs/Resident_Basin.txt).
 
 ## Controls and current limits
 

@@ -23,9 +23,12 @@ An independent GPU single-voxel query now compares against that CPU reference;
 see ../docs/GPU_Voxel_Sweep.txt. Immutable resident GPU occupancy snapshots now
 feed short swept queries over all candidate occupied voxels, with stale-source
 and shared-origin rejection; see ../docs/GPU_Resident_Voxels.txt. These queries
-are not connected to live particle response or rendering. This has no live renderer,
-thermal state, save files or CPU/GPU origin publication yet. All runtime and
-transaction gates below remain open. Development currently prioritizes macOS.
+are not connected to live particle response. A deterministic full basin recipe
+and exposed-surface GPU renderer now run in --terrain-preview, including seed
+rebuilds and matching render/occupancy revision checks. See
+../docs/Resident_Basin.txt. This is static inspection: no thermal state, save files,
+active terrain transactions or tick-boundary origin publication yet. Dirty chunk
+mesh reuse and live physics remain open. Development prioritizes macOS.
 
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,
