@@ -150,3 +150,9 @@ strict outside-sphere endpoints and the unchanged displacement bound. Total Jaco
 fixtures are now 132. This component is not live terrain: coordinator configuration,
 velocity response, spherical settling support, scene rendering and whole-scene
 stability validation still need integration.
+
+Optional voxel constraints
+A current VoxelContactContext now inserts a swept terrain constraint before
+whole-iteration reduction and publication. See GPU_Voxel_Contacts.txt for the
+revision contract, numerical bounds and validation. This is a reusable pair
+primitive; the interactive basin tick still needs velocity/support integration.

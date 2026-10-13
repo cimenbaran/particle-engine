@@ -1,0 +1,63 @@
+VOXEL-CONSTRAINED JACOBI POSITION CORRECTIONS
+
+GpuJacobiContacts::submit accepts an optional VoxelContactContext containing an
+immutable GpuVoxelWorld, its authoritative SparseVoxelStore, and shared origin.
+It rejects stale revisions, foreign owners and mismatched origins before any
+GPU work or output selection. The source/snapshot must remain alive and current
+until submitted GPU work finishes. This follows the existing same-thread
+publication contract; it is not an asynchronous terrain edit transaction.
+
+Sequence
+The existing immutable pair solve computes corrections first. A new compute
+stage sweeps each dynamic solid correction through resident occupancy before
+the reduction/apply stages. Any error preserves every input particle for that
+iteration. Dead, non-solid and infinite-mass slots retain existing behavior.
+A supplied immutable friction baseline must also be clear of current occupancy.
+
+The constraint enumerates all candidate occupied voxels on every short swept
+leg. Entering contacts remove the inward displacement component and retain
+sliding along the surface. Recent simultaneous contacts use a feasible contact
+cone so perpendicular surfaces and narrow wedges do not require unbounded
+alternating projections. Convex outgoing-contact exclusion prevents spurious
+repeated impacts; initial overlap and final endpoint checks remain enabled.
+
+A preferred 2-micrometre normal separation is checked against all occupancy;
+if it crosses a neighboring surface, separation retreats on the already swept
+incoming segment. The resulting separation leg is also swept in full, so a
+clear endpoint cannot conceal a chord through a neighboring collider. Every leg spends a remaining path-length budget, including
+separation offsets. The solver does not rescale a final nonconvex path into an
+unchecked straight chord. Contained box projection and a final stored-position
+occupancy check guard the published correction. Float bound tolerance is 2 um.
+Only endpoint penetration of at most 2 um is eligible for checked geometric
+repair; otherwise the entire iteration fails. If a repair cannot fit within
+the remaining budget, the last checked clear point is retained.
+
+Each correction permits 16 swept contact iterations and eight retained voxel
+contacts.
+Exhaustion is explicit diagnostic code 8, reduced to whole-iteration error bit
+64. Existing codes cover bad material/profile (bit 4), arithmetic/query failure
+(bit 8), invalid starting position/containment (bit 16), and invalid substep
+baseline (bit 32). Neighbor/candidate/probe statistics retain their pair meaning.
+Terrain materials encountered by a collision must be valid solid materials.
+
+Both Legacy and Basin shader variants are compiled. Optional analytic box
+bounds intersect the resident box. An analytic sphere or analytic floor-traction
+budget cannot be combined with voxel constraints in one submission. The stage
+handles geometric position constraints only; it adds no restitution or duplicate
+kinetic-friction impulse. Terrain-specific static traction, final velocity
+constraints, support/settling and full basin tick integration remain open.
+The terrain-preview probes still do not interact with each other.
+
+Validation
+GPU tests compare face/edge/corner results with the independent double CPU voxel
+reference and analytic two-surface sliding. The cases include negative chunk
+coordinates, outer-basin positions, eight repeated iterations, empty occupancy,
+exact tangent motion, a dynamic pair resolving against a wall, excluded slots,
+initial overlap, invalid baselines/materials, mixed-pool
+whole-iteration rollback, immutable velocity/thermal/identity and host revision
+rejection. A seeded 256-pair corner batch covers all octants with independent
+CPU expected positions and endpoint separation checks against every voxel.
+Shared separation/contact-cone helpers also remain exercised by all voxel-motion
+fixtures and the 600-tick live probe suite.
+
+Execution evidence: ../tests/results/m3-max-voxel-contacts.txt.

@@ -1,0 +1,31 @@
+VOXEL-CONSTRAINED JACOBI — MACOS / METAL
+
+Apple M3 Max; workgroup sizes 128 and 256.
+Both complete --gpu-test suites passed, and native CTest passed 21/21.
+
+32 new terrain-constraint fixtures include:
+- All six faces at negative, central and positive basin coordinates.
+- Rounded edges/corners against independent double CPU geometry/slide results.
+- Two perpendicular surfaces retaining free tangential travel and eight repeated
+  iterations with final occupancy separation checks.
+- A dynamic pair resolving overlap against a voxel wall in eight iterations.
+- A seeded batch of 256 corner pairs across all octants, each compared with a
+  CPU expected position; every dynamic endpoint checked against all voxels.
+- Legacy and Basin shader execution; empty terrain and exact tangent movement.
+- Dead/non-solid/static preservation; immutable velocity, thermal state,
+  identity and original input; bounded corrections.
+- Initial overlap, invalid baseline and nonsolid terrain rejection, including
+  exact whole-iteration rollback of a mixed valid/invalid pool.
+- Stale source revision, foreign owner and changed origin rejected by the host
+  without changing the solver's previously selected output.
+
+The suites also rerun the shared separation/cone helpers through existing voxel
+motion fixtures and the 600-tick live probes, plus all granular/sphere, index,
+rendering, pool, settling and shader lifecycle checks.
+
+Ignored local logs: out/voxel-contacts-{gpu128,gpu256,ctest128,ctest256}.log.
+Default installed app uses 128-thread workgroups.
+
+Limits: geometric position constraints only. Terrain static traction, velocity
+finishing, support/settling and live basin tick integration remain open. Probe
+UI behavior is unchanged. No new long soak, performance or Windows certification.

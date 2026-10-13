@@ -26,8 +26,10 @@ and shared-origin rejection; see ../docs/GPU_Resident_Voxels.txt. These queries
 now feed GpuVoxelMotion and optional live collision probes with gravity, drag,
 material response and whole-tick rollback. See ../docs/GPU_Voxel_Motion.txt.
 The optional basin-sized sparse index and pair primitives now cover the full
-32x16x32-metre basin; see ../docs/GPU_Basin_Grid.txt. Full granular pair-solver
-terrain constraints, tick integration and support tracking remain open.
+32x16x32-metre basin; see ../docs/GPU_Basin_Grid.txt. Pair corrections can now
+sweep current voxel occupancy before whole-iteration commit; see
+../docs/GPU_Voxel_Contacts.txt. Terrain velocity/traction constraints, tick
+integration and support tracking remain open.
 A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed
 rebuilds and matching render/occupancy revision checks. See
