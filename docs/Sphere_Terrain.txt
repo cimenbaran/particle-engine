@@ -55,3 +55,22 @@ A captured 257-particle state reproduces the original failure in one tick;
 the regression also advances it for 60 ticks. A single captured ray and six
 adjacent representable positions compare against the double CPU sweep oracle.
 Long-run validation remains a separate gate; these fixtures do not prove it.
+
+Endpoint quantization and compiler precision
+A second clean Metal lifecycle soak (ef26559) failed at tick26923. Replaying its
+committed state identified a genuine near-tangent miss in substep4: the exact
+endpoint was approximately3.86e-8 m outside, while storing it as float moved it
+approximately5.00e-8 m inside. This is distinct from the missed intersection in
+the first capture. Both committed states remain regression fixtures.
+After a valid sweep, endpoints within the existing2e-6 m sphere skin are moved
+to its outer surface, without changing velocity or adding impact events. A
+penetration deeper than that inward band fails the sweep rather than being
+repaired. Input containment and independent audit allowances are unchanged.
+The sphere's required clearance from the enclosure keeps this adjustment away
+from walls; the existing final plane clamp remains in place.
+The compensated dot/root variables are marked precise. Without this qualifier,
+Metal fast arithmetic can reassociate residual expressions and falsely classify
+an adjacent near-miss as a hit. Generated Metal uses the shader compiler's
+optnone arithmetic helpers for these precise operations. The new captured ray,
+six adjacent representable positions and24 signed cyclic rotations compare with
+the independent double oracle and require nonnegative output sphere gaps.

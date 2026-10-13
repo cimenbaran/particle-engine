@@ -33,7 +33,7 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     SweepHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));unsigned cases=0;
     auto check=[&](std::vector<ParticleGpu> input,float dt,float e,float mu,float limit=1000,std::uint32_t budget=128,
                   std::uint32_t error=0,std::uint32_t upstream=0,GpuSweptBounds* reused=nullptr,
-                  AnalyticSphere obstacle={},const reference::SweepResult* known=nullptr) {
+                  AnalyticSphere obstacle={},const reference::SweepResult* known=nullptr,bool strictSphere=false) {
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);
         materials[0].mechanical[1]=mu;materials[0].mechanical[2]=e;
         SweepHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
@@ -99,7 +99,7 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
                 require(actual[i].positionRadius[a]>=lo && actual[i].positionRadius[a]<=hi,"GPU sweep escaped bounds");
             }
             if(obstacle.radius>0){double distance=0;for(unsigned axis=0;axis<3;++axis){const double d=actual[i].positionRadius[axis]-obstacle.centre[axis];distance+=d*d;}
-                require(std::sqrt(distance)>=obstacle.radius+0.0625-1e-6,"Sphere sweep ended inside obstacle");}
+                require(std::sqrt(distance)>=obstacle.radius+0.0625-(strictSphere?0.0:1e-6),"Sphere sweep ended inside obstacle");}
             require(finalSpeed<=initialEnergy+1e-4*std::max(1.0,initialEnergy) && finalSpeed<=double(limit)*limit*1.00001,"Sweep grew energy/exceeded cap");
             require(std::memcmp(&actual[i].positionRadius[3],&p.positionRadius[3],4)==0 &&
                 std::memcmp(&actual[i].velocityInvMass[3],&p.velocityInvMass[3],sizeof(p)-28)==0,"Sweep changed persistent fields");
@@ -205,13 +205,33 @@ void runGpuSweptBoundsTest(const std::filesystem::path& assets) {
     p=sphereFixture(1);
     p[0].positionRadius[0]=0.7359286546707153f;p[0].positionRadius[1]=3.033996820449829f;p[0].positionRadius[2]=-0.3346726894378662f;
     p[0].velocityInvMass[0]=1.868677020072937f;p[0].velocityInvMass[1]=-1.2424639463424683f;p[0].velocityInvMass[2]=0.33479949831962585f;
-    check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f});
+    check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f},nullptr,true);
     const auto grazingCapture=p;
     for(unsigned axis=0;axis<3;++axis)for(float direction:{-INFINITY,INFINITY}) {
         p=grazingCapture;p[0].positionRadius[axis]=std::nextafter(p[0].positionRadius[axis],direction);
-        check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f});
+        check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f},nullptr,true);
     }
 
+    // Second captured ray: the exact path misses, but endpoint quantization
+    // used to publish a slightly interior point with no collision event.
+    p=sphereFixture(1);
+    p[0].positionRadius[0]=0.7405766248703003f;p[0].positionRadius[1]=2.9905989170074463f;p[0].positionRadius[2]=0.43932023644447327f;
+    p[0].velocityInvMass[0]=1.4896234273910522f;p[0].velocityInvMass[1]=-1.4741462469100952f;p[0].velocityInvMass[2]=0.7657989263534546f;
+    check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f},nullptr,true);
+    const auto missCapture=p;
+    for(unsigned axis=0;axis<3;++axis)for(float direction:{-INFINITY,INFINITY}) {
+        p=missCapture;p[0].positionRadius[axis]=std::nextafter(p[0].positionRadius[axis],direction);
+        check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,2,0},1.25f},nullptr,true);
+    }
+    for(unsigned rotation=0;rotation<3;++rotation)for(unsigned signs=0;signs<8;++signs) {
+        p=missCapture;
+        for(unsigned axis=0;axis<3;++axis) {
+            const unsigned from=(axis+rotation)%3;const float sign=(signs&(1u<<axis))?-1.0f:1.0f;
+            p[0].positionRadius[axis]=(missCapture[0].positionRadius[from]-(from==1?2.0f:0.0f))*sign+(axis==1?4.0f:0.0f);
+            p[0].velocityInvMass[axis]=missCapture[0].velocityInvMass[from]*sign;
+        }
+        check(p,1.0f/240.0f,0.12f,0.5f,12,16,0,0,nullptr,{{0,4,0},1.25f},nullptr,true);
+    }
     std::cout<<"GPU swept bounds passed: "<<cases<<" fixtures, CPU trajectories, speed caps, corner response, containment and whole-pass rollback\n";
 }
 }

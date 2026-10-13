@@ -92,6 +92,10 @@ The corrected Metal128 soak at sourceef26559 failed after494.36 seconds /
 26923 ticks. Exact committed and solver-stage captures are preserved in
 ../tests/results/m3-max-sphere-precision-soak-failure.json. The initial captured
 regression passes, but long-run sphere stability remains unresolved.
+The second captured state now has an endpoint-rounding correction and precise
+compensated arithmetic. Both captures,191 sweep fixtures,48 coordinator fixtures,
+18 native tests and11 stability scenes pass on Metal128/256. See
+../tests/results/m3-max-sphere-endpoint-precision.txt. A fresh long soak is pending.
 See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
 must be repaired and rerun; earlier enclosure results do not establish it.
 

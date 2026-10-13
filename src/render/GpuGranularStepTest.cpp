@@ -201,6 +201,11 @@ void runGpuGranularStepTest(const std::filesystem::path& assets) {
     materials[0].mechanical[2]=0.12f;materials[0].mechanical[3]=0.05f;
     bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));
     for(unsigned ticks:{1u,60u})check(captured,ticks,9.81f,false,false,nullptr,{{0,2,0},1.25f});
+    for(unsigned i=0;i<captured.size();++i) {
+        std::memcpy(&captured[i],fixture::sphereSoakSecondCommitted[i].data(),sizeof(ParticleGpu));
+        captured[i].identity[0]=0;
+    }
+    for(unsigned ticks:{1u,60u})check(captured,ticks,9.81f,false,false,nullptr,{{0,2,0},1.25f});
     std::cout<<"GPU granular step passed: "<<cases<<" fixtures, full substep chain, analytic motion, resting/stack runs and tick rollback\n";
 }
 }

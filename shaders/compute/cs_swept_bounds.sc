@@ -91,6 +91,14 @@ void main() {
     }
   }
   if(!contactFinite3(p) || !contactFinite3(v)) {atomicOr(b_status[0],8u);return;}
+  // A true near-tangent miss can round its stored endpoint slightly inside.
+  // Keep the same outward skin as real impacts, without inventing restitution
+  // or an impact event. Larger penetration still fails the entire sweep.
+  if(u_sweep_sphere.w>0.0) {
+    vec3 offset=p-u_sweep_sphere.xyz;float distance=length(offset),radius=u_sweep_sphere.w+pose.w;
+    if(distance<radius-sphereSkin){atomicOr(b_status[0],8u);return;}
+    if(distance<radius+sphereSkin)p=u_sweep_sphere.xyz+sphereUnit(offset)*(radius+sphereSkin);
+  }
   // Remove only endpoint rounding outside the planes after an otherwise valid sweep.
   pose.xyz=clamp(p,lo,hi);motion.xyz=v;b_candidate[base]=pose;b_candidate[base+1u]=motion;
   atomicAdd(b_status[2],events);atomicAdd(b_status[3],planes);

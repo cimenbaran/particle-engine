@@ -1,0 +1,32 @@
+Metal sphere endpoint and precise arithmetic regression
+
+Second source failure: cleanef26559 soak failed at494.357724584 seconds,
+26923 ticks. Exact stage/committed words are preserved in
+m3-max-sphere-precision-soak-failure.json. Adding this committed state to the
+GPU test reproduced a failure in one tick (out/sphere-second-baseline.log).
+Temporary phase tracing found the first fault in substep4, first position
+iteration, contact error16. Tracing was removed before final testing.
+
+Reduced ray, sphere centre0,2,0 and expanded radius1.3125:
+p=(0.7405766248703003,2.9905989170074463,0.43932023644447327)
+v=(1.4896234273910522,-1.4741462469100952,0.7657989263534546)
+dt=float(1/240). Double closest-approach gap is3.8202435215239916e-8 m;
+exact endpoint gap is3.855075370040595e-8 m. It is a true miss, but the old
+stored endpoint gap was -4.9976176974553255e-8 m.
+
+Endpoint correction uses the existing2e-6 m skin, changes no velocity/event
+counts and rejects deeper penetration. No input or audit tolerance was widened.
+Adjacent-float testing also exposed false hit classification from compiler
+reassociation of compensation terms; precise qualifiers preserve the operations.
+Generated Metal contains optnone arithmetic helpers for those operations.
+
+Final Metal128 and256 both pass the full GPU suite:191 sweep fixtures and48
+coordinator fixtures, including both captured257-particle scenes for1 and60 ticks.
+New/earlier captured rays and variants require nonnegative output sphere gaps
+while retaining independent double-reference velocity and event-count checks.
+Both configurations pass CTest18/18 and all11 stability scenes.
+
+Logs: out/sphere-endpoint-final-gpu128.log, out/sphere-endpoint-gpu256.log,
+out/sphere-endpoint-ctest{128,256}.log, out/sphere-endpoint-stability{128,256}.json.
+The fresh ten-minute lifecycle soak remains pending. No Windows or performance
+certification is implied; macOS is the current development priority.
