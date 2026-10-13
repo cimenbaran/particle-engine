@@ -10,6 +10,8 @@ uniform vec4 u_neighbors;
 uniform vec4 u_contacts; // capacity, common radius, relaxation, correction limit
 uniform vec4 u_contact_bounds; // optional inset boundary projection
 #include "contact_math.sh"
+#include "sphere_contact.sh"
+uniform vec4 u_contact_sphere;
 bool validContactSlot(uint slot) {
   return b_state[slot*8u].w==u_contacts.y && validMass(b_state[slot*8u+1u].w);
 }
@@ -52,6 +54,8 @@ void main() {
   b_corrections[slot*2u]=vec4(0.0,0.0,0.0,0.0);b_corrections[slot*2u+1u]=vec4(0.0,0.0,0.0,0.0);
   uvec4 result;
   if(b_sorted[id*2u]!=0xffffffffu && b_state[slot*8u+5u].z!=0.0)result=uvec4(0u,0u,0u,7u);
+  else if(b_sorted[id*2u]!=0xffffffffu && u_contact_sphere.w>0.0 && b_state[slot*8u+1u].w!=0.0 && b_state[slot*8u+5u].x!=0.0 &&
+          length(b_state[slot*8u+4u].xyz-u_contact_sphere.xyz)<u_contact_sphere.w+u_contacts.y)result=uvec4(0u,0u,0u,7u);
   else if(b_sorted[id*2u]!=0xffffffffu && !validContactSlot(slot)) result=uvec4(0u,0u,0u,4u);
   else result=visitNeighbors(id,u_neighbors);
   uvec4 counts=floatBitsToUint(b_corrections[slot*2u+1u]);
@@ -90,6 +94,25 @@ void main() {
       float combined=dot(correction,correction);
       if(combined>u_contacts.w*u_contacts.w)correction*=u_contacts.w/sqrt(combined);
       proposed=position+correction;
+    }
+  }
+  if(counts.w==0u && b_state[slot*8u+1u].w!=0.0 && u_contact_sphere.w>0.0) {
+    float radius=u_contact_sphere.w+u_contacts.y;
+    if(length(position-u_contact_sphere.xyz)<radius)counts.w=6u;
+    else {
+      vec4 impact=sphereImpact(position,correction,u_contact_sphere);
+      if(impact.w>1.0 && impact.w<2.0 && length(proposed-u_contact_sphere.xyz)<=radius)impact.w=1.0;
+      if(impact.w<=1.0) {
+        // Sweep the correction, remove its inward component at impact and
+        // retain remaining tangential motion. Merely clipping at first impact
+        // would incorrectly stick frictionless corrections to the obstacle.
+        vec3 tangent=correction-impact.xyz*min(0.0,dot(correction,impact.xyz));
+        proposed=u_contact_sphere.xyz+impact.xyz*(radius+sphereSkin)+tangent*(1.0-impact.w);
+        correction=proposed-position;float combined=dot(correction,correction);
+        if(combined>u_contacts.w*u_contacts.w)correction*=u_contacts.w/sqrt(combined);
+        proposed=position+correction;
+        if(!contactFinite3(proposed) || !contactFinite3(correction))counts.w=5u;
+      }
     }
   }
   if(counts.w==0u && (proposed.x< -8.0 || proposed.x>=8.0 || proposed.y<0.0 || proposed.y>=16.0 || proposed.z< -8.0 || proposed.z>=8.0)) counts.w=6u;

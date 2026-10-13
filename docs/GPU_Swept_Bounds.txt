@@ -113,8 +113,8 @@ Pure sphere trajectories compare with the independent double oracle; mixed paths
 use analytic one-dimensional distances. Original buffers and persistent fields
 remain bitwise unchanged. Both Metal workgroup suites pass; Windows is unverified.
 
-The live granular coordinator still supplies the disabled default. Enabling a
-scene requires matching Jacobi constraints, settling support, collider rendering,
+The live granular coordinator still supplies the disabled default. Matching Jacobi sphere constraints are now available as an optional component.
+Enabling a scene still requires coordinator configuration, settling support, collider rendering,
 scene configuration, reset/recording contracts and stability tests. A swept
 prediction alone is insufficient because particle corrections could push a body
 back into the obstacle. See Swept_Sphere_Reference.txt for the remaining work.

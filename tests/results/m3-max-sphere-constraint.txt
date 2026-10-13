@@ -1,0 +1,14 @@
+OPTIONAL JACOBI SPHERE CONSTRAINT — METAL
+Worktree based on bf65179 with accompanying sphere constraint and shared entry helper.
+Both full GPU suites pass, WG128 and WG256; default restored to WG128.
+132 Jacobi fixtures and the existing 87 swept-boundary fixtures pass.
+Includes six directions, oblique slide, repeated iterations, dense boundaries,
+outside-to-outside crossing chord, miss, exact endpoint, initial/baseline rollback,
+immovable preservation, bytewise persistent-field/input checks and correction bound.
+CPU expectation uses the independent double continuous sphere sweep with zero restitution/friction,
+plus the declared two-micrometre numerical guard and the original displacement cap.
+The live coordinator still leaves the sphere disabled; support/rendering/scene integration
+and Windows execution remain unverified. Installed bf65179 soak continues separately.
+
+out/sphere-constraint-final128.log sha256=e0c2decbf01565024079d21b914e4a303ba05d9da9d8f9093e79a8e143c4171b
+out/sphere-constraint256.log sha256=e6c9d40b579171f56b9c0cdb040e7331f8cdc016a6c3b47894f62deeb5bbc931

@@ -9,20 +9,7 @@ BUFFER_RW(b_status,uint,4);
 uniform vec4 u_velocity; // capacity, dt, material count
 uniform vec4 u_sweep; // speed limit, bounce threshold, event budget
 uniform vec4 u_sweep_sphere; // fixed sphere centre/radius; zero radius disables
-const float sphereSkin=0.000002;
-// Outward normal and entry time; 2 means no hit in any supported dt.
-vec4 sphereImpact(vec3 p,vec3 v) {
-  if(u_sweep_sphere.w==0.0)return vec4(0.0,0.0,0.0,2.0);
-  float speed=length(v);if(speed==0.0)return vec4(0.0,0.0,0.0,2.0);
-  vec3 direction=v/speed,offset=p-u_sweep_sphere.xyz;float approach=-dot(offset,direction);
-  if(approach<=0.0)return vec4(0.0,0.0,0.0,2.0);
-  vec3 perpendicular=offset+direction*approach;float miss=length(perpendicular),radius=u_sweep_sphere.w+0.0625;
-  if(miss>=radius)return vec4(0.0,0.0,0.0,2.0);
-  float chord=sqrt(max(0.0,(radius-miss)*(radius+miss))),distance=length(offset);
-  float time=max(0.0,(distance-radius)*(distance+radius)/(speed*(approach+chord)));
-  vec3 normal=perpendicular-direction*chord;normal/=length(normal);
-  return vec4(normal,min(time,2.0));
-}
+#include "sphere_contact.sh"
 bool coefficient(float v) {uint b=floatBitsToUint(v);return (b&0x7fffffffu)==0u || b<=0x3f800000u;}
 float hitTime(float p,float v,float lo,float hi) {
   if(v==0.0) return 2.0;
@@ -64,7 +51,7 @@ void main() {
   float remaining=u_velocity.y;uint events=0u,planes=0u;
   LOOP while(remaining>0.0) {
     vec3 times=vec3(hitTime(p.x,v.x,lo.x,hi.x),hitTime(p.y,v.y,lo.y,hi.y),hitTime(p.z,v.z,lo.z,hi.z));
-    vec4 sphere=sphereImpact(p,v);
+    vec4 sphere=sphereImpact(p,v,u_sweep_sphere);
     // Division can round an endpoint root just beyond dt. A contained endpoint
     // independently proves an entry occurred; retain that collision at dt.
     if(sphere.w>remaining && sphere.w<2.0 && u_sweep_sphere.w>0.0 &&

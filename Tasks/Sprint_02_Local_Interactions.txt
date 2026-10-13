@@ -27,7 +27,9 @@ validation remains required. See
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain has a tested CPU sphere-sweep oracle in
 ../docs/Swept_Sphere_Reference.txt and an optional GPU sweep component tested
-on Metal. Live constraint/support/rendering integration remains open. Detailed debug views/metrics,
+on Metal. Optional Jacobi sphere constraints also preserve sliding and prevent
+correction paths from entering the collider. Live coordinator/support/rendering
+integration remains open. Detailed debug views/metrics,
 granular recordings, full shader reload and performance comparisons remain open.
 
 Settling state-machine and geometric reference preparation is described in

@@ -118,3 +118,35 @@ for the unspent resting-floor budget. The live coordinator supplies it. Defaults
 keep isolated normal/static-pair callers unchanged. See the v2 section of
 Position_Friction_Reference.txt for activation, budget accounting and limitations.
 The current GPU test total is 100 fixtures.
+
+Optional sphere correction constraint
+The constructor accepts an AnalyticSphere after the bounded flag. An enabled
+sphere requires the bounded profile and the same enclosure clearance validation
+as GpuSweptBounds. It is disabled by default, including in the live coordinator.
+The sphere entry calculation is shared in sphere_contact.sh; the independent
+CPU sweep remains the test oracle.
+
+After ordinary pair correction, floor traction and inset-plane clipping, sweep
+the proposed correction segment against the expanded sphere. At entry, remove
+only the inward component and apply the remaining tangential displacement.
+This lets a frictionless correction slide instead of stopping at its first
+contact. It also catches a chord that starts and ends outside but crosses the
+sphere. A two-micrometre outward guard matches swept prediction. Reapply the
+original Euclidean correction bound; the clipped path lies in the outward contact
+half-space, so shortening it does not move it through the sphere. The validated
+sphere/plane clearance prevents this local slide from reaching another plane.
+
+A dynamic input already inside the obstacle produces domain error 16 and whole
+iteration rollback. A supplied dynamic substep snapshot inside the obstacle uses
+snapshot error 32. Immovable/excluded preservation remains unchanged. Radius,
+velocity, thermal fields and identities are untouched. Particle overlap counts
+still describe particle pairs, not sphere contacts. No new particle buffers,
+readback or compute binding are introduced; the collider is one vec4 uniform.
+
+Tests cover six directions, oblique sliding, one/eight iterations, dense workgroup
+boundaries, a crossing chord, a complete miss, an exact endpoint, invalid initial
+and baseline poses, and static preservation. They compare the double sweep oracle,
+strict outside-sphere endpoints and the unchanged displacement bound. Total Jacobi
+fixtures are now 132. This component is not live terrain: coordinator configuration,
+velocity response, spherical settling support, scene rendering and whole-scene
+stability validation still need integration.
