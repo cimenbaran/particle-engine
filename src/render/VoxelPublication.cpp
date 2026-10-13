@@ -26,7 +26,7 @@ VoxelPublicationPtr prepare(const std::filesystem::path& assets,const VoxelPubli
 }
 VoxelPublication::VoxelPublication(const std::filesystem::path& assets,std::unique_ptr<terrain::SparseVoxelStore> source,
     terrain::Chunk origin,const MaterialLibrary& materials)
-    :source_(checked(std::move(source),materials)),origin_(origin),occupancy_(*source_,origin),mesh_(assets,*source_,occupancy_,origin,materials) {}
+    :source_(checked(std::move(source),materials)),origin_(origin),materialHash_(materials.contentHash),materialEncoding_(encodeMaterials(materials)),occupancy_(*source_,origin),mesh_(assets,*source_,occupancy_,origin,materials) {}
 PendingVoxelPublication::PendingVoxelPublication(const std::filesystem::path& assets,VoxelPublicationPtr base,
     std::span<const terrain::SparseVoxelStore::VoxelEdit> edits,std::uint64_t revision,const MaterialLibrary& materials)
     :base_(std::move(base)),candidate_(prepare(assets,base_,edits,revision,materials)),acknowledgement_(assets) {

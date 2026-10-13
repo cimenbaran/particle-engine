@@ -8,7 +8,7 @@ VoxelProbes::VoxelProbes(const std::filesystem::path& assets,const MaterialLibra
     if(commandPool && !interacting)throw std::invalid_argument("Basin command pool requires interacting physics");
     std::uint32_t sand=UINT32_MAX;for(unsigned i=0;i<materials_;++i)if(materials.entries[i].name=="Sand")sand=i;
     if(sand==UINT32_MAX)throw std::invalid_argument("Terrain probes require Sand material");
-    sand_=sand;
+    sand_=sand;materialHash_=materials.contentHash;materialEncoding_=encodeMaterials(materials);debrisMass_.resize(materials_);
     try {
         if(interacting)granular_=std::make_unique<GpuGranularStep>(assets,capacity_,GranularStepProfile{},4,9.81f,true,AnalyticSphere{},true);
         if(commandPool){pool_=std::make_unique<ParticlePool>(assets,capacity_);clearance_=std::make_unique<GpuSpawnClearance>(assets,capacity_);poolDiagnostics_=std::make_unique<PoolDiagnostics>(assets);}
@@ -65,6 +65,7 @@ std::string_view VoxelProbes::enqueue(Command command) {
 }
 void VoxelProbes::tick(std::uint16_t view,const GpuVoxelWorld& world,const terrain::SparseVoxelStore& source) {
     if(!world.isCurrent(source,{}))throw std::invalid_argument("Stale voxel probe world");
+    if(transactionPending())return;
     if(granular_) {
         const VoxelContactContext terrain{world,source,{}};
         if(pool_)for(const auto& command:commands_.consume()) {

@@ -9,7 +9,14 @@
 #include "core/CommandQueue.hpp"
 namespace pw {
 // Basin diagnostics or an empty GPU command pool with pair/terrain physics.
-// Settling remains read-only; no deposition or terrain conversion yet.
+// Settling remains read-only. PendingDebrisTransaction can freeze the command
+// pool and jointly adopt terrain/debris; deposition is not implemented.
+struct DebrisMassTotals {
+    std::uint64_t removedVoxels=0,activatedGrains=0;
+    double sourceKilograms=0,destinationKilograms=0,quantizationKilograms=0;
+    bool operator==(const DebrisMassTotals&) const=default;
+};
+class PendingDebrisTransaction;
 class VoxelProbes {
 public:
     static constexpr std::uint32_t count=256, poolCapacity=1024;
@@ -20,6 +27,8 @@ public:
     // Stamp commands for the next tick; insertion order is execution order.
     std::string_view enqueue(Command command);
     std::size_t pendingCommands() const{return commands_.pending();}
+    bool transactionPending() const{return !transactionLease_.expired();}
+    const std::vector<DebrisMassTotals>& debrisMassTotals() const{return debrisMass_;}
     bool hasPool() const{return bool(pool_);}
     std::uint32_t capacity() const{return capacity_;}
     const PoolSnapshot& poolSnapshot() const{return poolDiagnostics_->latest();}
@@ -37,6 +46,14 @@ public:
     bgfx::DynamicVertexBufferHandle state() const{return states_[current_];}
     bgfx::DynamicIndexBufferHandle status() const{return latched_;}
 private:
+    friend class PendingDebrisTransaction;
+    // Shared identity prevents reset/ABA; the weak lease freezes tick submission
+    // only while its transaction exists. It never keeps the scene alive.
+    std::shared_ptr<const int> transactionOwner_=std::make_shared<const int>(0);
+    std::weak_ptr<const int> transactionLease_;
+    std::uint64_t materialHash_=0;
+    std::vector<std::byte> materialEncoding_;
+    std::vector<DebrisMassTotals> debrisMass_;
     void release();
     GpuVoxelMotion motion_;
     std::unique_ptr<GpuGranularStep> granular_;

@@ -11,9 +11,13 @@ public:
     const GpuVoxelWorld& occupancy() const{return occupancy_;}
     const VoxelTerrain& mesh() const{return mesh_;}
     terrain::Chunk origin() const{return origin_;}
+    std::uint64_t materialHash() const{return materialHash_;}
+    bool matchesMaterials(const MaterialLibrary& materials) const{return materialEncoding_==encodeMaterials(materials);}
 private:
     std::unique_ptr<terrain::SparseVoxelStore> source_;
     terrain::Chunk origin_;
+    std::uint64_t materialHash_;
+    std::vector<std::byte> materialEncoding_;
     GpuVoxelWorld occupancy_;
     VoxelTerrain mesh_;
 };

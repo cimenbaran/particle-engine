@@ -47,11 +47,10 @@ bindings per pass. Dense regions are fully traversed and may be expensive;
 performance acceptance is separate from correctness. Caller-owned material
 hashes and snapshot provenance cannot be proved by a raw GPU buffer handle.
 
-The transaction coordinator remains open: freeze or validate the base tick,
-verify per-material mass plans and stable materials, acknowledge preparation,
-and adopt terrain and particles together. Failed private outputs are discarded.
-Live terrain editing, explosions, deposition and committed mass ledgers are
-not enabled by this component.
+PendingDebrisTransaction now freezes the base tick, verifies per-material mass
+plans and stable materials, acknowledges preparation and jointly adopts terrain,
+particles and conversion totals. See GPU_Debris_Transaction.txt. Failed private
+outputs are discarded. Live edit/explosion controls and deposition remain open.
 
 The GPU fixture runs 59 batches and 6,332 queries over capacities
 0,1,127,128,129,255,256,257,4096. It includes a 4,096-seed batch, a single query

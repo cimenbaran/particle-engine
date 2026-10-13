@@ -35,11 +35,11 @@ synchronous CPU readback. Input cannot alias either private output. Capacity is
 0 through 1,048,576; the zero-capacity case still returns status. Only rows below
 capacity have initialized snapshot/claim contents.
 
-Commit contract (not yet integrated)
+Commit contract
 The reserved snapshot is NOT a normal ParticlePool input: ordinary free-list
 classification does not understand transaction-only flag 2. It must remain
-private. A future coordinator must either freeze simulation/commands during the
-transaction or reject an obsolete base tick before adopting the candidate.
+private. PendingDebrisTransaction now freezes simulation ticks during preparation
+and validates the base owner/tick before adoption (GPU_Debris_Transaction.txt).
 Reservation in a private snapshot is not a lock on a live pool that continues to
 change. Private record initialization and claim validation are now implemented in
 GPU_Debris_Activation.txt. Before publication the coordinator must still validate
@@ -52,7 +52,7 @@ Oversized explosions must split proposals across ticks, with each proposal fully
 reserved before its removals commit. Failed deposits likewise remain dynamic.
 Terrain_Mass_Quantization.txt defines the separate mass proposal and its 5%
 maximum per-material approximation; its encoded inverse mass must be used when
-activation is connected.
+activation initializes particles.
 This primitive neither alters voxel mass nor claims complete destruction,
 deposition, snapshot persistence or transaction acknowledgement for particles.
 

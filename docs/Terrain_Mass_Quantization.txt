@@ -55,14 +55,16 @@ floating-point rounding. A matched voxel-to-grains-to-voxel round trip restores
 the original voxel count and cancels the signed differences exactly; unrelated
 conversions must still accumulate their actual signed differences.
 
-Integration still required
+Transaction integration
 These are proposed balances only. They do not alter terrain or particles and
 do not update a committed mass ledger. The coordinator must reserve slots,
 validate debris placement/initialization, wait for required GPU acknowledgements,
 and then publish both terrain and particle state at one tick boundary. Only
 successful commits may update per-material source/destination/quantization
 counters. Cancelled and capacity-deferred proposals must not change those totals.
-Those counters, runtime diagnostics and actual conversion remain pending.
+PendingDebrisTransaction now implements these gates and committed conversion
+counters for debris (GPU_Debris_Transaction.txt). Edit/explosion controls,
+deposition, whole-world inventory and UI diagnostics remain pending.
 
 Tests use a long-double nearest-mass oracle over 128,282 balances, plus exact
 integer-rational boundary fixtures independently derived from binary32 values.

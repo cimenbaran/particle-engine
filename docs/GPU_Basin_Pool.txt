@@ -38,8 +38,9 @@ Inactive slots produce zero-sized transparent render instances.
 Drop interacting diagnostics preserves the original fixed 256-grain regression
 scene; Drop collision probes retains terrain-only motion. Either replaces the
 pool and its pending commands. No capture/replay or hot reload is exposed here.
-Terrain editing, mass conversion, deposition, rebasing and persistence remain
-open. The 1,024-slot preview is a functional integration, not a performance gate.
+A frozen-pool terrain/debris transaction API now supports joint conversion and
+per-material totals (GPU_Debris_Transaction.txt). Terrain-edit controls, explosion
+planning, deposition, rebasing and persistence remain open. The 1,024-slot preview is a functional integration, not a performance gate.
 
 GPU integration tests exercise empty/paused-equivalent queued state, command
 ordering, duplicate spawn rejection, clear/refill, impulses, expiry, quotas,

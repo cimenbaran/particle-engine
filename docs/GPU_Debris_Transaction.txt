@@ -1,0 +1,103 @@
+JOINT TERRAIN / DEBRIS TRANSACTION — macOS / Metal
+
+PendingDebrisTransaction coordinates removal-only physical conversion in the
+VoxelProbes command pool. It stages a complete private terrain/particle candidate
+and adopts both only after GPU acknowledgements. The existing live world stays
+authoritative throughout preparation. This API is not yet wired to a terrain-edit
+or explosion button; spatial/energy planning and oversized-blast scheduling remain
+separate work.
+
+Preparation
+The caller supplies a current immutable VoxelPublication, unique occupied voxel
+removals, DebrisSeeds and the material library. Only removal edits are accepted.
+For every material, the requested seed count must equal planVoxelDebris for its
+removed voxel count and satisfy the requested tolerance (at most 5%). Unlike
+materials cannot offset each other's balance. Duplicates, empty/outside source
+voxels, material substitutions and invalid seeds reject before freezing the pool.
+
+The particle owner, terrain and supplied library must share the material hash
+and exact encoded GPU table. This also detects changed density/phase values when
+a caller forgot to update the hash. The transaction prepares cumulative conversion
+counts and kilograms before acquiring the freeze; constructor failure changes no
+live state. At most 4,096 removals and 4,096 seeds may be proposed. The product
+count and available pool slots usually impose smaller practical batches.
+
+Freeze and GPU submission
+A weak lease in VoxelProbes suppresses tick submission while a transaction holds
+its lease. Tick count, source handle, pool membership and pending commands remain
+unchanged. Commands may still queue for the next tick. Rendering and diagnostic
+reads can continue. One pool can have only one outstanding transaction. Separate
+shared owner identity prevents a reset/new pool with the same tick or a recycled
+buffer handle from accepting an old transaction.
+
+Submit once in the same sequential view as, or after, the base simulation work;
+its asynchronous copies use the following view. Across frames, base work must
+already have completed. Submission chains private reservation, activation and
+particle/terrain clearance. Clearance uses the candidate occupancy, so a removed
+voxel no longer blocks its replacement debris, while remaining terrain still does.
+A final GPU pass also checks the base pool's latched physics status, avoiding
+reliance on a delayed CPU diagnostic. Production uses two 16-byte acknowledgements,
+not a full particle readback: candidate occupancy and particle clearance/health.
+
+State: Prepared -> Waiting -> Ready -> Published.
+GPU rejection produces Rejected; changed terrain or particle ownership at commit
+produces Stale. Neither can publish. Invalid view arguments do not consume the
+transaction. Ready retains the freeze until publication or abandonment.
+
+Commit at a tick boundary
+Before adoption, verify the original particle owner, lease, tick, source handle,
+material epoch and exact base terrain publication. Holding the original terrain
+prevents pointer ABA, including a new object with the same numeric revision.
+Only a Ready transaction may commit. Adoption uses pointer, handle and vector
+swaps after all preparation allocations and asynchronous validation are complete.
+The complete activated buffer becomes the current simulation state; its previous
+buffer remains owned by the transaction until destruction. Terrain CPU occupancy,
+GPU collision and render mesh change as one immutable publication. Per-material
+mass totals change in the same call. No observer or tick runs between these swaps.
+
+The pool rebuilds active/free membership and resets settling histories against
+the changed terrain. Delayed pool/settling diagnostics start fresh epochs. The
+lease then releases, and queued commands execute against the newly committed
+state on the next tick. Call publish before later simulation/render views; callers
+must render/query the returned publication rather than cached aliases to its base.
+Repeated, pre-acknowledgement, rejected and stale publication attempts do nothing.
+
+Errors
+Particle acknowledgement error bits retain clearance bits 1/2/4/8/16, plus
+32 for unhealthy base physics. CPU validation adds 64 for failed expected particle
+counts and 128 for an invalid terrain acknowledgement. Error bits can combine.
+Failed capacity or geometry leaves every live voxel and particle unchanged.
+Rejected transactions release the freeze only after both acknowledgements finish.
+Abandoning an in-flight object drains readback destinations before releasing its
+lease or preparation resources. Destruction of the source pool does not permit
+publication into a replacement pool.
+
+Mass diagnostics
+VoxelProbes::debrisMassTotals() reports cumulative removed voxel and activated
+grain counts, source kilograms, destination kilograms and signed quantization
+kilograms per material. Counts are checked uint64; kilogram totals use binary64.
+Each committed batch uses the exact encoded particle inverse mass. Totals change
+only on successful publication, and failed retries cannot double-count them.
+These are conversion-flow totals, not a census of currently active matter: later
+user removal/clear commands do not undo conversion history. Deposition accounting,
+whole-world mass inventory and UI presentation remain open.
+
+Ownership contract
+All operations are on the simulation thread. Do not mutate exposed particle,
+status or material handles behind the coordinator while its lease is held. The
+API prevents normal ticks and another transaction from doing so; raw GPU handles
+are not a capability/security boundary. The material table in VoxelProbes has no
+reload path. This first coordinator supports the basin's zero shared origin;
+origin rebasing is still pending.
+
+GPU integration tests cover ten scenarios with real command pools and terrain
+publications: mixed-material commit, a second conversion with generation reuse,
+pre-ACK/repeated/invalid-view attempts, frozen ticks and queued commands,
+post-commit pool membership/settling reset and continued healthy physics,
+new-new/terrain/existing-particle overlap, full capacity, latched base faults,
+successful retry after rejection, same-revision terrain replacement, same-tick
+pool replacement, original-owner destruction, and prepared/in-flight abandonment.
+They compare live particle bytes across failed/prepared operations, validate
+committed particle identities/masses and check per-material counters. Host cases
+reject wrong product counts/materials/tolerance, modified material tables with
+unchanged hashes, duplicate/addition/empty edits and competing transactions.

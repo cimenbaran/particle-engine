@@ -39,7 +39,7 @@ identity, generation or ownership mismatch. Errors may combine. Any error gives
 zero activated count. A zero-capacity/zero-seed batch is valid; only rows below
 capacity have initialized output contents.
 
-Required remaining gates
+Required publication gates
 The initialized output remains private. Numeric seed validation and complete
 ownership do not prove geometric clearance. GpuDebrisClearance now provides current
 terrain clearance and checks against existing and other new particles; see
@@ -52,7 +52,8 @@ There is no release/rollback of live state because live state was never changed.
 
 This stage does not verify the numeric/physical state of pre-existing particles,
 reserve terrain mass, update a committed mass ledger, or enable live explosions.
-These remain coordinator responsibilities. The maximum 5% quantization policy
+PendingDebrisTransaction coordinates mass plans, base-tick validation, GPU
+acknowledgements and joint publication; see GPU_Debris_Transaction.txt. The maximum 5% quantization policy
 and signed proposed balances are described in Terrain_Mass_Quantization.txt.
 
 GPU tests exercise 207 batches over capacities 0,1,127,128,129,255,256,257,4096,

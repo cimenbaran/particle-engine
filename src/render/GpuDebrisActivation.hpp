@@ -32,6 +32,7 @@ public:
     bgfx::DynamicIndexBufferHandle status() const{return status_;}
     std::uint64_t materialHash() const{return materialHash_;}
 private:
+    friend class PendingDebrisTransaction;
     void release();
     std::uint32_t capacity_,count_;
     std::uint64_t materialHash_;

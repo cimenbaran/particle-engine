@@ -1,0 +1,40 @@
+JOINT TERRAIN / DEBRIS TRANSACTION — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+PW_WORKGROUP_SIZE=128 and 256: full --gpu-test suite passes.
+Both profiles: all 23 native CTest tests pass.
+Default build restored to workgroup 128.
+
+Ten transaction integration scenarios per profile, using real VoxelProbes
+command pools, immutable CPU/collision/render publications and GPU readbacks:
+- mixed Stone/Sand removal commits four initialized grains and exact per-material
+  proposed source/destination/quantization balances;
+- a subsequent conversion increments cumulative counts and reuses dead slots
+  with incremented generations;
+- successful publication rebuilds active/free membership, resets settling and
+  resumes healthy particle/terrain physics, including after the second adoption;
+- prepared/waiting/ready state freezes ticks and preserves queued commands;
+  queued Sand removal executes after commit and respects material filtering;
+- pre-ACK, repeated, invalid-view and competing attempts cannot publish;
+- new-new, remaining-terrain and existing-particle overlap, full capacity and
+  GPU-latched base physics faults reject with the expected error category;
+- failed preparations preserve live terrain, all particle bytes and mass totals;
+  valid retries succeed without double-counting;
+- same-revision terrain replacement and same-tick particle replacement reject;
+- destroying the original particle owner while waiting cannot resurrect its
+  transaction into a new pool;
+- prepared and in-flight abandonment release the freeze safely without edits;
+- host validation rejects wrong counts/materials/tolerance, changed encoded
+  materials with unchanged hashes, duplicate/addition/empty edits and no-op input.
+
+The complete suite also retains the clearance, activation, reservation, terrain
+publication, live command pool, physics, spatial, settling and rendering tests.
+Only two 16-byte acknowledgements are used by the production coordinator; full
+particle readbacks are confined to tests.
+
+This validates a removal-conversion API. User-facing terrain editing, spatial
+and energy-based explosion planning, staged oversized blasts, deposition,
+whole-world mass inventory and persistence remain open. No Windows or reference
+performance acceptance is claimed.
+
+Ignored logs: out/debris-transaction-{gpu128,gpu256,ctest128,ctest256}.log.

@@ -8,8 +8,10 @@ A resident voxel basin runs with `--terrain-preview`, including interacting sand
 in a 1,024-slot command pool and diagnostic collision probes. Add sand, remove,
 impulse and clear controls use guarded GPU spawning; see
 [basin controls](docs/GPU_Basin_Pool.txt). Live voxel support reports settling candidates.
-Terrain editing and mass conversion
-remain open. Development currently prioritizes macOS.
+A [terrain/debris transaction API](docs/GPU_Debris_Transaction.txt) now commits
+validated removals, particles and per-material conversion totals together.
+Terrain-edit controls, explosion planning and deposition remain open.
+Development currently prioritizes macOS.
 
 ## Build
 
