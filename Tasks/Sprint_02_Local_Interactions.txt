@@ -5,6 +5,14 @@ Planning window: Weeks 5-6; extend if the granular correctness gate fails.
 Dependencies: Sprint 1 foundation and core gates.
 Source: Particle_World_Design.docx, sections 3-6 and 11-13.
 
+Current development priority (2026-10-13)
+Focus implementation and validation on macOS / Metal, per user direction.
+Defer investigation of the Windows voxel-coordinate regression and Windows
+certification. Existing Windows CI may continue reporting failures; these do
+not block macOS development. Preserve cross-platform code where practical.
+Immediate macOS priority: reproduce and repair the long sphere-soak fault using
+the committed and six-stage captures from source620f087, then rerun Metal gates.
+
 Implementation status: GPU signed-grid keys, scan, radix sort, occupied ranges,
 exact-key hashing and support-aware traversal feed the live granular solver.
 Jacobi contacts, correction-relative velocity reconstruction, restitution and
