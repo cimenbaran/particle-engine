@@ -17,8 +17,11 @@ and mesh, then require an asynchronous GPU upload acknowledgement before
 replacement; obsolete competing edits cannot overwrite newer publications.
 See ../docs/GPU_Terrain_Publication.txt. GPU debris capacity reservation now
 prepares deterministic all-or-nothing claims in a private particle snapshot
-(../docs/GPU_Debris_Reservation.txt). Debris initialization, base-tick validation,
-mass accounting and coordinated terrain/particle commit remain open. CPU exposed-face
+(../docs/GPU_Debris_Reservation.txt). Debris initialization, base-tick validation and
+coordinated terrain/particle commit remain open. Pure mass plans now choose
+nearest product counts with explicit signed per-material quantization capped at
+5% (../docs/Terrain_Mass_Quantization.txt); committed mass ledgers and runtime
+conversion remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and
 ../docs/Voxel_Surface.txt. A double sphere-versus-single-voxel reference now

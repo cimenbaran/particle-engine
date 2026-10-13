@@ -1,0 +1,24 @@
+TERRAIN MASS PLANNING — APPLE SILICON CPU
+
+AppleClang 21.0.0.21000099, Apple M3 Max.
+macos-release: 23/23 native CTest tests passed.
+core-tests: 18/18 native CTest tests passed.
+No shader/runtime simulation changed in this step; the GPU suite was not rerun.
+
+The new terrain_mass test checks 128,282 balances plus exact boundary fixtures:
+- Debris/deposit nearest product counts, densities .001 through 100000 kg/m3.
+- Signed quantization, bounded tolerance, single-grain deposit rejection.
+- All tested voxel proposals return to the original voxel count on matched
+  deposition, cancelling their signed mass differences.
+- Exact rational half-count fixtures catch naive floating-point off-by-one
+  rounding in both directions.
+- Tiny positive/negative mass differences remain nonzero under zero tolerance;
+  an exact representable balance passes the same zero-tolerance gate.
+- Invalid density/tolerance and uint32 product-count overflow reject.
+- Encoded reciprocal mass stays within 7e-8 of density-derived sphere mass.
+
+This introduces an explicit 5% maximum per-material quantization approximation,
+not exact physical conservation. It reports proposed source/destination mass and
+signed differences. No committed mass ledger or live conversion is claimed.
+
+Ignored logs: out/terrain-mass-tests.log, out/terrain-mass-macos-tests.log.

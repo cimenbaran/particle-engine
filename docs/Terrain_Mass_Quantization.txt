@@ -1,0 +1,72 @@
+TERRAIN / GRAIN MASS QUANTIZATION
+
+The common granular radius is .0625 m and the voxel edge is .125 m. At equal
+material density, a spherical grain has pi/6 of one voxel's mass (about .523599).
+A one-grain-per-voxel conversion would lose about 47.64% on destruction and gain
+about 90.99% on deposition. It is not an acceptable hidden approximation.
+
+The initial conversion mass profile retains density-derived spherical grain
+mass and chooses the nearest whole product count separately for each material.
+The maximum permitted absolute mass difference is 5% of that material's source
+mass per proposed conversion. This is an explicit quantization approximation,
+not exact conservation. A caller may tighten the limit down to zero, but may
+not increase it above 5%. Errors of unlike materials must never cancel to make
+an otherwise invalid conversion appear acceptable.
+
+A one-voxel debris proposal requires two grains and reports roughly +4.72% mass.
+Two matching grains deposit into one voxel with roughly -4.51% relative to their
+source mass. A single grain cannot deposit alone. Larger material batches use
+the closest integer product count, generally reducing relative error. Inputs
+which exceed the tolerance remain pending with their original physical state.
+Capacity or placement failure is a separate reason to defer the entire batch.
+
+TerrainMass.hpp exposes pure proposal calculations:
+- conversionMassProfile(density) computes the float inverse mass activation must
+  upload, its represented mass, and the voxel mass.
+- planVoxelDebris(voxels,density,tolerance) returns the closest grain count.
+- planGrainDeposit(grains,density,tolerance) returns the closest voxel count.
+Each balance includes both counts, encoded inverse mass, source/destination kg,
+signed quantization kg, relative error and the mass-tolerance decision. Positive
+quantization means added represented mass; negative means lost represented mass.
+Rejected proposals still report their closest count and difference for diagnostics.
+
+Density must match the material schema (.001 through 100000 kg/m3). Depositing
+by count requires every input grain to have exactly this material and encoded
+inverse mass. Arbitrary masses or another material profile require measured-mass
+planning instead. Phase, material identity/hash, voxel claims, particle ownership,
+spatial clearance and reservation are validation requirements of the later
+transaction coordinator, not of this numeric helper. Counts are uint32; an
+unrepresentable debris product count throws before narrowing. Empty conversions
+have zero mass and can satisfy zero tolerance.
+
+Numeric accounting
+Grain mass is derived from sphere volume and density, then encoded as binary32
+inverse mass for ParticleGpu. Accounting uses that stored reciprocal, avoiding a
+second independently rounded mass during activation. The representation error
+relative to the density-derived sphere is below 7e-8 in the tested profile.
+Density times inverse mass divided by 512 is an exact binary64 factor because
+both inputs are binary32. Fused multiply-add resolves half-count boundaries
+without discarding low product bits. Exact count ties round upward.
+
+The signed mass difference is computed from the compensated count residual,
+not by subtracting two large rounded mass totals. This preserves tiny nonzero
+differences under a zero-tolerance policy. Reported totals reconcile within
+floating-point rounding. A matched voxel-to-grains-to-voxel round trip restores
+the original voxel count and cancels the signed differences exactly; unrelated
+conversions must still accumulate their actual signed differences.
+
+Integration still required
+These are proposed balances only. They do not alter terrain or particles and
+do not update a committed mass ledger. The coordinator must reserve slots,
+validate debris placement/initialization, wait for required GPU acknowledgements,
+and then publish both terrain and particle state at one tick boundary. Only
+successful commits may update per-material source/destination/quantization
+counters. Cancelled and capacity-deferred proposals must not change those totals.
+Those counters, runtime diagnostics and actual conversion remain pending.
+
+Tests use a long-double nearest-mass oracle over 128,282 balances, plus exact
+integer-rational boundary fixtures independently derived from binary32 values.
+They cover schema density extremes, resident-scale and large counts, both signs,
+tight/zero tolerances, matched round trips, invalid inputs and count overflow.
+One regression at density 2700 and 253,061,881 voxels distinguishes the correct
+483,312,608 grains from the naive double-rounding result of 483,312,609.

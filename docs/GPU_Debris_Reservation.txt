@@ -49,6 +49,9 @@ terrain occupancy/rendering and active particle state advance together. If any
 gate fails, discard the candidate; keep live particles and unconverted terrain.
 Oversized explosions must split proposals across ticks, with each proposal fully
 reserved before its removals commit. Failed deposits likewise remain dynamic.
+Terrain_Mass_Quantization.txt defines the separate mass proposal and its 5%
+maximum per-material approximation; its encoded inverse mass must be used when
+activation is connected.
 This primitive neither alters voxel mass nor claims complete destruction,
 deposition, snapshot persistence or transaction acknowledgement for particles.
 
