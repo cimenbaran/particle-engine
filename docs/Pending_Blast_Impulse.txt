@@ -1,0 +1,37 @@
+ACKNOWLEDGED EXISTING-GRAIN BLASTS — macOS / Metal
+
+PendingBlastImpulse wraps the private GpuBlastImpulse kernel. Construction
+validates the command pool, full material encoding and zero-origin terrain, then
+freezes the owner through the shared transaction lease. Submit prepares a private
+particle candidate and requests one 16-byte acknowledgement combining impulse
+status with latched simulation health. Production code reads no particle array.
+
+Before publication, the candidate cannot change live particle bytes or consume
+energy. Poll checks errors, counts and ticket limits. Ready exposes a proposed
+charge; only successful publish authorizes the caller to subtract it. Publish
+checks the exact owner, lease, source handle, tick, material hash and terrain
+publication pointer. Replaced owners or same-revision replacement terrain make
+the result stale. Rejected, stale and abandoned operations do not spend energy.
+Destruction drains outstanding acknowledgement reads before releasing resources.
+
+A nonzero accepted count swaps the private output into the current particle
+state, rebuilds pool membership, clears settling history and starts diagnostic
+epochs. Terrain and conversion mass totals remain unchanged. A zero-effect
+publication preserves the state handle, settling history and diagnostic epochs.
+Queued particle commands remain pending during the freeze and run afterwards.
+
+StagedExplosion reserves a configurable maximum share for this phase, once before
+terrain conversion. It subtracts the published ticket charge using downward
+remaining-budget arithmetic. All unspent energy can then fund terrain/debris.
+Later terrain batches cannot kick existing grains again. Cancellation preserves
+already published effects and their charges. See Staged_Explosion.txt.
+
+Validation
+Six real Metal scenarios verify immutable preparation, owner freeze, competing
+operations, invalid views, single adoption, exact non-velocity bytes, kinetic
+energy bounded by the charge, explicit clearing of injected settling history,
+queued removal, zero conversion-mass changes, malformed generations, latched
+health faults, stale terrain/pools, abandonment and altered material encoding.
+The zero-budget case checks unchanged particle storage and retained injected
+settling history. Ten coordinator scenarios include shared impulse/terrain
+budgets, three subsequent terrain batches and cancellation after the impulse.

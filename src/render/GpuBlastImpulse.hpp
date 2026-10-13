@@ -23,6 +23,7 @@ public:
     std::uint32_t ticketBudget() const{return tickets_;}
     static constexpr std::uint32_t maximumTickets=0x00ffffffu;
 private:
+    friend class PendingBlastImpulse;
     void release();
     std::uint32_t capacity_,tickets_=0;
     BlastImpulseRequest request_;

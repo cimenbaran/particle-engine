@@ -1,12 +1,10 @@
 PRIVATE GPU BLAST IMPULSES — macOS / Metal
 
 GpuBlastImpulse prepares velocity changes for existing solid particles without
-modifying the source. It is not yet connected to the live StagedExplosion command.
-That integration still needs a frozen-owner acknowledgement/publication step,
-settling invalidation and an explicit allocation between existing-particle work
-and the terrain/debris budget. The current preview continues to fund new debris
-only. Do not adopt this private output or charge its diagnostic before those
-transaction gates are satisfied.
+modifying the source. PendingBlastImpulse now freezes the owner, validates an
+asynchronous acknowledgement and adopts the result while invalidating settling
+history. StagedExplosion uses it once before terrain conversion with an explicit
+shared-budget allocation. See Pending_Blast_Impulse.txt and Staged_Explosion.txt.
 
 Supported profile
 Capacity is 0..1,048,576 slots. Request centre lies in the basin, radius is

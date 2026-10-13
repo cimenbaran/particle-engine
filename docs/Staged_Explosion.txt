@@ -1,12 +1,16 @@
 LIVE STAGED TERRAIN EXPLOSIONS — macOS / Metal
 
 Open --terrain-preview, collapse Terrain editing if more panel space is needed,
-and expand Explosion. Choose Blast centre, Blast radius, Debris speed and Terrain
-energy, then Start blast. A new command snapshots these settings; changing the
-sliders does not change an in-flight command. The preview converts up to 32
-voxels per accepted batch. Existing-particle blast impulses and cosmetic blast
-emissions remain open; the current energy budget funds terrain conversion and
-its new physical debris only.
+and expand Explosion. Choose Blast centre, Blast radius, Debris speed, Blast
+energy and Grain allowance, then Start blast. Settings are snapshotted. The
+preview defaults to a 25% allowance for existing grains: an acknowledged impulse
+runs once before terrain conversion, then its actual conservative ticket charge
+is subtracted from the total. Unspent allowance remains available for terrain.
+The preview converts up to 32 voxels per accepted terrain batch. Cosmetic blast
+emissions remain open. The coordinator API defaults to a zero existing allowance
+for terrain-only callers; fractions must be finite and in [0,1]. A positive
+allowance requires radius >= .0625 m. Sub-microjoule allocations or zero requested
+speed skip the existing-grain phase.
 
 The preview uses calibrated fracture resistance in J/m^3: Sand 100, Wood 300,
 Ash 50, other materials 1000. Density, solid phase and fuel come from the loaded
@@ -18,7 +22,10 @@ See Terrain_Explosion.txt for radial selection, placement and energy arithmetic.
 Coordinator and ordering
 StagedExplosion owns the immutable request, material profiles, remaining budget,
 owner identity and expected terrain publication. pump runs before simulation and
-rendering. It submits one PendingDebrisTransaction at the late preparation view,
+rendering. The optional PendingBlastImpulse uses one 16-byte acknowledgement,
+freezes the same owner and changes only velocities. Accepted effects reset
+settling history; zero effects preserve it. After publication, at least one new
+simulation tick must pass before terrain preparation. It submits one PendingDebrisTransaction at the late preparation view,
 then waits for both GPU acknowledgements. A successful early-view publication
 adopts terrain and grains first, charges the downward-rounded remaining budget,
 and records committed batch/voxel/grain totals. The same call never prepares the
@@ -44,21 +51,23 @@ force progress. A CPU placement failure stops with NoSpace. Other validation or
 physics faults stop the command instead of retrying endlessly.
 
 Empty terrain, an unaffordable remainder or an impossible product quota ends the
-command with a distinct reason. Cancel discards only a pending batch; already
-published edits and their charges remain. Reset/rebuild and switching diagnostic
+command with a distinct reason. Cancel discards a pending operation; already
+published impulses, terrain edits and their charges remain. Reset/rebuild and switching diagnostic
 modes cancel the command before replacing the pool. Different terrain or particle
 owner identities invalidate a command even when revision/tick numbers happen to
 match. Terminal commands release retained world resources. Another terrain edit
 cannot be started from the preview while a blast is active.
 
 Validation
-Seven real Metal coordinator scenarios cover three automatic one-voxel batches,
+Ten real Metal coordinator scenarios cover three automatic one-voxel batches,
 no pre-ACK energy charge, freeze and same-tick/paused gates, cancellation before
 and after publication, full 1024-slot capacity rejection and recovery, a bounded
 30-tick retry, terrain/pool replacement, density/phase mismatch, exhausted energy,
 impossible quota, queued command ordering, latched physics faults and buried
 placement failure. The existing twelve transaction scenarios and planner tests
-remain in the full suite.
+remain in the full suite. Additional shared-budget cases cover existing grains
+followed by three terrain batches, cancellation after impulse publication,
+same-tick prevention of repeated kicks, allowance validation and tiny budgets.
 
 Live seed-1337 check, workgroup 128:
 - default 2000 J blast: batch one removes 32 voxels, activates 61 grains and
@@ -72,6 +81,13 @@ Live seed-1337 check, workgroup 128:
 - a separate cancellation check retains an accepted batch and its remaining
   energy without later commits. Rebuild restores the 404546-voxel initial basin.
 
-GPU_Blast_Impulse.txt now documents a tested private existing-grain impulse
-primitive. Its owner freeze, acknowledgement, live adoption and budget split
-are still pending; it is not invoked by these preview controls yet.
+The live figures above predate existing-grain integration and cover terrain
+staging. See Pending_Blast_Impulse.txt for the acknowledgement regression cases.
+
+Live shared-budget check, workgroup 128:
+- excavation created 61 settled Stone grains; default blast kicked all 61 for
+  32.7093 J, leaving 1967.29 J and unchanged terrain;
+- clearance pressure deferred terrain without repeated impulse charges;
+- Clear Stone allowed one 32-voxel terrain batch, leaving 1226.68 J; existing
+  impulse count and charge stayed 61 and 32.7093 J;
+- Cancel retained both committed effects and the remaining budget.

@@ -52,7 +52,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         const double resistance=m.name=="Sand"?100:m.name=="Wood"?300:m.name=="Ash"?50:1000;
         blastMaterials.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,resistance,m.gpu.thermal[3]>0?1.f:0.f});
     }
-    float blastCentre[]{-8,3.875f,-4},blastRadius=.5f,blastSpeed=2,blastEnergy=2000;
+    float blastCentre[]{-8,3.875f,-4},blastRadius=.5f,blastSpeed=2,blastEnergy=2000,blastExistingPercent=25;
 
     std::vector<terrain::ExcavationMaterial> excavationMaterials;
     for(const auto& material:materials.entries)excavationMaterials.push_back({material.gpu.mechanical[0],material.gpu.identity[1]==0,material.gpu.thermal[3]>0?1.f:0.f});
@@ -79,8 +79,8 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         }
         if(blast && probes) {
             try {if(blast->pump(completed,*probes,basin->publication)) {
-                basin->refresh();clock.reset();message="Blast batch committed.";
-                std::cout<<"Blast batch "<<blast->batches()<<": "<<blast->removedVoxels()<<" voxels total; "<<blast->remainingJoules()<<" J remaining"<<std::endl;
+                basin->refresh();clock.reset();message="Blast update committed.";
+                std::cout<<"Blast update: "<<blast->batches()<<" terrain batches, "<<blast->removedVoxels()<<" voxels, "<<blast->impulsedParticles()<<" existing grains, "<<blast->impulseJoules()<<" impulse J; "<<blast->remainingJoules()<<" J remaining"<<std::endl;
             }}catch(const std::exception& error){blast->cancel();message=error.what();}
         }
         auto now=std::chrono::steady_clock::now();double elapsed=std::chrono::duration<double>(now-previous).count();previous=now;
@@ -182,8 +182,9 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
             ImGui::SliderFloat3("Blast centre",blastCentre,-15,15,"%.3f m");blastCentre[1]=std::max(0.f,blastCentre[1]);
             ImGui::SliderFloat("Blast radius",&blastRadius,.125f,2,"%.3f m");
             ImGui::SliderFloat("Debris speed",&blastSpeed,0,12,"%.1f m/s");
-            ImGui::SliderFloat("Terrain energy",&blastEnergy,10,10000,"%.0f J");
-            ImGui::TextWrapped("Converts terrain in batches of up to 32 voxels. Energy is charged after each successful commit.");
+            ImGui::SliderFloat("Blast energy",&blastEnergy,10,10000,"%.0f J");
+            ImGui::SliderFloat("Grain allowance",&blastExistingPercent,0,100,"%.0f%%");
+            ImGui::TextWrapped("Kicks existing grains once, then converts terrain in batches. Unspent allowance stays available for terrain.");
             ImGui::BeginDisabled(bool(excavation) || (blast && blast->active()));
             if(ImGui::Button("Start blast")) {
                 try {
@@ -191,19 +192,19 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                     terrain::ExplosionRequest request;request.centre={blastCentre[0],blastCentre[1],blastCentre[2]};request.radius=blastRadius;request.impulse=blastSpeed;request.energyJoules=blastEnergy;request.sequence=excavationSequence;
                     if(!probes || !probes->hasPool()) {
                         auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);
-                        auto command=std::make_unique<StagedExplosion>(assets,*candidate,basin->publication,materials,request,blastMaterials);
+                        auto command=std::make_unique<StagedExplosion>(assets,*candidate,basin->publication,materials,request,blastMaterials,double(blastExistingPercent)/100);
                         probes=std::move(candidate);blast=std::move(command);clock.reset();
-                    }else {request.tick=probes->ticks();blast=std::make_unique<StagedExplosion>(assets,*probes,basin->publication,materials,request,blastMaterials);}
+                    }else {request.tick=probes->ticks();blast=std::make_unique<StagedExplosion>(assets,*probes,basin->publication,materials,request,blastMaterials,double(blastExistingPercent)/100);}
                     ++excavationSequence;blast->pump(completed,*probes,basin->publication);message="Blast queued.";
                 }catch(const std::exception& error){if(blast)blast->cancel();message=error.what();}
             }
             ImGui::EndDisabled();
             if(blast) {
-                if(blast->active()){ImGui::SameLine();if(ImGui::Button("Cancel blast")){blast->cancel();clock.reset();message="Blast cancelled; committed batches retained.";}}
+                if(blast->active()){ImGui::SameLine();if(ImGui::Button("Cancel blast")){blast->cancel();clock.reset();message="Blast cancelled; committed effects retained.";}}
                 const char* status="";
                 switch(blast->state()) {
                 case StagedExplosion::State::WaitingForTick:status="Waiting for next simulation tick";break;
-                case StagedExplosion::State::WaitingForGpu:status="Validating batch";break;
+                case StagedExplosion::State::WaitingForGpu:status=blast->applyingImpulse()?"Validating grain impulse":"Validating terrain batch";break;
                 case StagedExplosion::State::Deferred:status=(blast->errors()&1)?"Waiting for particle capacity":"Waiting for debris clearance";break;
                 case StagedExplosion::State::Complete:status=blast->completion()==StagedExplosion::Completion::Empty?"Complete":blast->completion()==StagedExplosion::Completion::Energy?"Stopped: no affordable voxels":"Stopped: product quota";break;
                 case StagedExplosion::State::NoSpace:status="Stopped: no room for required debris";break;
@@ -214,6 +215,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                 ImGui::TextWrapped("%s",status);
                 ImGui::Text("Blast: %llu batches | %llu voxels",static_cast<unsigned long long>(blast->batches()),static_cast<unsigned long long>(blast->removedVoxels()));
                 ImGui::Text("Energy: %.1f J left | %.1f J charged",blast->remainingJoules(),blast->chargedJoules());
+                ImGui::Text("Existing: %u grains | %.2f J",blast->impulsedParticles(),blast->impulseJoules());
             }
         }
         if(ImGui::Button("Reset particle pool")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();message="Empty particle pool; counters and faults reset";}catch(const std::exception& error){message=error.what();}}

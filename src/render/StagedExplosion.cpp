@@ -1,9 +1,12 @@
 #include "StagedExplosion.hpp"
 namespace pw {
 StagedExplosion::StagedExplosion(const std::filesystem::path& assets,VoxelProbes& particles,VoxelPublicationPtr terrain,
-    const MaterialLibrary& materials,terrain::ExplosionRequest request,std::span<const terrain::ExplosionMaterial> profiles)
+    const MaterialLibrary& materials,terrain::ExplosionRequest request,std::span<const terrain::ExplosionMaterial> profiles,double existingAllowance)
     :assets_(assets),materials_(materials),request_(request),profiles_(profiles.begin(),profiles.end()),
      owner_(particles.transactionOwner_),expected_(std::move(terrain)),remaining_(request.energyJoules) {
+    if(!std::isfinite(existingAllowance) || existingAllowance<0 || existingAllowance>1 || (existingAllowance>0 && request.radius<.0625f))
+        throw std::invalid_argument("Invalid existing-grain energy allowance or impulse radius");
+    impulseBudget_=request.energyJoules*existingAllowance;impulseDone_=impulseBudget_<1e-6 || request.impulse==0;
     terrain::validateExplosion(request,particles.ticks());terrain::validateExplosionMaterials(profiles);
     if(!particles.hasPool() || particles.transactionPending() || !expected_ || expected_->origin()!=terrain::Chunk{} ||
        profiles.size()!=materials.entries.size() || particles.materialEncoding_!=encodeMaterials(materials) ||
@@ -13,7 +16,7 @@ StagedExplosion::StagedExplosion(const std::filesystem::path& assets,VoxelProbes
         profiles[m].solid!=(materials.entries[m].gpu.identity[1]==0))
         throw std::invalid_argument("Explosion energy profiles must match physical materials");
 }
-void StagedExplosion::cancel() {if(!active())return;pending_.reset();expected_.reset();state_=State::Cancelled;}
+void StagedExplosion::cancel() {if(!active())return;impulse_.reset();pending_.reset();expected_.reset();state_=State::Cancelled;}
 bool StagedExplosion::pump(std::uint32_t completedFrame,VoxelProbes& particles,VoxelPublicationPtr& terrain,
                            std::uint16_t prepareView,std::uint16_t commitView) {
     if(!active())return false;
@@ -21,7 +24,19 @@ bool StagedExplosion::pump(std::uint32_t completedFrame,VoxelProbes& particles,V
         throw std::invalid_argument("Explosion requires an early commit and later preparation/copy views");
     if(owner_.expired() || owner_.lock()!=particles.transactionOwner_ || terrain!=expected_ ||
        (attempted_ && particles.ticks()<lastAttempt_)) {
-        pending_.reset();expected_.reset();state_=State::Stale;return false;
+        impulse_.reset();pending_.reset();expected_.reset();state_=State::Stale;return false;
+    }
+    if(impulse_) {
+        impulse_->poll(completedFrame);
+        if(impulse_->state()==PendingBlastImpulse::State::Waiting)return false;
+        if(impulse_->state()==PendingBlastImpulse::State::Ready) {
+            const auto charge=impulse_->energyJoules(),remaining=terrain::explosionEnergyRemainder(remaining_,charge);
+            const auto accepted=impulse_->accepted();
+            if(!impulse_->publish(commitView,particles,terrain)){impulse_.reset();expected_.reset();state_=State::Stale;return false;}
+            remaining_=remaining;impulseCharge_=charge;impulsed_=accepted;impulseDone_=true;
+            impulse_.reset();state_=State::WaitingForTick;errors_=0;return true;
+        }
+        errors_=impulse_->errors();impulse_.reset();expected_.reset();state_=State::Faulted;return false;
     }
     if(pending_) {
         pending_->poll(completedFrame);
@@ -43,6 +58,11 @@ bool StagedExplosion::pump(std::uint32_t completedFrame,VoxelProbes& particles,V
     if(particles.transactionPending() || particles.pendingCommands())return false;
     if(attempted_ && particles.ticks()-lastAttempt_<(state_==State::Deferred?retryTicks:1))return false;
     lastAttempt_=particles.ticks();attempted_=true;
+    if(!impulseDone_) {
+        BlastImpulseRequest request{request_.centre,request_.radius,request_.impulse,impulseBudget_};
+        auto transaction=std::make_unique<PendingBlastImpulse>(assets_,particles,terrain,materials_,request);
+        transaction->submit(prepareView,particles);impulse_=std::move(transaction);state_=State::WaitingForGpu;return false;
+    }
     auto batch=request_;batch.tick=particles.ticks();batch.energyJoules=remaining_;
     const auto plan=terrain::planExplosion(terrain->source(),batch,batch.tick,profiles_);
     eligible_=plan.eligible;

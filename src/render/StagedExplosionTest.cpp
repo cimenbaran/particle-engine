@@ -95,6 +95,37 @@ void runStagedExplosionTest(const std::filesystem::path& assets) {
         StagedExplosion blast(assets,particles,live,materials,buried,profiles);blast.pump(frame,particles,live);
         require(blast.state()==State::NoSpace && !particles.transactionPending() && blast.batches()==0 && blast.remainingJoules()==request.energyJoules && live==original,"Buried blast did not stop intact and unspent");++cases;
     }
+    for(unsigned cancel=0;cancel<2;++cancel) {
+        auto live=makeBase(),original=live;VoxelProbes particles(assets,materials,true,true);advance(particles);
+        std::vector<ParticleGpu> input(particles.capacity());const float inv=terrain::conversionMassProfile(materials.entries[0].gpu.mechanical[0]).inverseMass;
+        for(unsigned i=0;i<2;++i)input[i]={{1.3125f+float(i)*.375f,1.4375f,1.0625f,.0625f},{0,0,0,inv},{293.15f,0,0,0},{0,1,i,1}};
+        bgfx::update(particles.state(),0,bgfx::copy(input.data(),unsigned(input.size()*64)));auto combined=request;combined.impulse=2;
+        StagedExplosion blast(assets,particles,live,materials,combined,profiles,.25);
+        bool published=false;for(unsigned i=0;i<128 && !published;++i){published=blast.pump(frame,particles,live);advance(particles);}
+        require(published && blast.impulsedParticles()==2 && blast.impulseJoules()>0 && blast.impulseJoules()<=combined.energyJoules*.25 && blast.batches()==0 && live==original,"Combined blast did not acknowledge existing grains first");
+        const double remaining=blast.remainingJoules(),impulseCharge=blast.impulseJoules();
+        for(unsigned i=0;i<8;++i){require(!blast.pump(frame,particles,live),"Combined blast published twice at one tick");advance(particles);}
+        require(blast.remainingJoules()==remaining && blast.batches()==0,"Paused combined blast changed its budget/terrain");
+        if(cancel) {
+            blast.cancel();particles.tick(1,live->occupancy(),live->source());blast.pump(frame,particles,live);advance(particles);
+            require(blast.state()==State::Cancelled && blast.impulsedParticles()==2 && blast.remainingJoules()==remaining && live==original,"Cancellation undid/recharged an accepted impulse");
+        }else {
+            for(unsigned i=0;i<256 && blast.active();++i) {
+                if(blast.state()!=State::WaitingForGpu)particles.tick(1,live->occupancy(),live->source());
+                blast.pump(frame,particles,live);advance(particles);
+            }
+            require(blast.state()==State::Complete && blast.batches()==3 && blast.removedVoxels()==3 && blast.activatedGrains()==6 && blast.impulsedParticles()==2 && blast.impulseJoules()==impulseCharge && blast.remainingJoules()<remaining && blast.chargedJoules()<=combined.energyJoules,"Combined command repeated impulse or failed shared-budget terrain staging");
+            for(unsigned i=0;i<8;++i)advance(particles);require(!particles.fault() && particles.poolSnapshot().active==8,"Combined blast lost existing or new grains");
+        }
+        ++cases;
+    }
+    {
+        auto live=makeBase();VoxelProbes particles(assets,materials,true,true);
+        for(double allowance:{-.1,1.1,std::numeric_limits<double>::quiet_NaN()})rejects([&]{StagedExplosion bad(assets,particles,live,materials,request,profiles,allowance);});
+        auto small=request;small.radius=.01f;rejects([&]{StagedExplosion bad(assets,particles,live,materials,small,profiles,.25);});
+        small=request;small.energyJoules=1e-7;StagedExplosion tiny(assets,particles,live,materials,small,profiles,.25);tiny.pump(frame,particles,live);
+        require(tiny.state()==State::Complete && tiny.impulsedParticles()==0 && tiny.chargedJoules()==0,"Sub-microjoule allowance was spent");++cases;
+    }
     std::cout<<"GPU staged explosion passed: "<<cases<<" scenarios; multi-tick publication, energy ownership, paused/cancelled/stale commands, full-pool recovery and bounded retry\n";
 }
 }

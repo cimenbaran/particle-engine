@@ -40,3 +40,7 @@ placement. Settled debris may indefinitely obstruct the fixed proposal; the user
 can move/clear it or cancel. Existing-particle blast impulses, cosmetic blast
 quotas, persisted resistance, deposition and remaining Sprint 3 work stay open.
 Windows is deferred.
+
+Follow-up: frozen acknowledgement, live existing-grain adoption and shared energy
+allocation are now implemented. See m3-max-acknowledged-blast.txt for the newer
+validation record; the original measurements above describe the earlier stage.

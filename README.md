@@ -14,8 +14,8 @@ Use [Excavate brush](docs/Terrain_Excavation.txt) to turn up to 32 terrain voxel
 into physical debris per click, with conversion mass totals shown in the panel.
 A [bounded explosion planner](docs/Terrain_Explosion.txt) now supplies radial
 debris and conservative energy budgets to [live staged blasts](docs/Staged_Explosion.txt).
-Existing-particle blast impulses, cosmetic blast effects, deposition and save/load
-remain open.
+Blasts now kick existing grains once within a shared energy budget before terrain
+conversion. Cosmetic blast effects, deposition and save/load remain open.
 Development currently prioritizes macOS.
 
 ## Build

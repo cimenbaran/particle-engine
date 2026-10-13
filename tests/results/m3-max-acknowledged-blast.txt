@@ -1,0 +1,41 @@
+ACKNOWLEDGED SHARED-BUDGET BLASTS — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+Complete --gpu-test suites pass with workgroups 128 and 256. All 25 native
+CTests pass with both configurations. Windows remains deferred.
+
+Six PendingBlastImpulse scenarios:
+- frozen owner, source tick and queued commands; private preparation cannot
+  change live bytes or charge the budget;
+- a single acknowledged adoption changes only velocity, preserves terrain and
+  conversion mass totals, bounds kinetic energy by its proposed charge, rebuilds
+  membership and clears explicitly injected settling history;
+- malformed generation and latched simulation health reject without effects;
+- same-revision replacement terrain and replacement pool identities reject;
+- prepared/in-flight abandonment releases the freeze safely;
+- changed material encoding rejects; zero budget preserves the state handle,
+  all particle bytes and explicitly injected settling history.
+
+Ten StagedExplosion scenarios include the original seven coordinator cases plus
+existing-grain impulse followed by three terrain batches, cancellation after
+impulse adoption, allowance/radius validation and tiny-budget handling. Repeated
+pumps at the same tick cannot prepare terrain or repeat the kick. The shared
+budget decreases only after each published effect; unused allowance returns to
+terrain. The completed fixture retains two existing and six new grains.
+
+Live macOS preview with workgroup 128, seed 1337:
+1. Excavate the default brush: 32 terrain voxels -> 61 Stone grains. Let settle.
+2. Start the default .5 m, 2 m/s, 2000 J blast with 25% grain allowance.
+   All 61 grains receive the one existing-grain phase: charge 32.7093 J;
+   1967.29 J remains and terrain is unchanged by that phase.
+3. Terrain preparation waits for debris clearance without further spending.
+4. Clear Stone: the same command commits one 32-voxel terrain batch;
+   1226.68 J remains. Existing count/charge remain 61 and 32.7093 J.
+5. Cancel: committed effects and budget remain; simulation continues.
+No displayed physics fault. The original terrain-only live staging evidence is
+retained in m3-max-staged-explosion.txt.
+
+The control label was shortened to Grain allowance after observing clipping.
+Cosmetic blast emissions, persisted resistance, deposition, dirty mesh reuse,
+origin publication and persistence remain open. This is not a release benchmark
+or a long-running soak result.

@@ -32,9 +32,11 @@ conservative fracture/kinetic budgets and complete locally placed debris batches
 (../docs/Terrain_Explosion.txt). Live controls now schedule acknowledged batches,
 charge only successful commits and defer under capacity/clearance pressure
 (../docs/Staged_Explosion.txt). A private GPU existing-particle impulse pass now bounds positive kinetic work
-with overflow-safe integer allocation (../docs/GPU_Blast_Impulse.txt). Its frozen
-acknowledgement/publication and live budget partition remain open, along with
-cosmetic blast quotas and persisted material resistance.
+with overflow-safe integer allocation (../docs/GPU_Blast_Impulse.txt). A frozen
+acknowledgement now gates live adoption and settling invalidation, with one
+existing-grain phase sharing the command budget before terrain batches
+(../docs/Pending_Blast_Impulse.txt). Cosmetic blast quotas and persisted material
+resistance remain open.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals
@@ -69,8 +71,7 @@ A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed
 rebuilds and matching render/occupancy revision checks. See
 ../docs/Resident_Basin.txt. Thermal simulation, save files and tick-boundary
-origin publication are not connected. Dirty chunk mesh reuse, existing-particle blast impulses
-and deposition remain open. Development prioritizes macOS.
+origin publication are not connected. Dirty chunk mesh reuse and deposition remain open. Development prioritizes macOS.
 
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,
