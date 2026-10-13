@@ -4,7 +4,7 @@
 #include <bit>
 #include <stdexcept>
 namespace pw {
-GpuCellHash::GpuCellHash(const std::filesystem::path& assets,std::uint32_t capacity,std::uint32_t slots,std::uint32_t limit)
+GpuCellHash::GpuCellHash(const std::filesystem::path& assets,std::uint32_t capacity,std::uint32_t slots,std::uint32_t limit,GranularGridProfile profile)
     :capacity_(capacity),slots_(slots),limit_(limit) {
     if(capacity>1048576 || limit==0 || limit>256) throw std::invalid_argument("Invalid GPU hash capacity/probe limit");
     if(!slots_) slots_=std::bit_ceil(capacity*2+2);
@@ -13,8 +13,8 @@ GpuCellHash::GpuCellHash(const std::filesystem::path& assets,std::uint32_t capac
         const auto flags=BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE;
         table_=bgfx::createDynamicIndexBuffer(slots_*2,flags);
         meta_=bgfx::createDynamicIndexBuffer(4,flags);metrics_=bgfx::createDynamicIndexBuffer(4,flags);
-        clear_=loadCompute(assets,"cs_hash_clear");insert_=loadCompute(assets,"cs_hash_insert");
-        finalize_=loadCompute(assets,"cs_hash_finalize");lookup_=loadCompute(assets,"cs_hash_lookup");
+        clear_=loadCompute(assets,"cs_hash_clear");insert_=loadCompute(assets,gridShader("cs_hash_insert",profile));
+        finalize_=loadCompute(assets,"cs_hash_finalize");lookup_=loadCompute(assets,gridShader("cs_hash_lookup",profile));
         params_=bgfx::createUniform("u_hash",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(table_) || !bgfx::isValid(meta_) || !bgfx::isValid(metrics_) || !bgfx::isValid(params_))
             throw std::runtime_error("GPU hash resources unavailable");

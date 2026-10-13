@@ -1,4 +1,4 @@
-GPU CELL-KEY GENERATION FOR THE INITIAL GRANULAR PROFILE
+GPU CELL-KEY GENERATION FOR GRANULAR PROFILES
 
 GpuSpatialKeys emits an initialized (cellKey, physicalSlot) record for every
 configured slot. It feeds sorting, ranges, hashing and neighbor queries in GPU
@@ -41,7 +41,8 @@ Either nonzero error count ([2] or [3]) invalidates the index epoch. A future
 physics consumer MUST gate itself on those counters before using the ranges;
 it must report the failure and resolve the exit/reset/rebuild. Sorting a bad
 epoch for diagnostics is safe; treating its missing cells as empty space is not.
-No runtime physics consumer exists yet, so this is not a completed failure gate.
+GpuJacobiContacts and GpuContactVelocity reject failed epochs and roll back
+the complete pass; GpuGranularStep latches failures across its tick.
 
 The constructor accepts 0..1,048,576 slots. submit requires valid read-only
 ParticleGpu/material buffers large enough for the declared capacity and material
@@ -65,3 +66,28 @@ Local Apple M3 Max/Metal validation passed all 20 key-emission/sort cases in
 each workgroup variant, all nine CTests and the complete GPU suite. Evidence:
 tests/results/m3-max-spatial-keys.txt. The development base was 60105c0 with
 these key changes uncommitted. Windows execution remains pending.
+
+BASIN PROFILE
+
+GranularGridProfile::Basin selects origin zero, width 0.125 m, minimum cell
+(-128,0,-128), dimensions (256,128,256), and 8,388,608 keys. Its half-open box
+is [-16,16) x [0,16) x [-16,16), matching the resident basin. Flattening is
+x + 256*(y + 128*z) after shifting x/z by 128. Allocations still depend on
+particle capacity, not the number of addressable cells.
+
+Keys, ranges, hash, Jacobi corrections and contact velocity accept this profile
+as an optional final constructor argument. All default to Legacy. Raw buffer
+callers must select the same profile throughout a frozen index epoch, just as
+they must agree on capacity and source state. Internal pair-solver pipelines
+propagate the profile to every index stage and consumer. Basin support queries
+saturate finite supports at 48 m (the box diagonal); axis ranges clamp to each
+axis's dimensions. No candidate or neighbor count is truncated.
+
+The _basin compute binaries compile the same sources with PW_BASIN_GRID=1.
+Cache fingerprints and manifests include both grid and workgroup defines; the
+loader rejects wrong-profile or wrong-workgroup assets even when their binary
+hashes are valid. This is a fixed second profile, not arbitrary GPU grids or
+runtime origin rebasing. Settling, debug normals and the interactive granular
+tick coordinator still use Legacy; voxel probes remain terrain-only.
+
+See GPU_Basin_Grid.txt for validation and the remaining integration work.

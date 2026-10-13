@@ -1,3 +1,4 @@
+#include "granular_grid.sh"
 #include <bgfx_compute.sh>
 #include "workgroup.sh"
 #include "cell_hash.sh"
@@ -12,7 +13,7 @@ void main() {
   uint id=gl_GlobalInvocationID.x,capacity=uint(u_hash.x);
   if(b_source[2]!=0u || b_source[0]>capacity || b_source[1]>capacity || id>=b_source[0] || id>=capacity) return;
   uint key=b_ranges[id*3u],begin=b_ranges[id*3u+1u],end=b_ranges[id*3u+2u];
-  if(key>=2097152u || begin>=end || end>b_source[1]) {
+  if(key>=PW_GRID_KEYS || begin>=end || end>b_source[1]) {
     atomicAdd(b_meta[2],1u);atomicOr(b_meta[3],16u);return;
   }
   uint mask=uint(u_hash.y)-1u,start=cellHash(key)&mask,probes=0u,error=4u;

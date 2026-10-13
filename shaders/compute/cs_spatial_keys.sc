@@ -1,3 +1,4 @@
+#include "granular_grid.sh"
 #include <bgfx_compute.sh>
 #include "workgroup.sh"
 BUFFER_RO(b_state,vec4,0);
@@ -29,11 +30,11 @@ void main() {
      !finiteCoordinate(position.y) || !finiteCoordinate(position.z)) {atomicAdd(b_status[2],1u);return;}
   // Check bounds before float-to-int conversion; large finite inputs must not
   // overflow multiplication or conversion. Upper faces are excluded.
-  if(position.x< -8.0 || position.x>=8.0 || position.y<0.0 || position.y>=16.0 ||
-     position.z< -8.0 || position.z>=8.0) {atomicAdd(b_status[3],1u);return;}
-  ivec3 cell=ivec3(signedCell(position.x)+64,signedCell(position.y),signedCell(position.z)+64);
-  if(cell.x<0 || cell.y<0 || cell.z<0 || cell.x>=128 || cell.y>=128 || cell.z>=128)
+  if(position.x< -PW_GRID_EXTENT || position.x>=PW_GRID_EXTENT || position.y<0.0 || position.y>=16.0 ||
+     position.z< -PW_GRID_EXTENT || position.z>=PW_GRID_EXTENT) {atomicAdd(b_status[3],1u);return;}
+  ivec3 cell=ivec3(signedCell(position.x)+PW_GRID_OFFSET,signedCell(position.y),signedCell(position.z)+PW_GRID_OFFSET);
+  if(cell.x<0 || cell.y<0 || cell.z<0 || cell.x>=PW_GRID_X || cell.y>=PW_GRID_Y || cell.z>=PW_GRID_Z)
     {atomicAdd(b_status[3],1u);return;}
-  b_records[slot*2u]=uint(cell.x)+128u*(uint(cell.y)+128u*uint(cell.z));
+  b_records[slot*2u]=uint(cell.x)+uint(PW_GRID_X)*(uint(cell.y)+uint(PW_GRID_Y)*uint(cell.z));
   atomicAdd(b_status[0],1u);
 }

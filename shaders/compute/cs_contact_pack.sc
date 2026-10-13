@@ -1,3 +1,4 @@
+#include "granular_grid.sh"
 #include <bgfx_compute.sh>
 #include "workgroup.sh"
 #include "contact_math.sh"
@@ -19,7 +20,7 @@ void main() {
   uvec4 old=floatBitsToUint(b_start[id*4u+3u]);vec4 p=b_start[id*4u];
   float mu=b_materials[identity.x*4u].y;uint bits=floatBitsToUint(mu),magnitude=bits&0x7fffffffu;
   bool valid=all(equal(identity,old)) && contactFinite3(p.xyz) &&
-    all(greaterThanEqual(p.xyz,vec3(-8.0,0.0,-8.0))) && all(lessThan(p.xyz,vec3(8.0,16.0,8.0))) &&
+    all(greaterThanEqual(p.xyz,vec3(-PW_GRID_EXTENT,0.0,-PW_GRID_EXTENT))) && all(lessThan(p.xyz,vec3(PW_GRID_EXTENT,16.0,PW_GRID_EXTENT))) &&
     p.w==b_current[id*4u].w && floatBitsToUint(b_start[id*4u+1u].w)==floatBitsToUint(b_current[id*4u+1u].w) &&
     magnitude<=0x3f800000u && ((bits&0x80000000u)==0u || magnitude==0u);
   if(u_contact_floor.x>0.0) {

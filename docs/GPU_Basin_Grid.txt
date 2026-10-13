@@ -1,0 +1,36 @@
+BASIN-SIZED GRANULAR INDEX
+
+Purpose
+The resident basin spans 32 x 16 x 32 m. Its probe spawn at x=-11.5 m lies
+outside the original granular index. GranularGridProfile::Basin makes the
+existing sparse index and pair primitives cover the complete basin without
+changing the default profile or allocating a dense cell table.
+
+Implementation
+A shared granular_grid.sh defines key bounds, axis dimensions, signed offsets
+and support saturation. Ten _basin shader variants reuse the existing source
+files. GpuSpatialKeys, GpuCellRanges, GpuCellHash, GpuJacobiContacts and
+GpuContactVelocity select matching binaries at construction. Jacobi's optional
+box constraint uses basin walls, and its immutable friction baseline validation
+uses the same domain. Sparse range validation still rejects invalid keys.
+Shader loading checks exact grid/workgroup defines, source name and binary hash.
+
+Validation
+GPU neighbor membership is compared against independent CPU all-pairs distance
+checks, including outer-half positions, signed boundaries, axis strides, the
+largest valid key, large finite supports, subnormal support, out-of-domain
+failure and forced hash exhaustion. Additional Jacobi tests compare four
+iterations against the CPU reference at both basin walls and x=+/-11.5 m,
+including immutable friction baselines. Velocity tests check outer-basin
+collisions and the correction/reconstruction/response chain. Shader reload
+tests swap valid binaries and manifests between profiles and require rejection.
+Existing legacy fixtures remain in the full suite.
+
+Limits
+This expands reusable primitives. It does not yet connect grain-to-grain
+collisions to the terrain preview: voxel-constrained position corrections,
+terrain-compatible velocity finishing, support/settling and the full basin
+tick coordinator remain to be implemented. No terrain mass conversion,
+destruction, deposition, rebasing or performance acceptance is claimed.
+
+Local execution results: ../tests/results/m3-max-basin-grid.txt.

@@ -13,7 +13,7 @@ class GpuJacobiContacts {
 public:
     static constexpr float radius=0.0625f;
     GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,
-                      float relaxation=0.8f,float maxCorrection=radius*0.5f,bool bounded=false,AnalyticSphere obstacle={});
+                      float relaxation=0.8f,float maxCorrection=radius*0.5f,bool bounded=false,AnalyticSphere obstacle={},GranularGridProfile profile=GranularGridProfile::Legacy);
     ~GpuJacobiContacts();
     GpuJacobiContacts(const GpuJacobiContacts&)=delete;
     GpuJacobiContacts& operator=(const GpuJacobiContacts&)=delete;

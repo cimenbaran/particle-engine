@@ -4,15 +4,15 @@
 #include <algorithm>
 #include <stdexcept>
 namespace pw {
-GpuCellRanges::GpuCellRanges(const std::filesystem::path& assets,std::uint32_t capacity):capacity_(capacity),scan_(assets,capacity) {
+GpuCellRanges::GpuCellRanges(const std::filesystem::path& assets,std::uint32_t capacity,GranularGridProfile profile):capacity_(capacity),scan_(assets,capacity) {
     try {
         const auto flags=BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE;
         flags_=bgfx::createDynamicIndexBuffer(std::max(1u,capacity),flags);
         owners_=bgfx::createDynamicIndexBuffer(std::max(1u,capacity),flags);
         ranges_=bgfx::createDynamicIndexBuffer(std::max(1u,capacity)*3,flags);
         meta_=bgfx::createDynamicIndexBuffer(4,flags);
-        clear_=loadCompute(assets,"cs_range_clear");mark_=loadCompute(assets,"cs_range_flags");
-        scatter_=loadCompute(assets,"cs_range_scatter");audit_=loadCompute(assets,"cs_range_owners");
+        clear_=loadCompute(assets,"cs_range_clear");mark_=loadCompute(assets,gridShader("cs_range_flags",profile));
+        scatter_=loadCompute(assets,gridShader("cs_range_scatter",profile));audit_=loadCompute(assets,"cs_range_owners");
         finalize_=loadCompute(assets,"cs_range_finalize");params_=bgfx::createUniform("u_ranges",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(flags_) || !bgfx::isValid(owners_) || !bgfx::isValid(ranges_) || !bgfx::isValid(meta_) || !bgfx::isValid(params_))
             throw std::runtime_error("GPU range resources unavailable");

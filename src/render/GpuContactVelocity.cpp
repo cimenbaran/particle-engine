@@ -12,17 +12,17 @@ std::uint32_t validate(std::uint32_t capacity,float bound,float slop,float thres
     return capacity;
 }
 }
-GpuContactVelocity::GpuContactVelocity(const std::filesystem::path& assets,std::uint32_t capacity,float bound,float slop,float threshold)
+GpuContactVelocity::GpuContactVelocity(const std::filesystem::path& assets,std::uint32_t capacity,float bound,float slop,float threshold,GranularGridProfile profile)
     :capacity_(validate(capacity,bound,slop,threshold)),bound_(bound+1e-5f),slop_(slop),threshold_(threshold),
-     keys_(assets,capacity_),sort_(assets,capacity_),ranges_(assets,capacity_),hash_(assets,capacity_) {
+     keys_(assets,capacity_,profile),sort_(assets,capacity_),ranges_(assets,capacity_,profile),hash_(assets,capacity_,0,64,profile) {
     try {
         bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         for(auto& h:outputs_) h=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*4,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
         packed_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*8,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
         result_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*2,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
         status_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
-        clear_=loadCompute(assets,"cs_velocity_clear");pack_=loadCompute(assets,"cs_response_pack");degree_=loadCompute(assets,"cs_response_degree");
-        respond_=loadCompute(assets,"cs_response_velocity");reduce_=loadCompute(assets,"cs_response_reduce");apply_=loadCompute(assets,"cs_response_apply");
+        clear_=loadCompute(assets,"cs_velocity_clear");pack_=loadCompute(assets,"cs_response_pack");degree_=loadCompute(assets,gridShader("cs_response_degree",profile));
+        respond_=loadCompute(assets,gridShader("cs_response_velocity",profile));reduce_=loadCompute(assets,"cs_response_reduce");apply_=loadCompute(assets,"cs_response_apply");
         params_=bgfx::createUniform("u_response",bgfx::UniformType::Vec4);neighbors_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         materials_=bgfx::createUniform("u_response_materials",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(outputs_[0]) || !bgfx::isValid(outputs_[1]) || !bgfx::isValid(packed_) || !bgfx::isValid(result_) ||

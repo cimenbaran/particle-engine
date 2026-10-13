@@ -1,0 +1,28 @@
+BASIN GRANULAR GRID — MACOS / METAL
+
+Apple M3 Max, workgroup sizes 128 and 256.
+Both complete --gpu-test suites and native CTest 21/21 passed.
+
+The full suites include:
+- 89 neighbor fixtures / 10,229 exact all-pairs membership queries across
+  Legacy and Basin profiles, including 1,023 neighbors in a dense cell.
+- Basin outer-half coordinates, exact and adjacent cell/domain boundaries,
+  largest valid key, whole-domain finite support saturation, subnormal support,
+  outside-domain rejection and forced hash exhaustion.
+- Direct basin hash lookup through GPU sort/ranges, upper-key validation,
+  invalid-key failure and clean recovery of the same object.
+- 146 Jacobi fixtures, including four new outer-basin cases with four iterations,
+  bounded walls and immutable friction baselines against a CPU reference.
+- 78 restitution/friction fixtures, including outer-basin collision invariants
+  and correction/reconstruction/response chaining at x=-11.5 and +11.5 m.
+- Valid shader+manifest swaps between grid profiles rejected in both directions.
+- Existing voxel motion, 600-tick live basin probes, sphere, granular, rendering,
+  pool, settling and shader lifecycle checks.
+
+Ignored local logs: out/basin-grid-{gpu128,gpu256,ctest128,ctest256}.log.
+Default installed app uses workgroup size 128.
+
+Scope: index and pair primitives only. Basin probe runtime still has no
+particle-particle interaction. Voxel-constrained Jacobi corrections, velocity
+finishing, support tracking and tick integration remain open. No new long soak,
+reference performance claim or Windows validation.

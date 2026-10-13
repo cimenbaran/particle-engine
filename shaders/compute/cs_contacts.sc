@@ -68,8 +68,8 @@ void main() {
      (floatBitsToUint(correction.z)&0x7f800000u)==0x7f800000u) counts.w=5u;
   vec3 position=b_state[slot*8u].xyz,proposed=position+correction;
   if(u_contact_bounds.x!=0.0 && counts.w==0u && b_state[slot*8u+1u].w!=0.0) {
-    vec3 lo=vec3(-8.0,0.0,-8.0)+vec3_splat(u_contacts.y);
-    vec3 hi=vec3(8.0,16.0,8.0)-vec3_splat(u_contacts.y);
+    vec3 lo=vec3(-PW_GRID_EXTENT,0.0,-PW_GRID_EXTENT)+vec3_splat(u_contacts.y);
+    vec3 hi=vec3(PW_GRID_EXTENT,16.0,PW_GRID_EXTENT)-vec3_splat(u_contacts.y);
     // A contained input makes this projection non-expansive: the correction
     // still satisfies the configured per-iteration displacement bound.
     if(any(lessThan(position,lo)) || any(greaterThan(position,hi))) counts.w=6u;
@@ -115,6 +115,6 @@ void main() {
       }
     }
   }
-  if(counts.w==0u && (proposed.x< -8.0 || proposed.x>=8.0 || proposed.y<0.0 || proposed.y>=16.0 || proposed.z< -8.0 || proposed.z>=8.0)) counts.w=6u;
+  if(counts.w==0u && (proposed.x< -PW_GRID_EXTENT || proposed.x>=PW_GRID_EXTENT || proposed.y<0.0 || proposed.y>=16.0 || proposed.z< -PW_GRID_EXTENT || proposed.z>=PW_GRID_EXTENT)) counts.w=6u;
   b_corrections[slot*2u]=vec4(correction,0.0);b_corrections[slot*2u+1u]=uintBitsToFloat(counts);
 }

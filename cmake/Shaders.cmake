@@ -14,7 +14,7 @@ set(PW_SHADER_CACHE_DIR "${default_shader_cache}" CACHE PATH "Shared content-add
 file(GLOB_RECURSE PW_SHADER_INCLUDES CONFIGURE_DEPENDS ${bgfx_cmake_SOURCE_DIR}/bgfx/src/*.sh)
 file(GLOB_RECURSE PW_PROJECT_SHADER_INCLUDES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/shaders/*.sh)
 set(PW_SHADER_OUTPUTS)
-foreach(shader vs_voxel_terrain vs_terrain fs_terrain vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export cs_pool_clear cs_pool_classify cs_pool_spawn cs_pool_brush cs_pool_export cs_pool_stats cs_visible_clear cs_visible cs_visible_args cs_indirect_export cs_audit_clear cs_audit_membership cs_audit_state cs_scan_blocks cs_scan_add cs_scan_export cs_radix_flags cs_radix_scatter cs_radix_export cs_key_clear cs_spatial_keys cs_range_clear cs_range_flags cs_range_scatter cs_range_owners cs_range_finalize cs_range_export cs_occupancy_clear cs_occupancy_reduce cs_hash_clear cs_hash_insert cs_hash_finalize cs_hash_lookup cs_hash_export cs_neighbors_test cs_neighbors_export cs_contact_clear cs_contact_totals cs_contact_pack cs_contacts cs_contact_reduce cs_contact_apply cs_velocity_clear cs_velocity_reconstruct cs_velocity_apply cs_response_pack cs_response_degree cs_response_velocity cs_response_reduce cs_response_apply cs_swept_bounds cs_voxel_sweep cs_voxel_world_sweep cs_voxel_motion cs_granular_force cs_granular_finish cs_granular_collect cs_granular_latch cs_settling_reset cs_settling_clear cs_settling_support cs_settling_reduce cs_settling_advance cs_particle_debug cs_contact_normals)
+foreach(shader vs_voxel_terrain vs_terrain fs_terrain vs_particles fs_particles vs_gui fs_gui cs_particles cs_reset cs_export cs_pool_clear cs_pool_classify cs_pool_spawn cs_pool_brush cs_pool_export cs_pool_stats cs_visible_clear cs_visible cs_visible_args cs_indirect_export cs_audit_clear cs_audit_membership cs_audit_state cs_scan_blocks cs_scan_add cs_scan_export cs_radix_flags cs_radix_scatter cs_radix_export cs_key_clear cs_spatial_keys cs_range_clear cs_range_flags cs_range_scatter cs_range_owners cs_range_finalize cs_range_export cs_occupancy_clear cs_occupancy_reduce cs_hash_clear cs_hash_insert cs_hash_finalize cs_hash_lookup cs_hash_export cs_neighbors_test cs_neighbors_export cs_contact_clear cs_contact_totals cs_contact_pack cs_contacts cs_contact_reduce cs_contact_apply cs_velocity_clear cs_velocity_reconstruct cs_velocity_apply cs_response_pack cs_response_degree cs_response_velocity cs_response_reduce cs_response_apply cs_swept_bounds cs_voxel_sweep cs_voxel_world_sweep cs_voxel_motion cs_granular_force cs_granular_finish cs_granular_collect cs_granular_latch cs_settling_reset cs_settling_clear cs_settling_support cs_settling_reduce cs_settling_advance cs_particle_debug cs_contact_normals cs_spatial_keys_basin cs_range_flags_basin cs_range_scatter_basin cs_hash_insert_basin cs_hash_lookup_basin cs_neighbors_test_basin cs_contact_pack_basin cs_contacts_basin cs_response_degree_basin cs_response_velocity_basin)
   if(shader MATCHES "^vs_")
     set(kind vertex)
   elseif(shader MATCHES "^fs_")
@@ -29,18 +29,23 @@ foreach(shader vs_voxel_terrain vs_terrain fs_terrain vs_particles fs_particles 
     set(folder render)
     set(shader_defines "")
   endif()
+  set(shader_source ${shader})
+  if(shader MATCHES "_basin$")
+    string(REGEX REPLACE "_basin$" "" shader_source "${shader}")
+    string(APPEND shader_defines ";PW_BASIN_GRID=1")
+  endif()
   set(output ${CMAKE_BINARY_DIR}/shaders/${shader}.bin)
   add_custom_command(OUTPUT ${output} ${output}.json
     COMMAND ${CMAKE_COMMAND}
-      -DSOURCE=${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
+      -DSOURCE=${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader_source}.sc
       -DVARYING=${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       -DINCLUDE_ROOT=${bgfx_cmake_SOURCE_DIR}/bgfx/src
       -DPROJECT_INCLUDE_ROOT=${PROJECT_SOURCE_DIR}/shaders
       -DCOMPILER=$<TARGET_FILE:shaderc> -DBINARY=${output} -DOUTPUT=${output}.json
-      -DCACHE_DIR=${PW_SHADER_CACHE_DIR} -DDEFINES=${shader_defines}
+      -DCACHE_DIR=${PW_SHADER_CACHE_DIR} "-DDEFINES=${shader_defines}"
       -DPLATFORM=${PW_SHADER_PLATFORM} -DPROFILE=${PW_SHADER_PROFILE} -DKIND=${kind}
       -P ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake
-    DEPENDS shaderc ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake ${PROJECT_SOURCE_DIR}/cmake/ShaderFingerprint.cmake ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader}.sc
+    DEPENDS shaderc ${PROJECT_SOURCE_DIR}/cmake/CompileShader.cmake ${PROJECT_SOURCE_DIR}/cmake/ShaderFingerprint.cmake ${PW_SHADER_INCLUDES} ${PW_PROJECT_SHADER_INCLUDES} ${PROJECT_SOURCE_DIR}/cmake/ShaderManifest.cmake ${PROJECT_SOURCE_DIR}/shaders/${folder}/${shader_source}.sc
       ${PROJECT_SOURCE_DIR}/shaders/render/varying.def.sc
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_shader.sh
       ${bgfx_cmake_SOURCE_DIR}/bgfx/src/bgfx_compute.sh

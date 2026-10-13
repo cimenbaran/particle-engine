@@ -26,9 +26,11 @@ template<class T> struct ContactHandle {
 };
 void require(bool ok,const char* message){if(!ok) throw std::runtime_error(message);}
 struct ReferenceStep {std::vector<ParticleGpu> state;std::uint32_t error=0,maxContacts=0;};
-ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxation,float limit,bool bounded=false,const std::vector<ParticleGpu>* start=nullptr,const std::array<MaterialGpu,4>* materials=nullptr,FloorTractionProfile floor={},AnalyticSphere obstacle={}) {
+ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxation,float limit,bool bounded=false,const std::vector<ParticleGpu>* start=nullptr,const std::array<MaterialGpu,4>* materials=nullptr,FloorTractionProfile floor={},AnalyticSphere obstacle={},GranularGridProfile profile=GranularGridProfile::Legacy) {
     ReferenceStep result{input};const auto count=std::uint32_t(input.size());
-    const SpatialGrid grid({0,0,0},0.125f,{-64,0,-64},{128,128,128});
+    const bool basin=profile==GranularGridProfile::Basin;
+    const float wall=basin?15.9375f:7.9375f;
+    const SpatialGrid grid({0,0,0},0.125f,{basin?-128:-64,0,basin?-128:-64},{basin?256u:128u,128,basin?256u:128u});
     std::vector<bool> included(count);
     for(std::uint32_t i=0;i<count;++i) {
         const auto& p=input[i];if(!(p.identity[1]&1)) continue;
@@ -57,7 +59,7 @@ ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxa
     }
     if(result.error)return result;
     if(bounded) for(std::uint32_t i=0;i<count;++i) if(included[i] && input[i].velocityInvMass[3]!=0)
-        for(unsigned axis=0;axis<3;++axis) if(input[i].positionRadius[axis]<(axis==1?0.0625f:-7.9375f) || input[i].positionRadius[axis]>(axis==1?15.9375f:7.9375f)) result.error|=16;
+        for(unsigned axis=0;axis<3;++axis) if(input[i].positionRadius[axis]<(axis==1?0.0625f:-wall) || input[i].positionRadius[axis]>(axis==1?15.9375f:wall)) result.error|=16;
     if(obstacle.radius>0)for(unsigned i=0;i<count;++i)if(included[i] && input[i].velocityInvMass[3]!=0){
         double squared=0;for(unsigned axis=0;axis<3;++axis){double d=double(input[i].positionRadius[axis])-obstacle.centre[axis];squared+=d*d;}
         if(std::sqrt(squared)<obstacle.radius+0.0625)result.error|=16;
@@ -93,7 +95,7 @@ ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxa
             reference::FrictionVector projected{},normalDelta{},tangent{};
             double depth=0;
             for(unsigned axis=0;axis<3;++axis){
-                const auto position=result.state[i].positionRadius[axis];projected[axis]=std::clamp(position,axis==1?0.0625f:-7.9375f,axis==1?15.9375f:7.9375f);
+                const auto position=result.state[i].positionRadius[axis];projected[axis]=std::clamp(position,axis==1?0.0625f:-wall,axis==1?15.9375f:wall);
                 normalDelta[axis]=projected[axis]-position;depth+=normalDelta[axis]*normalDelta[axis];
             }
             depth=std::sqrt(depth);
@@ -115,7 +117,7 @@ ReferenceStep jacobiReference(const std::vector<ParticleGpu>& input,float relaxa
                     for(unsigned axis=0;axis<3;++axis)projected[axis]-=tangent[axis];
             }
             double combined=0;
-            for(unsigned axis=0;axis<3;++axis){projected[axis]=std::clamp(projected[axis],axis==1?0.0625:-7.9375,axis==1?15.9375:7.9375);correction[axis]=projected[axis]-a.positionRadius[axis];combined+=correction[axis]*correction[axis];}
+            for(unsigned axis=0;axis<3;++axis){projected[axis]=std::clamp(projected[axis],axis==1?0.0625:-double(wall),axis==1?15.9375:double(wall));correction[axis]=projected[axis]-a.positionRadius[axis];combined+=correction[axis]*correction[axis];}
             if(combined>double(limit)*limit)for(auto& value:correction)value*=limit/std::sqrt(combined);
             for(unsigned axis=0;axis<3;++axis)result.state[i].positionRadius[axis]=float(double(a.positionRadius[axis])+correction[axis]);
         }
@@ -143,9 +145,10 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     ContactHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     ContactHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     unsigned cases=0;
-    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr,bool bounded=false,const std::vector<ParticleGpu>* baseline=nullptr,FloorTractionProfile floor={},AnalyticSphere obstacle={}) {
+    auto check=[&](std::vector<ParticleGpu> input,unsigned iterations=1,float relaxation=0.8f,float limit=GpuJacobiContacts::radius*0.5f,GpuJacobiContacts* reused=nullptr,bool bounded=false,const std::vector<ParticleGpu>* baseline=nullptr,FloorTractionProfile floor={},AnalyticSphere obstacle={},GranularGridProfile profile=GranularGridProfile::Legacy) {
+        const float wall=profile==GranularGridProfile::Basin?15.9375f:7.9375f;
         const auto count=std::uint32_t(input.size());
-        auto owned=reused?nullptr:std::make_unique<GpuJacobiContacts>(assets,count,relaxation,limit,bounded,obstacle);
+        auto owned=reused?nullptr:std::make_unique<GpuJacobiContacts>(assets,count,relaxation,limit,bounded,obstacle,profile);
         auto& solver=reused?*reused:*owned;
         ContactHandle state(bgfx::createDynamicVertexBuffer(bgfx::copy(input.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
         ContactHandle oldState(bgfx::createDynamicVertexBuffer(bgfx::copy(baseline?baseline->data():input.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
@@ -157,7 +160,7 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
         ContactHandle statStaging(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         auto expected=input;ReferenceStep last;auto current=state.value;
         for(unsigned iteration=0;iteration<iterations;++iteration) {
-            last=jacobiReference(expected,relaxation,limit,bounded,baseline,&materials,floor,obstacle);expected=last.state;
+            last=jacobiReference(expected,relaxation,limit,bounded,baseline,&materials,floor,obstacle,profile);expected=last.state;
             solver.submit(0,current,materialBuffer.value,std::uint32_t(materials.size()),baseline?oldState.value:bgfx::DynamicVertexBufferHandle{bgfx::kInvalidHandle},floor);current=solver.output();
         }
         const float p[]{0,float(count),0,4};bgfx::setUniform(uniform.value,p);
@@ -183,8 +186,8 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
             double displacement=0;
             for(unsigned axis=0;axis<3;++axis) {
                 require(std::isfinite(actual[i].positionRadius[axis]) && std::abs(actual[i].positionRadius[axis]-expected[i].positionRadius[axis])<2e-5f,"Jacobi CPU-reference position mismatch");
-                if(bounded) require(actual[i].positionRadius[axis]>=(axis==1?0.0625f:-7.9375f) &&
-                    actual[i].positionRadius[axis]<=(axis==1?15.9375f:7.9375f),"Bounded Jacobi escaped inset planes");
+                if(bounded) require(actual[i].positionRadius[axis]>=(axis==1?0.0625f:-wall) &&
+                    actual[i].positionRadius[axis]<=(axis==1?15.9375f:wall),"Bounded Jacobi escaped inset planes");
                 const double d=double(actual[i].positionRadius[axis])-input[i].positionRadius[axis];displacement+=d*d;
             }
             if(obstacle.radius>0){double squared=0;for(unsigned axis=0;axis<3;++axis){const double d=double(actual[i].positionRadius[axis])-obstacle.centre[axis];squared+=d*d;}
@@ -357,6 +360,11 @@ void runGpuJacobiContactsTest(const std::filesystem::path& assets) {
     pair=fixture(1);pair[0].positionRadius[0]=-0.126f;pair[0].positionRadius[1]=4;pair[0].positionRadius[2]=0;
     baseline=pair;baseline[0].positionRadius[0]=0;
     check(pair,1,1,0.03125f,nullptr,true,&baseline,{},obstacle); // invalid original snapshot
+    for(float x:{-15.9375f,-11.5f,11.5f,15.875f}) {
+        pair=fixture(2);pair[0].positionRadius[0]=x;pair[1].positionRadius[0]=x+0.0625f;
+        baseline=pair;baseline[0].positionRadius[1]-=0.001953125f;
+        check(pair,4,0.8f,0.03125f,nullptr,true,&baseline,{}, {},GranularGridProfile::Basin);
+    }
     std::cout<<"GPU Jacobi immutable-input corrections passed: "<<cases<<" fixtures, mass weighting, coincident pairs, bounds, failure rollback and multi-iteration rebuilds\n";
 }
 }

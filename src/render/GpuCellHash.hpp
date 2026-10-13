@@ -1,14 +1,16 @@
 #pragma once
+#include "GranularGridProfile.hpp"
 #include <bgfx/bgfx.h>
 #include <filesystem>
 #include <cstdint>
 namespace pw {
-// Exact-key lookup for the fixed granular grid. Source ranges/metadata must
+// Exact-key lookup. Source ranges and consumers must share the grid profile.
+// Source ranges/metadata must
 // remain alive and immutable until all submitted queries have executed.
 class GpuCellHash {
 public:
     GpuCellHash(const std::filesystem::path& assets,std::uint32_t capacity,
-                std::uint32_t tableSlots=0,std::uint32_t probeLimit=64);
+                std::uint32_t tableSlots=0,std::uint32_t probeLimit=64,GranularGridProfile profile=GranularGridProfile::Legacy);
     ~GpuCellHash();
     GpuCellHash(const GpuCellHash&)=delete;
     GpuCellHash& operator=(const GpuCellHash&)=delete;

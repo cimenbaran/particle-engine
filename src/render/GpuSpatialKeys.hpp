@@ -1,13 +1,14 @@
 #pragma once
+#include "GranularGridProfile.hpp"
 #include <bgfx/bgfx.h>
 #include <filesystem>
 namespace pw {
-// Initial granular profile: origin zero, width 1/8 m, [-8,8)x[0,16)x[-8,8).
+// Origin zero, width 1/8 m. Legacy or Basin domain; see GranularGridProfile.
 // Bind only the physical pool. Alive solid materials participate; gas/liquid
 // and dead slots emit the invalid-key sentinel while retaining the slot ID.
 class GpuSpatialKeys {
 public:
-    GpuSpatialKeys(const std::filesystem::path& assets,std::uint32_t capacity);
+    GpuSpatialKeys(const std::filesystem::path& assets,std::uint32_t capacity,GranularGridProfile profile=GranularGridProfile::Legacy);
     ~GpuSpatialKeys();
     GpuSpatialKeys(const GpuSpatialKeys&)=delete;
     GpuSpatialKeys& operator=(const GpuSpatialKeys&)=delete;

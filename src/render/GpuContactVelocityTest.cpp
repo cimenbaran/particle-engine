@@ -33,9 +33,9 @@ void runGpuContactVelocityTest(const std::filesystem::path& assets) {
     ResponseHandle exporter(loadCompute(assets,"cs_export")),statsExporter(loadCompute(assets,"cs_pool_stats"));
     ResponseHandle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));unsigned cases=0;
     auto check=[&](std::vector<ParticleGpu> predicted,std::vector<ParticleGpu> current,Materials materials,float bound=0,
-                  std::uint32_t errors=0,std::uint32_t upstream=0,bool closed=false,GpuContactVelocity* reused=nullptr,bool chain=false) {
+                  std::uint32_t errors=0,std::uint32_t upstream=0,bool closed=false,GpuContactVelocity* reused=nullptr,bool chain=false,GranularGridProfile profile=GranularGridProfile::Legacy) {
         const auto count=std::uint32_t(current.size()),storage=std::max(1u,count);require(predicted.size()==current.size(),"Response fixture size mismatch");
-        auto owned=reused?nullptr:std::make_unique<GpuContactVelocity>(assets,count,bound);auto& response=reused?*reused:*owned;
+        auto owned=reused?nullptr:std::make_unique<GpuContactVelocity>(assets,count,bound,0.0001f,0.5f,profile);auto& response=reused?*reused:*owned;
         auto predUpload=predicted,currentUpload=current;if(!count) {predUpload.resize(1);currentUpload.resize(1);}
         ResponseHandle pred(bgfx::createDynamicVertexBuffer(bgfx::copy(predUpload.data(),storage*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
         ResponseHandle input(bgfx::createDynamicVertexBuffer(bgfx::copy(currentUpload.data(),storage*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
@@ -49,7 +49,7 @@ void runGpuContactVelocityTest(const std::filesystem::path& assets) {
             require(count==2,"Response chain fixture requires a pair");auto old=predicted;
             for(auto& p:old) for(unsigned axis=0;axis<3;++axis) p.positionRadius[axis]-=p.velocityInvMass[axis]*0.125f;
             previous=std::make_unique<ResponseHandle<bgfx::DynamicVertexBufferHandle>>(bgfx::createDynamicVertexBuffer(bgfx::copy(old.data(),count*sizeof(ParticleGpu)),layout,BGFX_BUFFER_COMPUTE_READ));
-            contacts=std::make_unique<GpuJacobiContacts>(assets,count);reconstruction=std::make_unique<GpuVelocityReconstruction>(assets,count);
+            contacts=std::make_unique<GpuJacobiContacts>(assets,count,0.8f,0.03125f,false,AnalyticSphere{},profile);reconstruction=std::make_unique<GpuVelocityReconstruction>(assets,count);
             contacts->submit(0,pred.value,materialBuffer.value,std::uint32_t(materials.size()));
             reconstruction->submit(0,previous->value,contacts->output(),materialBuffer.value,std::uint32_t(materials.size()),contacts->status(),0.125f);
             state=reconstruction->output();source=reconstruction->status();current=predicted;
@@ -192,6 +192,13 @@ void runGpuContactVelocityTest(const std::filesystem::path& assets) {
     pair[0].velocityInvMass[0]=1;pair[1].velocityInvMass[0]=-1;
     for(float mass:{std::numeric_limits<float>::min(),std::numeric_limits<float>::max()}) {pair[0].velocityInvMass[3]=pair[1].velocityInvMass[3]=mass;check(pair,pair,material);}
     GpuContactVelocity recovery(assets,3,0);check(good,good,invalidMaterial,0,4,0,false,&recovery);check(good,good,material,0,0,0,false,&recovery);
+    for(float x:{-11.5f,11.5f}) {
+        pair=fixture(2);pair[0].positionRadius[0]=x;pair[1].positionRadius[0]=x+0.125f;
+        pair[0].velocityInvMass[0]=1;pair[1].velocityInvMass[0]=-1;
+        check(pair,pair,makeMaterials(0.5f,0),0,0,0,true,nullptr,false,GranularGridProfile::Basin);
+        pair[1].positionRadius[0]=x+0.0625f;
+        check(pair,pair,makeMaterials(0.5f,0),0.25f,0,0,false,nullptr,true,GranularGridProfile::Basin);
+    }
     std::cout<<"GPU restitution/friction passed: "<<cases<<" fixtures, CPU agreement, dense contacts, closed collision invariants, pipeline chaining and rollback\n";
 }
 }

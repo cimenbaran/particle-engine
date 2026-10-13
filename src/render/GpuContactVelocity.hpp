@@ -10,7 +10,7 @@ namespace pw {
 class GpuContactVelocity {
 public:
     GpuContactVelocity(const std::filesystem::path& assets,std::uint32_t capacity,
-        float maxDisplacement=0.25f,float slop=0.0001f,float bounceThreshold=0.5f);
+        float maxDisplacement=0.25f,float slop=0.0001f,float bounceThreshold=0.5f,GranularGridProfile profile=GranularGridProfile::Legacy);
     ~GpuContactVelocity();
     GpuContactVelocity(const GpuContactVelocity&)=delete;
     GpuContactVelocity& operator=(const GpuContactVelocity&)=delete;

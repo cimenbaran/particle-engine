@@ -6,8 +6,8 @@
 #include <stdexcept>
 #include <limits>
 namespace pw {
-GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,float relaxation,float maxCorrection,bool bounded,AnalyticSphere obstacle)
-    :capacity_(capacity),relaxation_(relaxation),maxCorrection_(maxCorrection),bounded_(bounded),obstacle_(obstacle),keys_(assets,capacity),sort_(assets,capacity),ranges_(assets,capacity),hash_(assets,capacity) {
+GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,float relaxation,float maxCorrection,bool bounded,AnalyticSphere obstacle,GranularGridProfile profile)
+    :capacity_(capacity),relaxation_(relaxation),maxCorrection_(maxCorrection),bounded_(bounded),obstacle_(obstacle),keys_(assets,capacity,profile),sort_(assets,capacity),ranges_(assets,capacity,profile),hash_(assets,capacity,0,64,profile) {
     validateAnalyticSphere(obstacle_);
     if(obstacle_.radius>0 && !bounded_)throw std::invalid_argument("Sphere contacts require bounded profile");
     if(!std::isfinite(relaxation) || relaxation<=0 || relaxation>1 || !std::isfinite(maxCorrection) || maxCorrection<=0 || maxCorrection>radius)
@@ -18,9 +18,9 @@ GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::ui
         corrections_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*2,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
         packed_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*8,layout,BGFX_BUFFER_COMPUTE_READ_WRITE);
         status_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
-        clear_=loadCompute(assets,"cs_contact_clear");solve_=loadCompute(assets,"cs_contacts");
+        clear_=loadCompute(assets,"cs_contact_clear");solve_=loadCompute(assets,gridShader("cs_contacts",profile));
         reduce_=loadCompute(assets,"cs_contact_reduce");apply_=loadCompute(assets,"cs_contact_apply");
-        pack_=loadCompute(assets,"cs_contact_pack");
+        pack_=loadCompute(assets,gridShader("cs_contact_pack",profile));
         neighborParams_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         contactParams_=bgfx::createUniform("u_contacts",bgfx::UniformType::Vec4);
         boundsParams_=bgfx::createUniform("u_contact_bounds",bgfx::UniformType::Vec4);

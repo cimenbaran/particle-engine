@@ -4,13 +4,13 @@
 #include <algorithm>
 #include <stdexcept>
 namespace pw {
-GpuSpatialKeys::GpuSpatialKeys(const std::filesystem::path& assets,std::uint32_t capacity):capacity_(capacity) {
+GpuSpatialKeys::GpuSpatialKeys(const std::filesystem::path& assets,std::uint32_t capacity,GranularGridProfile profile):capacity_(capacity) {
     if(capacity>1048576) throw std::invalid_argument("Spatial keys support at most 1048576 slots");
     try {
         const auto flags=BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE;
         records_=bgfx::createDynamicIndexBuffer(std::max(1u,capacity)*2,flags);
         status_=bgfx::createDynamicIndexBuffer(4,flags);
-        clear_=loadCompute(assets,"cs_key_clear");emit_=loadCompute(assets,"cs_spatial_keys");
+        clear_=loadCompute(assets,"cs_key_clear");emit_=loadCompute(assets,gridShader("cs_spatial_keys",profile));
         params_=bgfx::createUniform("u_keys",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(records_) || !bgfx::isValid(status_) || !bgfx::isValid(params_))
             throw std::runtime_error("Spatial key resources unavailable");

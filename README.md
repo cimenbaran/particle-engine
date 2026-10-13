@@ -60,7 +60,8 @@ open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-pr
 Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
 panel controls the camera and rebuilds the seed. **Drop collision probes** runs
 256 particles against the terrain with gravity; **Pause probes** stops them. Probes
-do not collide with one another. Full granular integration remains open; see [resident basin status](docs/Resident_Basin.txt).
+do not collide with one another. The [basin-sized pair primitives](docs/GPU_Basin_Grid.txt)
+are tested separately; terrain integration remains open. See [resident basin status](docs/Resident_Basin.txt).
 
 ## Controls and current limits
 

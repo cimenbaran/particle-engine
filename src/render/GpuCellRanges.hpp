@@ -1,10 +1,11 @@
 #pragma once
+#include "GranularGridProfile.hpp"
 #include "GpuPrefixScan.hpp"
 namespace pw {
-// Sparse (key,begin,end) ranges for GpuSpatialKeys' fixed granular profile.
+// Sparse (key,begin,end) ranges. Input keys must use the same grid profile.
 class GpuCellRanges {
 public:
-    GpuCellRanges(const std::filesystem::path& assets,std::uint32_t capacity);
+    GpuCellRanges(const std::filesystem::path& assets,std::uint32_t capacity,GranularGridProfile profile=GranularGridProfile::Legacy);
     ~GpuCellRanges();
     GpuCellRanges(const GpuCellRanges&)=delete;
     GpuCellRanges& operator=(const GpuCellRanges&)=delete;

@@ -1,3 +1,4 @@
+#include "granular_grid.sh"
 #include <bgfx_compute.sh>
 #include "workgroup.sh"
 BUFFER_RO(b_records,uint,0);
@@ -17,6 +18,6 @@ void main() {
   atomicAdd(b_meta[1],1u);
   uint previous=b_records[(id>0u?id-1u:0u)*2u];
   if(id>0u && previous>key) atomicOr(b_meta[2],4u);
-  if(key>=2097152u) {atomicOr(b_meta[2],8u);return;}
+  if(key>=PW_GRID_KEYS) {atomicOr(b_meta[2],8u);return;}
   if(id==0u || previous!=key) b_flags[id]=1u;
 }

@@ -29,7 +29,7 @@ void runGpuCellHashTest(const std::filesystem::path& assets) {
     HashHandle uniform(bgfx::createUniform("u_hash",bgfx::UniformType::Vec4));
     auto check=[&](GpuCellHash& index,std::vector<Range> ranges,Words sourceStatus,
                   std::vector<std::uint32_t> queries,Words expectedMeta,std::uint32_t limit,
-                  std::uint32_t expectedTotal=UINT32_MAX,std::uint32_t expectedMax=UINT32_MAX,bool throughPipeline=false) {
+                  std::uint32_t expectedTotal=UINT32_MAX,std::uint32_t expectedMax=UINT32_MAX,bool throughPipeline=false,GranularGridProfile profile=GranularGridProfile::Legacy) {
         std::unordered_map<std::uint32_t,Range> reference;
         for(const auto& r:ranges) reference.emplace(r[0],r);
         if(ranges.empty()) ranges.push_back({UINT32_MAX,0,0});
@@ -58,7 +58,7 @@ void runGpuCellHashTest(const std::filesystem::path& assets) {
             records=std::make_unique<HashHandle<bgfx::DynamicIndexBufferHandle>>(bgfx::createDynamicIndexBuffer(bgfx::copy(input.data(),count*8),flags));
             pipelineStatus=std::make_unique<HashHandle<bgfx::DynamicIndexBufferHandle>>(bgfx::createDynamicIndexBuffer(bgfx::copy(status.data(),16),flags));
             sorter=std::make_unique<GpuRadixSort>(assets,count);
-            rangeBuilder=std::make_unique<GpuCellRanges>(assets,count);
+            rangeBuilder=std::make_unique<GpuCellRanges>(assets,count,profile);
             sorter->submit(0,records->value);rangeBuilder->submit(0,sorter->output(),pipelineStatus->value);
             index.submit(0,rangeBuilder->ranges(),rangeBuilder->metadata());
         } else index.submit(0,upload.value,source.value);
@@ -84,7 +84,7 @@ void runGpuCellHashTest(const std::filesystem::path& assets) {
             require(actual[i][2]==status,"GPU hash found/absent/failed status mismatch");
             require(actual[i][0]==(status==1?it->second[1]:0) && actual[i][1]==(status==1?it->second[2]:0),"GPU hash returned incorrect interval");
             require(actual[i][3]<=limit,"GPU hash query exceeded probe bound");
-            if(status==2 || queries[i]>=2097152) require(actual[i][3]==0,"GPU hash queried an invalid index/key");
+            if(status==2 || queries[i]>=(profile==GranularGridProfile::Basin?8388608u:2097152u)) require(actual[i][3]==0,"GPU hash queried an invalid index/key");
             if(status==1) require(actual[i][3]>0,"GPU hash found key without probing");
         }
     };
@@ -105,6 +105,12 @@ void runGpuCellHashTest(const std::filesystem::path& assets) {
     check(integrated,{{0,0,129},{17,129,256},{2097151,256,257}},
           {3,257,0,3},{0,1,17,18,2097151,2097152,UINT32_MAX},{1,3,0,0},64,UINT32_MAX,UINT32_MAX,true);
     std::cout<<"GPU sort/range/hash pipeline passed: 257 records, duplicate cells and boundary keys\n";
+    GpuCellHash basin(assets,3,8,8,GranularGridProfile::Basin);
+    check(basin,{{0,0,1},{2097152,1,2},{8388607,2,3}}, {3,3,0,3},
+          {0,2097151,2097152,8388607,8388608,UINT32_MAX},{1,3,0,0},8,UINT32_MAX,UINT32_MAX,true,GranularGridProfile::Basin);
+    check(basin,{{8388608,0,1}},{1,1,0,1},{0,8388608},{0,0,1,16},8,0,0,false,GranularGridProfile::Basin);
+    check(basin,{{8388607,0,3}},{1,3,0,1},{0,8388607},{1,1,0,0},8,1,1,false,GranularGridProfile::Basin);
+    std::cout<<"GPU basin hash passed: upper keys, sort/range pipeline, invalid key and recovery\n";
     std::vector<std::uint32_t> collision;
     for(std::uint32_t key=0;collision.size()<4;++key) if((hash(key)&7)==0) collision.push_back(key);
     std::vector<Range> ranges{{collision[0],0,1},{collision[1],1,2},{collision[2],2,3}};

@@ -41,24 +41,24 @@ uvec4 visitNeighbors(uint queryIndex,vec4 config) {
     return uvec4(0u,0u,0u,3u);
   uint key=b_sorted[queryIndex*2u],querySlot=b_sorted[queryIndex*2u+1u];
   if(key==0xffffffffu) return uvec4(0u,0u,0u,1u);
-  if(key>=2097152u || querySlot>=capacity) return uvec4(0u,0u,0u,3u);
+  if(key>=PW_GRID_KEYS || querySlot>=capacity) return uvec4(0u,0u,0u,3u);
   vec3 position=b_state[querySlot*PW_STATE_STRIDE].xyz;
-  // Grid diameter is below 32 m. Saturating larger finite supports preserves
+  // Saturating finite supports at the profile diameter preserves
   // membership while avoiding squared-distance/float-to-int overflow.
   // Preserve subnormal bits: an arithmetic min may flush them to zero.
-  float support=config.w;if(config.w>32.0) support=32.0;
-  int radius=int(ceil(min(support*8.0,127.0)));
+  float support=config.w;if(config.w>PW_GRID_SUPPORT) support=PW_GRID_SUPPORT;
+  int radius=int(ceil(min(support*8.0,float(PW_GRID_X-1))));
   if((supportBits&0x7fffffffu)!=0u) radius=max(radius,1);
-  ivec3 cell=ivec3(int(key%128u),int((key/128u)%128u),int(key/16384u));
+  ivec3 cell=ivec3(int(key%uint(PW_GRID_X)),int((key/uint(PW_GRID_X))%uint(PW_GRID_Y)),int(key/uint(PW_GRID_X*PW_GRID_Y)));
   ivec3 low=max(cell-ivec3(radius,radius,radius),ivec3(0,0,0));
-  ivec3 high=min(cell+ivec3(radius,radius,radius),ivec3(127,127,127));
+  ivec3 high=min(cell+ivec3(radius,radius,radius),ivec3(PW_GRID_X-1,PW_GRID_Y-1,PW_GRID_Z-1));
   uint accepted=0u,candidates=0u,probes=0u;
   // Contact callbacks make this body too large for HLSL's automatic unroll.
   // Bounds are runtime grid/support data; retain bounded loops on every axis.
   LOOP for(int z=low.z;z<=high.z;++z)
   LOOP for(int y=low.y;y<=high.y;++y)
   LOOP for(int x=low.x;x<=high.x;++x) {
-    uint cellKey=uint(x+128*(y+128*z)),begin,end,cellProbes;
+    uint cellKey=uint(x+PW_GRID_X*(y+PW_GRID_Y*z)),begin,end,cellProbes;
     uint status=lookupCell(cellKey,capacity,slots,limit,begin,end,cellProbes);
     probes+=cellProbes;
     if(status==3u) return uvec4(accepted,candidates,probes,3u);

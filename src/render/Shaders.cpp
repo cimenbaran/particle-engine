@@ -43,12 +43,15 @@ static bgfx::ShaderHandle shader(const std::filesystem::path& assets, std::strin
     const std::string platform=backend==bgfx::RendererType::Metal?"osx":"windows";
     const std::string profile=backend==bgfx::RendererType::Metal?"metal":"s_5_0";
     const std::string type=stage=='C'?"compute":stage=='V'?"vertex":"fragment";
+    const bool basin=stage=='C' && name.ends_with("_basin");
+    const auto sourceName=basin?name.substr(0,name.size()-6):name;
+    const auto expectedDefines="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize)+(basin?";PW_BASIN_GRID=1":"");
     if((manifest.at("schema")!=1 && manifest.at("schema")!=2) || manifest.at("platform")!=platform ||
        manifest.at("profile")!=profile || manifest.at("type")!=type ||
-       manifest.at("shader")!=std::string(name)+".sc" || manifest.at("binary_sha256")!=digest(data))
+       manifest.at("shader")!=std::string(sourceName)+".sc" || manifest.at("binary_sha256")!=digest(data))
         throw std::runtime_error("Shader manifest or binary mismatch: "+path.string());
-    if(stage=='C' && manifest.value("defines",std::string{})!="PW_WORKGROUP_SIZE="+std::to_string(workgroupSize))
-        throw std::runtime_error("Shader workgroup variant does not match this executable: "+path.string());
+    if(stage=='C' && manifest.value("defines",std::string{})!=expectedDefines)
+        throw std::runtime_error("Shader compute variant does not match this executable: "+path.string());
     if(data.size()<22 || data[0]!=stage || data[1]!='S' || data[2]!='H' || data[3]!=12)
         throw std::runtime_error("Shader header incompatible with pinned bgfx: "+path.string());
     auto handle = bgfx::createShader(bgfx::copy(data.data(), static_cast<std::uint32_t>(data.size())));

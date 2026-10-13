@@ -76,6 +76,16 @@ void runShaderReloadTest(const std::filesystem::path& assets) {
         reject([&](auto& reload){reload.compute(f.draw,"cs_pool_clear");});
         std::filesystem::copy_file(assets/"shaders/cs_pool_clear.bin.json",path,std::filesystem::copy_options::overwrite_existing);
     }
+    // A valid binary+manifest from the other grid profile must still fail.
+    for(bool basin:{false,true}) {
+        const std::string target=basin?"cs_spatial_keys_basin":"cs_spatial_keys";
+        const std::string other=basin?"cs_spatial_keys":"cs_spatial_keys_basin";
+        for(const auto suffix:{".bin",".bin.json"})
+            std::filesystem::copy_file(assets/"shaders"/(other+suffix),f.assets/"shaders"/(target+suffix),std::filesystem::copy_options::overwrite_existing);
+        reject([&](auto& reload){reload.compute(f.draw,target);});
+        for(const auto suffix:{".bin",".bin.json"})
+            std::filesystem::copy_file(assets/"shaders"/(target+suffix),f.assets/"shaders"/(target+suffix),std::filesystem::copy_options::overwrite_existing);
+    }
     reject([&](auto& reload){reload.compute(f.clear,"cs_pool_clear");}); // duplicate target
     bgfx::destroy(f.clear);f.clear=loadCompute(f.assets,"cs_reset");
     for(unsigned i=0;i<8;++i) {

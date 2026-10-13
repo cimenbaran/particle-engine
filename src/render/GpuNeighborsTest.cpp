@@ -27,19 +27,21 @@ template<class T> struct NeighborHandle {
 void require(bool ok,const char* message){if(!ok) throw std::runtime_error(message);}
 }
 void runGpuNeighborsTest(const std::filesystem::path& assets) {
-    const SpatialGrid grid({0,0,0},0.125f,{-64,0,-64},{128,128,128});
     std::array<MaterialGpu,4> materials{};
     for(unsigned i=0;i<4;++i) {materials[i].identity[0]=i;materials[i].identity[1]=i==3?0:i;}
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
     NeighborHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
-    NeighborHandle kernel(loadCompute(assets,"cs_neighbors_test")),exporter(loadCompute(assets,"cs_neighbors_export"));
+    NeighborHandle exporter(loadCompute(assets,"cs_neighbors_export"));
     NeighborHandle uniform(bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4));
     unsigned cases=0;std::uint64_t queriesChecked=0;
-    auto check=[&](std::vector<ParticleGpu> particles,const std::vector<float>& supports,bool forceHashFailure=false) {
+    auto check=[&](std::vector<ParticleGpu> particles,const std::vector<float>& supports,bool forceHashFailure=false,GranularGridProfile profile=GranularGridProfile::Legacy) {
+        const bool basin=profile==GranularGridProfile::Basin;
+        const SpatialGrid grid({0,0,0},0.125f,{basin?-128:-64,0,basin?-128:-64},{basin?256u:128u,128,basin?256u:128u});
+        NeighborHandle kernel(loadCompute(assets,gridShader("cs_neighbors_test",profile)));
         const auto count=std::uint32_t(particles.size()),words=(count+31)/32,stride=words+4,total=count*stride;
         require(count>0,"Neighbor fixture must contain a slot");
-        GpuSpatialKeys keys(assets,count);GpuRadixSort sort(assets,count);GpuCellRanges ranges(assets,count);
-        GpuCellHash hash(assets,count,forceHashFailure?2u:0u);
+        GpuSpatialKeys keys(assets,count,profile);GpuRadixSort sort(assets,count);GpuCellRanges ranges(assets,count,profile);
+        GpuCellHash hash(assets,count,forceHashFailure?2u:0u,64,profile);
         std::vector<std::array<std::uint32_t,2>> sorted(count);
         std::vector<bool> included(count);bool upstreamFailure=false;
         for(std::uint32_t i=0;i<count;++i) {
@@ -80,7 +82,7 @@ void runGpuNeighborsTest(const std::filesystem::path& assets) {
                 std::uint32_t accepted=0,candidates=0;
                 if(status==0) {
                     const auto cell=*grid.coordinates({a.positionRadius[0],a.positionRadius[1],a.positionRadius[2]});
-                    const auto radius=std::int64_t(std::ceil(std::min(double(support)*8,127.0)));
+                    const auto radius=std::int64_t(std::ceil(std::min(double(support)*8,basin?255.0:127.0)));
                     for(std::uint32_t j=0;j<count;++j) {
                         if(!included[j]) continue;
                         const auto& b=particles[j];
@@ -101,7 +103,7 @@ void runGpuNeighborsTest(const std::filesystem::path& assets) {
                 require(actual[base+words+1]==candidates,"GPU neighbor candidate count mismatch");
                 require(actual[base+words+3]==status,"GPU neighbor failure/exclusion status mismatch");
                 const auto probes=actual[base+words+2];
-                require(status==0?probes>0 && probes<=2097152u*hash.probeLimit():probes==0,"GPU neighbor probe count invalid");
+                require(status==0?probes>0 && probes<=(basin?8388608u:2097152u)*hash.probeLimit():probes==0,"GPU neighbor probe count invalid");
                 ++queriesChecked;
             }
             ++cases;
@@ -145,6 +147,26 @@ void runGpuNeighborsTest(const std::filesystem::path& assets) {
     failed=fixture(129,false);failed[0].positionRadius[0]=std::numeric_limits<float>::quiet_NaN();check(failed,{0.125f});
     check(fixture(129,false),{0.125f},true);
     auto empty=fixture(129,false);for(auto& p:empty) p.identity[1]=0;check(empty,{0.125f});
+    // Basin outer half, axis strides, cell seams, and largest valid key.
+    auto basin=fixture(16,false);
+    const float edge=std::nextafter(16.f,0.f);
+    const std::array<std::array<float,3>,16> basinPositions{{
+        {-16,0,-16},{-15.875f,0,-16},{edge,edge,edge},{15.875f,edge,edge},
+        {-11.5f,6,-7.5f},{-11.375f,6,-7.5f},{11.5f,6,7.5f},{11.5f,6,7.625f},
+        {-8.125f,4,0},{-8,4,0},{8,4,0},{8.125f,4,0},
+        {0,4,-8.125f},{0,4,-8},{0,4,8},{0,4.125f,8}}};
+    for(unsigned i=0;i<basin.size();++i)
+        for(unsigned axis=0;axis<3;++axis) basin[i].positionRadius[axis]=basinPositions[i][axis];
+    check(basin,{0,0.125f,0.25f},false,GranularGridProfile::Basin);
+    auto wide=fixture(2,false);wide[0].positionRadius[0]=wide[0].positionRadius[2]=-16;wide[0].positionRadius[1]=0;
+    for(unsigned axis=0;axis<3;++axis) wide[1].positionRadius[axis]=edge;
+    check(wide,{48,std::numeric_limits<float>::max()},false,GranularGridProfile::Basin);
+    for(unsigned axis=0;axis<3;++axis) {
+        auto invalid=basin;invalid[0].positionRadius[axis]=16;
+        check(invalid,{0.125f},false,GranularGridProfile::Basin);
+    }
+    check(basin,{0.125f},true,GranularGridProfile::Basin);
+    check(tiny,{0,std::numeric_limits<float>::denorm_min()},false,GranularGridProfile::Basin);
     std::cout<<"GPU support-aware neighbors passed: "<<cases<<" fixtures, "<<queriesChecked
              <<" exact all-pairs membership queries, dense 1023-neighbor cells and failure gates\n";
 }
