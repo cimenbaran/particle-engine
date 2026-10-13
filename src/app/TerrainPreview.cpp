@@ -73,7 +73,10 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         }
         if(ImGui::Button("Drop interacting sand")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);probes=std::move(candidate);clock.reset();paused=false;message="256 interacting grains; terrain and particle contacts";}catch(const std::exception& error){message=error.what();}}
         if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
-        if(probes){ImGui::Checkbox("Pause simulation",&paused);ImGui::Text("Simulation tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->fault())ImGui::TextWrapped("Physics fault: the tick was rolled back. Drop particles to reset.");}
+        if(probes){ImGui::Checkbox("Pause simulation",&paused);ImGui::Text("Simulation tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->hasSettling()) {
+            const auto& settling=probes->settlingSnapshot();
+            if(settling.valid){ImGui::Text("Settling candidates: %u / %u",settling.free,VoxelProbes::count);if(settling.active)ImGui::TextWrapped("Settling tracker fault. Drop particles to reset.");}
+        }if(probes->fault())ImGui::TextWrapped("Physics fault: the tick was rolled back. Drop particles to reset.");}
         ImGui::Text("%llu occupied voxels | %u faces",static_cast<unsigned long long>(basin->store->occupiedVoxelCount()),basin->mesh->faceCount());
         ImGui::Text("Terrain GPU payload: %.1f MiB",double(basin->occupancy->payloadBytes()+basin->mesh->payloadBytes())/1048576);
         if(!message.empty())ImGui::TextWrapped("%s",message.c_str());

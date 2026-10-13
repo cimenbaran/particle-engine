@@ -33,8 +33,8 @@ particle bytes remain unchanged. Existing legacy fixtures remain in the full sui
 Limits
 These primitives now feed the live basin tick (GPU_Basin_Tick.txt). Voxel-constrained position corrections are
 available separately (see GPU_Voxel_Contacts.txt), along with a post-contact
-velocity constraint pass (GPU_Voxel_Finish.txt). Static traction, support/settling
-and terrain conversion remain to be implemented.
+velocity constraint pass (GPU_Voxel_Finish.txt). Voxel support and live settling now use this grid (GPU_Settling.txt). Static
+traction and terrain conversion remain to be implemented.
 No terrain mass conversion, destruction, deposition, rebasing or performance acceptance is claimed.
 
 Local execution results: ../tests/results/m3-max-basin-grid.txt.

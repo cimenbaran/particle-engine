@@ -1,0 +1,41 @@
+VOXEL SETTLING AND LIVE BASIN VALIDATION
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Workgroup 128: complete --gpu-test exit 0; native CTest 21/21 pass.
+Workgroup 256: complete --gpu-test exit 0; native CTest 21/21 pass.
+Both configurations:
+  GpuSettling Legacy: 168 fixtures; Basin: 204 fixtures.
+  All per-slot histories match independent double CPU support + state oracle.
+  Particle inputs remain bytewise unchanged.
+  Voxel face/edge/corner normals, upward cone threshold, entry/hold/deep gaps,
+  127/128/129/255/256/257 capacities, candidate dwell/grace, removed support,
+  signed chunk seams and translated shared origin all pass.
+  Stale/foreign/origin-mismatched snapshots and sphere/voxel combination reject.
+  Elevated resident bottom replaces analytic floor; outside residency faults.
+  Excluded/dead/static slots and empty tracker remain excluded.
+
+Live interacting basin (256 particles, seed 1337, 600 ticks / 2400 substeps):
+  251 candidates, 3 acquiring, 0 in support-loss grace.
+  History counts agree with asynchronous diagnostics; candidate speeds <=0.1m/s.
+  Stale ticks preserve history; failed physics ticks invalidate all candidates.
+  Peak pair degree 5; maximum pair penetration 0.0000711381m.
+  Deep pair overlaps 0/112; maximum speed 0.909643m/s.
+  All particle identities/radii/masses retained, final age 10s, terrain clear.
+  These are settling candidates, not a fully settled scene or deposition gate.
+
+Manual native Mac UI validation (WG128):
+  Drop interacting sand shows Settling candidates: 247 / 256 at tick 377.
+  Pause holds tick 909 and 247 / 256 across separate screenshots.
+  Rebuild basin clears simulation/settling controls and reports Basin rebuilt.
+  Escape exits the preview with code 0.
+
+Ignored local logs:
+  out/voxel-settling-gpu128.log
+  out/voxel-settling-gpu256.log
+  out/voxel-settling-ctest128.log
+  out/voxel-settling-ctest256.log
+  out/voxel-settling-preview.log
+
+Open: terrain static traction, active command pool integration, deposition and
+terrain transactions. No reference-device performance acceptance is claimed.

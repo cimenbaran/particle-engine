@@ -10,6 +10,7 @@ VoxelProbes::VoxelProbes(const std::filesystem::path& assets,const MaterialLibra
     try {
         if(interacting)granular_=std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,9.81f,true,AnalyticSphere{},true);
         diagnostics_=std::make_unique<PoolDiagnostics>(assets);
+        if(interacting){settling_=std::make_unique<GpuSettling>(assets,count,SettlingProfile{},true,AnalyticSphere{},GranularGridProfile::Basin);settlingDiagnostics_=std::make_unique<PoolDiagnostics>(assets);}
         bgfx::VertexLayout lanes;lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         for(auto& h:states_)h=bgfx::createDynamicVertexBuffer(count*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE);
         forced_=bgfx::createDynamicVertexBuffer(count*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE);
@@ -57,7 +58,9 @@ void VoxelProbes::tick(std::uint16_t view,const GpuVoxelWorld& world,const terra
         const float p[]{float(count),1.0f/240,float(materials_),0};bgfx::setUniform(params_,p);
         bgfx::setBuffer(0,states_[current_],bgfx::Access::Read);bgfx::setBuffer(1,granular_->output(),bgfx::Access::Read);
         bgfx::setBuffer(2,latched_,bgfx::Access::Read);bgfx::setBuffer(3,states_[1-current_],bgfx::Access::Write);bgfx::dispatch(view,apply_,dispatchGroups(count));
-        current_=1-current_;++ticks_;return;
+        current_=1-current_;
+        settling_->submit(view,states_[current_],materialBuffer_,materials_,latched_,&terrain);
+        ++ticks_;return;
     }
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);auto current=states_[current_];
     const float p[]{float(count),1.0f/240,float(materials_),0},q[]{9.81f,12,0,0};

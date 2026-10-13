@@ -21,6 +21,11 @@ private:
     std::uint64_t revision_,bytes_;
     bgfx::DynamicVertexBufferHandle buffer_=BGFX_INVALID_HANDLE;
 };
+struct VoxelContactContext {
+    const GpuVoxelWorld& world;
+    const terrain::SparseVoxelStore& source;
+    terrain::Chunk origin{};
+};
 class GpuVoxelWorldSweep {
 public:
     GpuVoxelWorldSweep(const std::filesystem::path& assets,std::uint32_t capacity);

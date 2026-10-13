@@ -51,7 +51,9 @@ faces, including negative coordinates, depth ordering, solid material color,
 empty rebuilds and stale publication rejection. A chunk-seam fixture checks that
 two adjacent voxels produce ten exposed faces.
 
-Remaining integration: terrain static traction and support/settling; active
+Live interacting particles now report settling candidates from voxel/pair support
+with speed/contact hysteresis; candidates remain active (GPU_Settling.txt).
+Remaining integration: terrain static traction; active
 particle command ownership; consistent terrain edits and physical debris /
 deposition transactions; dirty chunk mesh reuse; origin rebases at tick boundaries,
 fluids, thermal state and persistence. The complete particle/terrain tick now runs

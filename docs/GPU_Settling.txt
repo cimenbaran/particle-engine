@@ -14,8 +14,8 @@ The optional GranularGridProfile constructor argument defaults to Legacy. Basin
 uses x/z=[-16,16), y=[0,16), with the same 0.125 m cells. Keys, ranges,
 hash and support traversal all select that profile; history advancement is
 independent of spatial indexing. This enables pair/floor/sphere support tracking
-throughout the basin domain. Voxel support and live basin integration remain
-pending; selecting Basin alone does not enable voxel support.
+throughout the basin domain. Optional VoxelContactContext on submit enables resident voxel support; selecting
+Basin alone does not enable voxel support. The live interacting basin uses both.
 
 History is one bit-preserving uint4 per physical slot: generation, quiet ticks,
 missing-support ticks, candidate. See Settling_Candidates.txt for the state machine
@@ -37,7 +37,7 @@ entire history for that tick. Partial contacts cannot publish candidates.
 
 Status words: error bits, candidate count, acquiring count, and candidate count
 currently inside missing-support grace. Error bits are 1 upstream, 2 index,
-4 particle profile and 8 traversal. A later valid tick can start acquisition again;
+4 particle profile, 8 traversal and 16 outside voxel residency. A later valid tick can start acquisition again;
 the default component mode does not own a persistent fault latch. The live app
 enables optional latchFailures: any error keeps history invalid until reset, and
 status() exposes the latched error with the latest counts. The zero-capacity case
@@ -85,3 +85,30 @@ upper/lower/side normals, support-cone sides, entry/hold/separation/deep gaps,
 acquisition and grace transitions, upstream invalidation/reset, and six workgroup
 edge capacities. Particle state remains bytewise unchanged. The Sand over sphere preset shares its geometry with the solver and renderer;
 the default scene still disables spheres. See Sphere_Terrain.txt.
+
+Voxel terrain support
+An optional current VoxelContactContext supplies immutable occupancy and its
+owner/revision/origin. Stale, foreign and mismatched-origin contexts reject on the
+host before any submission or history reset. Analytic sphere and voxel terrain
+cannot combine. Caller keeps occupancy alive/current through execution. Context
+now lives in GpuVoxelWorld.hpp for shared use by physics and tracking.
+
+A separate pass augments the pair support buffer before error reduction. It
+checks a 0.0645 m shell against every occupied candidate voxel (at most 27),
+using closest-point face/edge/corner normals with upward component >=0.5.
+The same 0.1 mm entry, 2 mm hold and 6.25 mm maximum penetration apply.
+Coincident/interior voxel centres cannot supply an upward normal. Particle state
+is immutable. Occupancy is treated as solid, matching resident terrain semantics.
+The resident bottom containment plane replaces the analytic y=0 floor. Eligible
+queries outside the radius-inset resident box invalidate the complete tick's
+history with error bit 16; excluded/static slots do not become candidates.
+
+The interacting basin submits tracking once after each completed tick, using
+the physics latch as upstream status. Rollback invalidates history, while stale
+host-rejected ticks do not advance it. A separate asynchronous diagnostic sample
+reports candidates in the preview. Dropping particles or rebuilding the basin
+recreates the tracker; pausing schedules no ticks. Candidates remain active and
+do not change physics, ownership or terrain. Static traction and deposition
+remain pending.
+
+Execution evidence: ../tests/results/m3-max-voxel-settling.txt.

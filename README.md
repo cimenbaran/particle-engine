@@ -5,7 +5,8 @@ The foundation includes ballistic simulation and an experimental GPU granular
 mode with pair contacts and bounded walls. Water, reactions and persistent terrain
 remain planned; cross-platform granular stability and release gates are still open.
 A resident voxel basin runs with `--terrain-preview`, including interacting sand
-and diagnostic collision probes. Terrain settling, editing and mass conversion
+and diagnostic collision probes. Live voxel support now reports settling candidates.
+Terrain static traction, editing and mass conversion
 remain open. Development currently prioritizes macOS.
 
 ## Build

@@ -23,13 +23,15 @@ GpuSettling::GpuSettling(const std::filesystem::path& assets,std::uint32_t capac
         status_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         latched_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
         latch_=loadCompute(assets,"cs_granular_latch");
+        voxelSupport_=loadCompute(assets,"cs_settling_voxels");
+        terrainMode_=bgfx::createUniform("u_settling_terrain",bgfx::UniformType::Vec4);
         reset_=loadCompute(assets,"cs_settling_reset");clear_=loadCompute(assets,"cs_settling_clear");
         supportProgram_=loadCompute(assets,gridShader("cs_settling_support",grid));reduce_=loadCompute(assets,"cs_settling_reduce");advance_=loadCompute(assets,"cs_settling_advance");
         params_=bgfx::createUniform("u_settling",bgfx::UniformType::Vec4);ticks_=bgfx::createUniform("u_settling_ticks",bgfx::UniformType::Vec4);
         sphere_=bgfx::createUniform("u_settling_sphere",bgfx::UniformType::Vec4);
         neighbors_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(history_) || !bgfx::isValid(support_) || !bgfx::isValid(status_) || !bgfx::isValid(latched_) ||
-           !bgfx::isValid(params_) || !bgfx::isValid(ticks_) || !bgfx::isValid(neighbors_) || !bgfx::isValid(sphere_))throw std::runtime_error("Settling resources unavailable");
+           !bgfx::isValid(terrainMode_) || !bgfx::isValid(params_) || !bgfx::isValid(ticks_) || !bgfx::isValid(neighbors_) || !bgfx::isValid(sphere_))throw std::runtime_error("Settling resources unavailable");
     }catch(...){release();throw;}
 }
 GpuSettling::~GpuSettling(){release();}
@@ -37,8 +39,8 @@ void GpuSettling::release() {
     for(auto h:{history_,support_})if(bgfx::isValid(h))bgfx::destroy(h);
     if(bgfx::isValid(status_))bgfx::destroy(status_);
     if(bgfx::isValid(latched_))bgfx::destroy(latched_);
-    for(auto h:{reset_,clear_,supportProgram_,reduce_,advance_,latch_})if(bgfx::isValid(h))bgfx::destroy(h);
-    for(auto h:{params_,ticks_,neighbors_,sphere_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{reset_,clear_,supportProgram_,reduce_,advance_,latch_,voxelSupport_})if(bgfx::isValid(h))bgfx::destroy(h);
+    for(auto h:{params_,ticks_,neighbors_,sphere_,terrainMode_})if(bgfx::isValid(h))bgfx::destroy(h);
 }
 void GpuSettling::reset(std::uint16_t view) {
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
@@ -48,7 +50,9 @@ void GpuSettling::reset(std::uint16_t view) {
     bgfx::dispatch(view,reset_,dispatchGroups(std::max(1u,capacity_)));initialized_=true;
 }
 void GpuSettling::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle state,bgfx::DynamicVertexBufferHandle materials,
-                         std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle upstream) {
+                         std::uint32_t materialCount,bgfx::DynamicIndexBufferHandle upstream,const VoxelContactContext* terrain) {
+    if(terrain && (obstacle_.radius>0 || !terrain->world.isCurrent(terrain->source,terrain->origin)))
+        throw std::invalid_argument("Settling terrain must be current and cannot combine with analytic sphere");
     if(!bgfx::isValid(state) || !bgfx::isValid(materials) || !bgfx::isValid(upstream) || state.idx==materials.idx ||
        upstream.idx==status_.idx || upstream.idx==latched_.idx || !materialCount || materialCount>65536)
         throw std::invalid_argument("Invalid settling inputs");
@@ -65,10 +69,17 @@ void GpuSettling::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle stat
     const std::array<std::uint32_t,4> ticks{profile_.acquireTicks,profile_.releaseTicks,0,0};
     const float sphere[]{obstacle_.centre[0],obstacle_.centre[1],obstacle_.centre[2],obstacle_.radius};
     bgfx::setUniform(sphere_,sphere);
+    const float terrainMode[]{terrain?1.0f:0.0f,0,0,0};bgfx::setUniform(terrainMode_,terrainMode);
     bgfx::setUniform(neighbors_,n);bgfx::setBuffer(0,state,bgfx::Access::Read);bgfx::setBuffer(1,sort_.output(),bgfx::Access::Read);
     bgfx::setBuffer(2,ranges_.ranges(),bgfx::Access::Read);bgfx::setBuffer(3,hash_.table(),bgfx::Access::Read);
     bgfx::setBuffer(4,hash_.metadata(),bgfx::Access::Read);bgfx::setBuffer(5,support_,bgfx::Access::ReadWrite);
     bgfx::dispatch(view,supportProgram_,dispatchGroups(capacity_));
+    if(terrain) {
+        bgfx::setUniform(params_,p);
+        bgfx::setBuffer(0,state,bgfx::Access::Read);bgfx::setBuffer(1,support_,bgfx::Access::ReadWrite);
+        bgfx::setBuffer(2,terrain->world.buffer(),bgfx::Access::Read);
+        bgfx::dispatch(view,voxelSupport_,dispatchGroups(capacity_));
+    }
     bgfx::setUniform(params_,p);bgfx::setBuffer(0,support_,bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::ReadWrite);
     bgfx::dispatch(view,reduce_,dispatchGroups(capacity_));
     bgfx::setUniform(params_,p);bgfx::setUniform(ticks_,ticks.data());

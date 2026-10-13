@@ -10,11 +10,6 @@ namespace pw {
 // Position-only common-radius granular Jacobi iteration. Not a full time step:
 // prediction, velocity reconstruction and terrain velocity response remain caller work.
 struct FloorTractionProfile {float gravity=0,substepSeconds=0,speedLimit=12;};
-struct VoxelContactContext {
-    const GpuVoxelWorld& world;
-    const terrain::SparseVoxelStore& source;
-    terrain::Chunk origin{};
-};
 class GpuJacobiContacts {
 public:
     static constexpr float radius=0.0625f;

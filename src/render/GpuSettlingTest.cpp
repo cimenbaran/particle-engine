@@ -29,6 +29,8 @@ void settlingProfileTest(const std::filesystem::path& assets,GranularGridProfile
     Handle exporter(loadCompute(assets,"cs_export")),statExporter(loadCompute(assets,"cs_pool_stats"));
     Handle uniform(bgfx::createUniform("u_sim",bgfx::UniformType::Vec4));
     unsigned cases=0;
+    const VoxelContactContext* terrainContext=nullptr;
+    std::vector<std::array<double,3>> voxelCorners;
     auto run=[&](std::vector<ParticleGpu> particles,unsigned ticks=1,GpuSettling* reused=nullptr,
                  std::vector<SettlingState>* reusedHistory=nullptr,unsigned failure=0,unsigned upstreamError=0,SettlingProfile profile=SettlingProfile{},AnalyticSphere obstacle={}) {
         const auto count=std::uint32_t(particles.size()),storage=std::max(1u,count);
@@ -41,9 +43,10 @@ void settlingProfileTest(const std::filesystem::path& assets,GranularGridProfile
         std::vector<reference::SettlingBody> bodies(count);
         for(unsigned i=0;i<count;++i){const auto& p=particles[i];auto& b=bodies[i];for(unsigned a=0;a<3;++a)b.position[a]=p.positionRadius[a];b.alive=(p.identity[1]&1)!=0;b.solid=p.identity[0]==0;b.dynamic=p.velocityInvMass[3]>0;}
         for(unsigned tick=0;tick<ticks;++tick){
-            tracker.submit(0,state.value,materialBuffer.value,3,sourceStatus.value);
+            tracker.submit(0,state.value,materialBuffer.value,3,sourceStatus.value,terrainContext);
             for(unsigned i=0;i<count;++i){
-                const auto& p=particles[i];auto support=failure?reference::SettlingSupport{}:reference::settlingSupport(bodies,i,{obstacle.centre[0],obstacle.centre[1],obstacle.centre[2]},obstacle.radius);
+                const auto& p=particles[i];auto support=failure?reference::SettlingSupport{}:reference::settlingSupport(bodies,i,{obstacle.centre[0],obstacle.centre[1],obstacle.centre[2]},obstacle.radius,terrainContext?(*terrain::relativeCorner({terrainContext->source.layout().minimum(),{}},terrainContext->origin))[1]:0);
+                if(!failure && terrainContext){auto voxel=reference::voxelSettlingSupport(bodies[i],voxelCorners);support.enter|=voxel.enter;support.hold|=voxel.hold;}
                 // One-axis threshold fixtures have exact speed; general geometry
                 // fixtures stay away from numerical classification boundaries.
                 float speed=std::hypot(p.velocityInvMass[0],p.velocityInvMass[1],p.velocityInvMass[2]);
@@ -164,6 +167,74 @@ void settlingProfileTest(const std::filesystem::path& assets,GranularGridProfile
             run(p,1,nullptr,nullptr,2);
         }
     }
+    // Voxel support: every rounded feature, support-cone threshold, hold gap,
+    // deep intersection, and physical slot group boundary uses the CPU oracle.
+    terrain::SparseVoxelStore terrainStore(terrain::ResidentChunkLayout({-1,0,-1},{2,2,2}),3);
+    const terrain::VoxelAddress voxel{{0,0,0},{0,15,0}};
+    terrainStore.setMaterial(voxel,0,terrainStore.revision());
+    GpuVoxelWorld terrainWorld(terrainStore,{});
+    VoxelContactContext context{terrainWorld,terrainStore,{}};terrainContext=&context;
+    voxelCorners.push_back(*terrain::relativeCorner(voxel,{}));
+    for(float normalY:{1.0f,.8f,.501f,.499f,0.0f,-1.0f})
+        for(float gap:{0.0f,.00005f,.001f,.003f,-.01f})for(bool corner:{false,true}) {
+            p=fixture(1);float radial=.0625f+gap;
+            float horizontal=std::sqrt(1-normalY*normalY)*radial;
+            p[0].positionRadius[0]=.125f+horizontal*(corner?float(std::sqrt(.5)):1.0f);
+            p[0].positionRadius[1]=(normalY<0?1.875f:2.0f)+normalY*radial;
+            p[0].positionRadius[2]=corner?.125f+horizontal*float(std::sqrt(.5)):.0625f;
+            run(p,30);
+        }
+    for(unsigned count:{127u,128u,129u,255u,256u,257u}) {
+        p=fixture(count);for(auto& body:p){body.positionRadius[0]=.0625f;body.positionRadius[1]=2.0625f;body.positionRadius[2]=.0625f;}
+        run(p,30);
+    }
+    GpuSettling supported(assets,1,{},false,{},grid);std::vector<SettlingState> supportedHistory(1);
+    p=fixture(1);p[0].positionRadius[0]=.0625f;p[0].positionRadius[1]=2.0625f;p[0].positionRadius[2]=.0625f;
+    run(p,30,&supported,&supportedHistory);require(supportedHistory[0].candidate,"Voxel dwell did not acquire");
+    p[0].positionRadius[1]=2.0635f;run(p,8,&supported,&supportedHistory);require(supportedHistory[0].candidate,"Voxel hold band lost candidate");
+    p[0].positionRadius[1]=2.0655f;run(p,2,&supported,&supportedHistory);require(supportedHistory[0].candidate,"Voxel support grace released early");
+    run(p,1,&supported,&supportedHistory);require(!supportedHistory[0].candidate,"Voxel missing support did not release");
+    p[0].positionRadius[1]=2.0625f;run(p,30,&supported,&supportedHistory);
+    terrainStore.setMaterial(voxel,terrain::SparseVoxelStore::empty,terrainStore.revision());
+    // A stale publication must reject valid inputs before advancing history.
+    bool staleRejected=false;
+    try{run(p,1,&supported,&supportedHistory);}
+    catch(const std::invalid_argument&){staleRejected=true;}
+    require(staleRejected,"Settling accepted stale voxel snapshot");
+    GpuVoxelWorld removedWorld(terrainStore,{});VoxelContactContext removed{removedWorld,terrainStore,{}};
+    terrainContext=&removed;voxelCorners.clear();run(p,2,&supported,&supportedHistory);
+    require(supportedHistory[0].candidate && supportedHistory[0].unsupportedTicks==2,"Voxel removal lost grace history");
+    run(p,1,&supported,&supportedHistory);require(!supportedHistory[0].candidate,"Removed voxel retained candidate");
+    // The resident floor replaces analytic y=0, and outside residency faults
+    // the entire tracker rather than masquerading as unsupported geometry.
+    p=fixture(1);p[0].positionRadius[0]=0;p[0].positionRadius[2]=0;p[0].positionRadius[1]=.0625f;run(p,30);
+    p[0].positionRadius[0]=4;run(p,1,nullptr,nullptr,16);
+    VoxelContactContext wrongOrigin{removedWorld,terrainStore,{1,0,0}};terrainContext=&wrongOrigin;
+    bool originRejected=false;try{run(p);}catch(const std::invalid_argument&){originRejected=true;}
+    require(originRejected,"Settling accepted mismatched terrain origin");
+    terrain::SparseVoxelStore foreignStore(terrain::ResidentChunkLayout({-1,0,-1},{2,2,2}),3);
+    VoxelContactContext foreign{removedWorld,foreignStore,{}};terrainContext=&foreign;
+    bool ownerRejected=false;try{run(p);}catch(const std::invalid_argument&){ownerRejected=true;}
+    require(ownerRejected,"Settling accepted foreign terrain owner");
+    terrain::SparseVoxelStore elevatedStore(terrain::ResidentChunkLayout({-1,1,-1},{2,1,2}),3);
+    GpuVoxelWorld elevatedWorld(elevatedStore,{});VoxelContactContext elevated{elevatedWorld,elevatedStore,{}};terrainContext=&elevated;
+    p[0].positionRadius[0]=0;p[0].positionRadius[1]=4.0625f;run(p,30);
+    p[0].positionRadius[1]=.0625f;run(p,1,nullptr,nullptr,16);
+    // Chunk-major lookup at negative x/z and the y=4 seam, with a nonzero
+    // shared origin. All support comes from occupied voxels, not the floor.
+    const terrain::Chunk shiftedOrigin{100,-20,30};
+    terrain::SparseVoxelStore seamStore(terrain::ResidentChunkLayout({99,-20,29},{2,2,2}),3);
+    const std::array<terrain::VoxelAddress,3> seamVoxels{{{{99,-20,29},{31,31,31}},{{100,-19,30},{0,0,0}},{{99,-19,30},{31,0,31}}}};
+    for(const auto& address:seamVoxels){seamStore.setMaterial(address,0,seamStore.revision());voxelCorners.push_back(*terrain::relativeCorner(address,shiftedOrigin));}
+    GpuVoxelWorld seamWorld(seamStore,shiftedOrigin);VoxelContactContext seamContext{seamWorld,seamStore,shiftedOrigin};terrainContext=&seamContext;
+    p=fixture(3);for(unsigned i=0;i<3;++i){p[i].positionRadius[0]=float(voxelCorners[i][0]+.0625);p[i].positionRadius[1]=float(voxelCorners[i][1]+.1875);p[i].positionRadius[2]=float(voxelCorners[i][2]+.0625);}
+    run(p,30);
+    // Excluded/dead/static slots must not accidentally contribute candidates.
+    p[0].identity[1]=0;p[1].identity[0]=1;p[2].velocityInvMass[3]=0;run(p,30);
+    run({},1);
+    bool sphereRejected=false;try{run(p,1,nullptr,nullptr,0,0,{},sphere);}catch(const std::invalid_argument&){sphereRejected=true;}
+    require(sphereRejected,"Settling combined voxel and analytic sphere terrain");
+    terrainContext=nullptr;
     bool rejected=false;try{SettlingProfile invalid;invalid.enterSpeed=0;GpuSettling bad(assets,1,invalid);}catch(const std::invalid_argument&){rejected=true;}
     require(rejected,"GPU settling accepted unsupported speed profile");
     std::cout<<"GPU settling "<<(grid==GranularGridProfile::Basin?"basin":"legacy")<<" passed: "<<cases<<" fixtures, exact per-slot CPU histories, support geometry, reset/recycling/faults and unchanged particle bytes\n";

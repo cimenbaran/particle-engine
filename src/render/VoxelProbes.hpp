@@ -1,6 +1,7 @@
 #pragma once
 #include "GpuVoxelMotion.hpp"
 #include "GpuGranularStep.hpp"
+#include "GpuSettling.hpp"
 #include "assets/Materials.hpp"
 #include "PoolDiagnostics.hpp"
 namespace pw {
@@ -15,11 +16,14 @@ public:
     void tick(std::uint16_t view,const GpuVoxelWorld& world,const terrain::SparseVoxelStore& source);
     void prepare(std::uint16_t view);
     void render(std::uint16_t view);
-    void poll(std::uint32_t frame){diagnostics_->poll(frame);}
-    void request(std::uint16_t view){diagnostics_->request(view,latched_,ticks_);}
+    void poll(std::uint32_t frame){diagnostics_->poll(frame);if(settlingDiagnostics_)settlingDiagnostics_->poll(frame);}
+    void request(std::uint16_t view){diagnostics_->request(view,latched_,ticks_);if(settlingDiagnostics_)settlingDiagnostics_->request(view,settling_->status(),ticks_);}
     std::uint32_t errors() const{return diagnostics_->latest().active;}
     bool fault() const{return diagnostics_->latest().valid && diagnostics_->latest().active!=0;}
     std::uint32_t contactDegree() const{return granular_?diagnostics_->latest().reserved:0;}
+    bool hasSettling() const{return bool(settling_);}
+    const PoolSnapshot& settlingSnapshot() const{return settlingDiagnostics_->latest();}
+    bgfx::DynamicVertexBufferHandle settlingHistory() const{return settling_?settling_->history():bgfx::DynamicVertexBufferHandle{bgfx::kInvalidHandle};}
     std::uint64_t ticks() const{return ticks_;}
     bgfx::DynamicVertexBufferHandle state() const{return states_[current_];}
     bgfx::DynamicIndexBufferHandle status() const{return latched_;}
@@ -27,7 +31,8 @@ private:
     void release();
     GpuVoxelMotion motion_;
     std::unique_ptr<GpuGranularStep> granular_;
-    std::unique_ptr<PoolDiagnostics> diagnostics_;
+    std::unique_ptr<PoolDiagnostics> diagnostics_,settlingDiagnostics_;
+    std::unique_ptr<GpuSettling> settling_;
     std::uint32_t materials_,current_=0;
     std::uint64_t ticks_=0;
     std::array<bgfx::DynamicVertexBufferHandle,2> states_{{BGFX_INVALID_HANDLE,BGFX_INVALID_HANDLE}};

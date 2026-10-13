@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <span>
 #include <stdexcept>
@@ -12,7 +13,7 @@ struct SettlingBody {
 struct SettlingSupport {bool enter=false,hold=false;};
 // Independent all-pairs geometric oracle for the initial common-radius profile.
 // Candidate support is local evidence, not a proof of a ground-connected stack.
-inline SettlingSupport settlingSupport(std::span<const SettlingBody> bodies,std::size_t slot,std::array<double,3> sphereCentre={0,2,0},double sphereRadius=0) {
+inline SettlingSupport settlingSupport(std::span<const SettlingBody> bodies,std::size_t slot,std::array<double,3> sphereCentre={0,2,0},double sphereRadius=0,double floorHeight=0) {
     if(slot>=bodies.size()) throw std::out_of_range("Settling support slot");
     const auto& body=bodies[slot];SettlingSupport result;
     if(!body.alive || !body.solid || !body.dynamic) return result;
@@ -22,7 +23,7 @@ inline SettlingSupport settlingSupport(std::span<const SettlingBody> bodies,std:
         if(gap < -0.00625)return;
         result.enter|=gap<=0.0001;result.hold|=gap<=0.002;
     };
-    contact(body.position[1]-0.0625);
+    contact(body.position[1]-floorHeight-0.0625);
     if(sphereRadius>0) {
         std::array<double,3> delta{};
         for(unsigned a=0;a<3;++a)delta[a]=body.position[a]-sphereCentre[a];
@@ -40,4 +41,20 @@ inline SettlingSupport settlingSupport(std::span<const SettlingBody> bodies,std:
     }
     return result;
 }
+// Exhaustive voxel list; deliberately independent of GPU neighborhood indexing.
+inline SettlingSupport voxelSettlingSupport(const SettlingBody& body,
+    std::span<const std::array<double,3>> lowerCorners) {
+    SettlingSupport result;
+    if(!body.alive || !body.solid || !body.dynamic)return result;
+    for(const auto& lower:lowerCorners) {
+        std::array<double,3> delta{};
+        for(unsigned a=0;a<3;++a)delta[a]=body.position[a]-std::clamp(body.position[a],lower[a],lower[a]+.125);
+        double distance=std::hypot(delta[0],delta[1],delta[2]);
+        if(distance<=1e-6 || delta[1]<.5*distance)continue;
+        double gap=distance-.0625;if(gap<-.00625)continue;
+        result.enter|=gap<=.0001;result.hold|=gap<=.002;
+    }
+    return result;
+}
+
 }

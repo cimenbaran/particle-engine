@@ -30,9 +30,9 @@ The optional basin-sized sparse index and pair primitives now cover the full
 sweep current voxel occupancy before whole-iteration commit; see
 ../docs/GPU_Voxel_Contacts.txt. A terrain velocity finishing pass now removes newly inward motion and applies
 material friction after pair response; see ../docs/GPU_Voxel_Finish.txt. Static
-traction and voxel support tracking remain open. The settling tracker now supports
-the full basin grid for particle/floor/sphere support; voxel support and live
-basin history integration remain pending. The complete particle/terrain tick
+traction remains open. Settling now checks current voxel faces/edges/corners
+and reports live basin candidates with hysteresis and physics-fault invalidation.
+Candidates remain active; deposition remains pending. The complete particle/terrain tick
 now powers Drop interacting sand in the basin preview, with whole-tick rollback;
 see ../docs/GPU_Basin_Tick.txt.
 A deterministic full basin recipe

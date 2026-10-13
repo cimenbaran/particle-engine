@@ -55,8 +55,15 @@ Native UI checks cover drop, pause, rebuild and normal exit. See execution evide
 in ../tests/results/m3-max-voxel-tick.txt.
 
 Limits
-This remains a fixed-size basin demo. Terrain static traction and support/settling
+This remains a fixed-size basin demo. Terrain static traction
 tracking are not implemented; moving grains at the end of the test are permitted
 and reported. There is no deposition, debris reservation, editing command pool,
 thermal reaction, water, scene persistence or terrain-origin rebase transaction.
 This test is not a ten-minute soak or reference-hardware performance acceptance.
+
+Live settling support
+The interacting preview now runs the basin-grid settling tracker once after the
+whole tick, with the same current terrain publication and the physics latch.
+Candidates appear as a separate asynchronous UI count. Tracking checks upward
+voxel/pair support and 30-tick speed/contact hysteresis; it does not deactivate
+particles or deposit them. See GPU_Settling.txt. Static traction remains pending.

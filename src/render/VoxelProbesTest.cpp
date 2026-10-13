@@ -26,6 +26,17 @@ static void voxelProbesCase(const std::filesystem::path& assets,bool interacting
         const float p[]{0,float(VoxelProbes::count),0,4};bgfx::setUniform(h.uniform,p);bgfx::setBuffer(0,probes.state(),bgfx::Access::Read);bgfx::setImage(1,h.image,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(5,h.program,dispatchGroups(VoxelProbes::count));
         bgfx::TextureRegion src,dst;src.handle=h.image;dst.handle=h.staging;bgfx::blit(7,dst,src);std::array<ParticleGpu,VoxelProbes::count> result{};const auto ready=bgfx::read(dst,result.data());while((frame=bgfx::frame())<ready)SDL_PumpEvents();probes.poll(frame);return result;
     };
+    auto historySnapshot=[&]() {
+        std::array<SettlingState,VoxelProbes::count> result{};
+        if(!interacting)return result;
+        const float p[]{0,float(VoxelProbes::count),0,1};bgfx::setUniform(h.uniform,p);bgfx::setBuffer(0,probes.settlingHistory(),bgfx::Access::Read);bgfx::setImage(1,h.image,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(5,h.program,dispatchGroups(VoxelProbes::count));
+        bgfx::TextureRegion src,dst;src.handle=h.image;dst.handle=h.staging;bgfx::blit(7,dst,src);
+        probes.request(6);
+        std::array<std::array<std::uint32_t,16>,VoxelProbes::count> rows{};
+        const auto ready=bgfx::read(dst,rows.data());while((frame=bgfx::frame())<ready)SDL_PumpEvents();probes.poll(frame);
+        for(unsigned i=0;i<result.size();++i)std::memcpy(&result[i],rows[i].data(),sizeof(SettlingState));
+        return result;
+    };
     const auto initial=snapshot();
     unsigned peakContacts=0;
     for(unsigned tick=0;tick<600;++tick) {
@@ -34,6 +45,19 @@ static void voxelProbesCase(const std::filesystem::path& assets,bool interacting
         if(probes.fault())throw std::runtime_error(std::string(interacting?"Interacting basin":"Live voxel probe")+" fault at tick "+std::to_string(tick)+" errors "+std::to_string(probes.errors()));
     }
     const auto actual=snapshot();require(!probes.fault(),"Final voxel probe fault");
+    const auto settled=historySnapshot();
+    if(interacting) {
+        const auto& counts=probes.settlingSnapshot();require(counts.valid && counts.active==0,"Live basin settling fault");
+        unsigned candidates=0,acquiring=0,unsupported=0;
+        for(unsigned i=0;i<settled.size();++i) {
+            const auto& history=settled[i];require(history.generation==actual[i].identity[3],"Basin settling generation mismatch");
+            require(history.candidate<=1 && history.quietTicks<=30 && history.unsupportedTicks<3,"Invalid live settling history");
+            candidates+=history.candidate;acquiring+=!history.candidate && history.quietTicks>0;unsupported+=history.candidate && history.unsupportedTicks>0;
+            if(history.candidate)require(std::hypot(actual[i].velocityInvMass[0],actual[i].velocityInvMass[1],actual[i].velocityInvMass[2])<=.100001f,"Fast basin particle retained settling candidate");
+        }
+        require(counts.free==candidates && counts.reserved==acquiring && counts.rejected==unsupported,"Live basin settling diagnostics mismatch");
+        std::cout<<"Live basin settling: "<<candidates<<" candidates, "<<acquiring<<" acquiring, "<<unsupported<<" in support grace\n";
+    }
     unsigned belowLedge=0;
     for(unsigned id=0;id<actual.size();++id) {
         const auto& p=actual[id];require(p.positionRadius[3]==initial[id].positionRadius[3] && p.velocityInvMass[3]==initial[id].velocityInvMass[3],"Basin particle radius or mass changed");require(p.identity[0]==1 && p.identity[1]==1 && p.identity[2]==id && p.identity[3]==1,"Probe identity changed");
@@ -63,11 +87,16 @@ static void voxelProbesCase(const std::filesystem::path& assets,bool interacting
     store->setMaterial(*terrain::addressOf({0,4,0}),0,store->revision());bool stale=false;
     try{probes.tick(1,world,*store);}catch(const std::invalid_argument&){stale=true;}
     require(stale && probes.ticks()==600,"Stale live probe tick was submitted");const auto unchanged=snapshot();require(std::memcmp(actual.data(),unchanged.data(),sizeof(actual))==0,"Stale probe rejection mutated state");
+    if(interacting){const auto afterStale=historySnapshot();require(afterStale==settled,"Stale basin tick advanced settling history");}
     const auto& occupiedProbe=actual[0];
     store->setMaterial(*terrain::addressAtRelative({occupiedProbe.positionRadius[0],occupiedProbe.positionRadius[1],occupiedProbe.positionRadius[2]}),0,store->revision());
     GpuVoxelWorld overlapWorld(*store,{});probes.tick(1,overlapWorld,*store);probes.request(6);
     const auto rolledBack=snapshot();require(probes.fault(),"Overlapping terrain did not latch a probe fault");
     require(std::memcmp(actual.data(),rolledBack.data(),sizeof(actual))==0,"Probe failure did not roll back the entire tick");
+    if(interacting) {
+        const auto failed=historySnapshot();for(const auto& history:failed)require(history.quietTicks==0 && history.candidate==0 && history.unsupportedTicks==0,"Physics rollback retained basin settling history");
+        require(probes.settlingSnapshot().active!=0,"Physics rollback did not invalidate settling diagnostics");
+    }
     std::cout<<(interacting?"GPU interacting basin":"GPU live voxel probes")<<" passed: 256 particles, 600 ticks / 2400 substeps, gravity/drag, full basin containment, identity, stale-world rejection and whole-tick rollback\n";
 }
 void runVoxelProbesTest(const std::filesystem::path& assets){voxelProbesCase(assets,false);voxelProbesCase(assets,true);}
