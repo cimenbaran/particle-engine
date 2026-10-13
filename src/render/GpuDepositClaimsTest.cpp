@@ -49,9 +49,34 @@ void runGpuDepositClaimsTest(const std::filesystem::path& assets){
   for(unsigned i=0;i<cap;++i)check(ownership[i*4]==expectedOwners[i],"Private retirement ownership differs from claims");
   for(const auto& cell:cells)for(unsigned i=0;i<cap;++i)if(particles[i].identity[1] && !retired.contains(i)){long double squared=0;for(unsigned a=0;a<3;++a){const long double low=static_cast<long double>(cell[a])/8,high=low+.125L,position=particles[i].positionRadius[a];const auto closest=std::clamp(position,low,high);squared+=(position-closest)*(position-closest);}check(squared>=static_cast<long double>(particles[i].positionRadius[3])*particles[i].positionRadius[3],"Accepted deposit penetrates remaining grain");}
   for(unsigned c=status.free;c<quota;++c)check(output[c*8]==UINT32_MAX && output[c*8+3]==UINT32_MAX && output[c*8+4]==UINT32_MAX && output[c*8+6]==UINT32_MAX,"Unused claim was not cleared");
+  const auto retiredState=read(claims.retired(),cap,4);
+  for(unsigned i=0;i<cap;++i){auto expected=particles[i];if(retired.contains(i))expected.identity[1]=0;check(std::memcmp(retiredState.data()+i*16,&expected,64)==0,"Private retirement changed wrong particle bytes");}
+  check(diagnostic.request(6,claims.retirementStatus(),0),"Retirement status request failed");while(diagnostic.pending()){diagnostic.poll(bgfx::frame());SDL_PumpEvents();}const auto retirement=diagnostic.latest();check(retirement.active==errors && retirement.free==status.free && retirement.reserved==status.free*2,"Retirement acknowledgement mismatch");
   const auto after=read(input.value,cap,4),historyAfter=read(histories.value,cap,1);if(cap)check(std::memcmp(after.data(),particles.data(),cap*64)==0 && std::memcmp(historyAfter.data(),history.data(),cap*16)==0,"Claim preparation mutated live source/history");
+  if(cap==2 && status.free==1 && errors==0){
+   ClaimHandle retireProgram(loadCompute(assets,"cs_deposit_retire"));ClaimHandle retireParams(bgfx::createUniform("u_deposit_claims",bgfx::UniformType::Vec4));
+   for(unsigned fault=0;fault<7;++fault){
+    claims.submit(1,input.value,histories.value,occupancy,world);bgfx::frame();
+    auto bad=output;std::array<unsigned,2> owners{1,1};std::array<unsigned,4> counts{0,1,2,0};unsigned expectedError=64;
+    if(fault==0)bad[5]+=1; // adjacent stale generation, exact uint comparison
+    if(fault==1)bad[6]=bad[4]; // duplicate grain
+    if(fault==2)bad[6]=cap; // out of bounds; must never dereference
+    if(fault==3)owners[1]=0;
+    if(fault==4)owners[1]=2;
+    if(fault==5)counts[1]=quota+1;
+    if(fault==6)counts[0]=32; // upstream health fault must roll back
+    if(fault==0)expectedError=128;if(fault==6)expectedError=32;
+    bgfx::update(claims.claims(),0,bgfx::copy(bad.data(),unsigned(bad.size()*4)));
+    bgfx::update(claims.owners(),0,bgfx::copy(owners.data(),8));
+    bgfx::update(claims.status(),0,bgfx::copy(counts.data(),16));
+    const float p[]{float(cap),float(quota),0,0};bgfx::setUniform(retireParams.value,p);
+    bgfx::setBuffer(0,input.value,bgfx::Access::Read);bgfx::setBuffer(1,claims.claims(),bgfx::Access::Read);bgfx::setBuffer(2,claims.owners(),bgfx::Access::Read);bgfx::setBuffer(3,claims.status(),bgfx::Access::Read);bgfx::setBuffer(4,claims.retired(),bgfx::Access::Write);bgfx::setBuffer(5,claims.retirementStatus(),bgfx::Access::Write);bgfx::dispatch(1,retireProgram.value,1);
+    check(diagnostic.request(6,claims.retirementStatus(),0),"Faulted retirement status request failed");const auto rollback=read(claims.retired(),cap,4);while(diagnostic.pending()){diagnostic.poll(bgfx::frame());SDL_PumpEvents();}
+    const auto ack=diagnostic.latest();check(ack.active==expectedError && ack.free==0 && ack.reserved==0 && std::memcmp(rollback.data(),particles.data(),cap*64)==0,"Faulted retirement did not preserve whole source");
+   }
+  }
   claims.submit(1,input.value,histories.value,occupancy,world);const auto repeat=read(claims.claims(),quota,2);if(quota)check(output==repeat,"Repeated GPU deposit claims changed");
-  rejects([&]{claims.submit(1,claims.claims(),histories.value,occupancy,world);});totalClaims+=status.free;++cases;return status.free;
+  rejects([&]{claims.submit(1,claims.claims(),histories.value,occupancy,world);});rejects([&]{claims.submit(1,claims.retired(),histories.value,occupancy,world);});totalClaims+=status.free;++cases;return status.free;
  };
  for(unsigned cap:{0u,1u,2u,127u,128u,129u,255u,256u,257u,1024u,4096u})for(unsigned scenario=0;scenario<5;++scenario){
   std::vector<ParticleGpu> input(cap);std::vector<SettlingState> history(cap);
@@ -75,6 +100,9 @@ void runGpuDepositClaimsTest(const std::filesystem::path& assets){
   if(scenario==2){input[2]=grain(2,.0625f,.0625f,.1875f,0);history[2]={1,30,0,1};}
   if(scenario==3){input[2].positionRadius[0]=input[2].positionRadius[1]=std::nextafter(float(.125+.0625/std::sqrt(2.)),1.f);}
   const auto count=run(input,history,32,.05,0,scenario!=3);check(count==(scenario==1 || scenario==3?0u:1u),"Boundary/tie deposit case unexpected");
+ }
+ for(unsigned generation:{16777216u,2147483648u,UINT32_MAX-1}){
+  std::vector<ParticleGpu> input{grain(0,.0625f,.0625f,.0625f,0),grain(1,.1875f,.0625f,.0625f,0)};for(auto& p:input)p.identity[3]=generation;std::vector<SettlingState> history(2,SettlingState{generation,30,0,1});run(input,history,32,.05);
  }
  check(world.revision()==0 && world.occupiedVoxelCount()==0,"GPU claims mutated terrain");
  std::cout<<"GPU deposit claims passed: "<<cases<<" batches / "<<totalClaims<<" claims; CPU parity, unique targets/owners, conservative clearance, mass, repeatability and immutable source/history\n";

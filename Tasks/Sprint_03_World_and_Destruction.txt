@@ -50,7 +50,9 @@ clearance, and resolves owners deterministically (../docs/Terrain_Deposit_Refere
 The first private GPU pass now validates settled owners and supported empty
 targets without changing live buffers (../docs/GPU_Deposit_Candidates.txt).
 Private GPU arbitration now resolves unique grain pairs and voxel targets with
-remaining-solid clearance (../docs/GPU_Deposit_Claims.txt). Acknowledged terrain
+remaining-solid clearance (../docs/GPU_Deposit_Claims.txt). A private retirement
+copy now validates exact owner identities and preserves the entire source on
+any claim fault; successful copies clear only selected alive flags. Acknowledged terrain
 publication/retirement, deposit ledgers and whole-world mass inventory remain open. CPU exposed-face
 extraction now handles chunk seams, deterministic material-tagged quads and
 revision validation. See ../docs/Sparse_Voxel_Storage.txt and

@@ -1,0 +1,23 @@
+macOS / Metal private deposit retirement — 2026-10-13
+
+Default 128-thread and alternate 256-thread profiles:
+- Full --gpu-test suite exited successfully.
+- Native CTest: 27/27 passed in each profile.
+- Deposit claims: 94 batches, 2608 accepted claims in each profile.
+- Every retirement output slot compared byte-for-byte with source, with only
+  selected alive flags cleared. Source particles and settling history unchanged.
+- 35 injected retirement failures per profile: stale generation, duplicate grain,
+  out-of-range grain, missing owner, out-of-range owner, oversized count, upstream
+  health fault. All rejected with zero acknowledged claims/grains and exact
+  whole-source rollback. Generation fixtures include 2^24, 2^31, UINT_MAX-1.
+- Empty/zero-quota, global candidate faults, maximum capacity 4096, maximum quota
+  512, clearance-deferred and mass-rejected claims exercised by the same suite.
+
+Logs (local ignored out/): deposit-retire-gpu128.log, deposit-retire-gpu256.log,
+deposit-retire-ctest.log, deposit-retire-ctest256.log.
+
+This validates private output preparation. It does not prove live deposition,
+compact asynchronous claim readback, joint terrain/particle publication, deposit
+mass ledgers, live controls, performance targets or the unfinished live window QA.
+No production source-particle readback was added. Serial bounded retirement
+validation still requires performance measurement before expanding capacity.

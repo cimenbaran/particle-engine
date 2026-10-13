@@ -7,18 +7,22 @@ GpuDepositClaims::GpuDepositClaims(const std::filesystem::path& assets,std::uint
  try{
   bgfx::VertexLayout lanes;lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
   claims_=bgfx::createDynamicVertexBuffer(std::max(1u,quota)*2,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE);
+  retired_=bgfx::createDynamicVertexBuffer(std::max(1u,capacity)*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE);
+  retirementStatus_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
+  retireProgram_=loadCompute(assets,"cs_deposit_retire");
   owners_=bgfx::createDynamicIndexBuffer(std::max(1u,capacity),BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
   status_=bgfx::createDynamicIndexBuffer(4,BGFX_BUFFER_INDEX32|BGFX_BUFFER_COMPUTE_READ_WRITE);
   program_=loadCompute(assets,"cs_deposit_claims");params_=bgfx::createUniform("u_deposit_claims",bgfx::UniformType::Vec4);
-  if(!bgfx::isValid(claims_) || !bgfx::isValid(owners_) || !bgfx::isValid(status_) || !bgfx::isValid(params_))throw std::runtime_error("Deposit claim allocation failed");
+  if(!bgfx::isValid(retired_) || !bgfx::isValid(retirementStatus_) || !bgfx::isValid(claims_) || !bgfx::isValid(owners_) || !bgfx::isValid(status_) || !bgfx::isValid(params_))throw std::runtime_error("Deposit claim allocation failed");
  }catch(...){release();throw;}
 }
-void GpuDepositClaims::release(){if(bgfx::isValid(claims_))bgfx::destroy(claims_);for(auto h:{owners_,status_})if(bgfx::isValid(h))bgfx::destroy(h);if(bgfx::isValid(program_))bgfx::destroy(program_);if(bgfx::isValid(params_))bgfx::destroy(params_);}
+void GpuDepositClaims::release(){if(bgfx::isValid(retired_))bgfx::destroy(retired_);if(bgfx::isValid(retirementStatus_))bgfx::destroy(retirementStatus_);if(bgfx::isValid(retireProgram_))bgfx::destroy(retireProgram_);if(bgfx::isValid(claims_))bgfx::destroy(claims_);for(auto h:{owners_,status_})if(bgfx::isValid(h))bgfx::destroy(h);if(bgfx::isValid(program_))bgfx::destroy(program_);if(bgfx::isValid(params_))bgfx::destroy(params_);}
 GpuDepositClaims::~GpuDepositClaims(){release();}
 void GpuDepositClaims::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle particles,bgfx::DynamicVertexBufferHandle history,const GpuVoxelWorld& world,const terrain::SparseVoxelStore& source){
- if(particles.idx==claims_.idx || history.idx==claims_.idx)throw std::invalid_argument("Deposit claim output alias");
+ if(particles.idx==claims_.idx || history.idx==claims_.idx || particles.idx==retired_.idx || history.idx==retired_.idx)throw std::invalid_argument("Deposit claim output alias");
  candidates_.submit(view,particles,history,world,source);
  const float p[]{float(capacity_),float(quota_),0,0};bgfx::setUniform(params_,p);
  bgfx::setBuffer(0,particles,bgfx::Access::Read);bgfx::setBuffer(1,candidates_.output(),bgfx::Access::Read);bgfx::setBuffer(2,candidates_.status(),bgfx::Access::Read);bgfx::setBuffer(3,owners_,bgfx::Access::ReadWrite);bgfx::setBuffer(4,claims_,bgfx::Access::ReadWrite);bgfx::setBuffer(5,status_,bgfx::Access::Write);bgfx::dispatch(view,program_,1);
+ bgfx::setUniform(params_,p);bgfx::setBuffer(0,particles,bgfx::Access::Read);bgfx::setBuffer(1,claims_,bgfx::Access::Read);bgfx::setBuffer(2,owners_,bgfx::Access::Read);bgfx::setBuffer(3,status_,bgfx::Access::Read);bgfx::setBuffer(4,retired_,bgfx::Access::Write);bgfx::setBuffer(5,retirementStatus_,bgfx::Access::Write);bgfx::dispatch(view,retireProgram_,1);
 }
 }

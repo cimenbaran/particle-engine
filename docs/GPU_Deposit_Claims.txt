@@ -46,6 +46,19 @@ fault rollback, mass-tolerance rejection, blocked proposals, exact tangency,
 one-ULP penetration, nearest-partner ties, conservative corner deferral and repeat
 submission. Claim packing also tests negative voxel keys across chunk seams.
 
+The resolver now also builds a private full-state retirement candidate. A second
+single-invocation dispatch validates counts, every claim generation/material/live
+identity, and both directions of the claim-to-owner mapping before copying any
+output. Duplicate, missing, extra or out-of-range owners reject the whole copy.
+Accepted owners change only their alive flag to zero; unclaimed slots and all
+other payload bits are preserved using uint lanes. Any error copies the source
+unchanged. Retirement status is errors, claim count, retired grain count, zero;
+errors include upstream flags, 64 for ownership/count and 128 for identity.
+This is still a private candidate, not permission to publish or mutate live state.
+The tests compare every output byte and inject stale generations (including
+adjacent values above 2^24 and 2^31), duplicate/out-of-range owners, missing/extra
+ownership, oversized counts and upstream health faults.
+
 Remaining: compact asynchronous claim acknowledgement, candidate occupancy/mesh
-publication, generation-qualified retirement only after publication, deposit mass
+publication, joint adoption of terrain and retirement candidates, deposit mass
 ledgers, wake handling and live controls. This is not live deposition yet.
