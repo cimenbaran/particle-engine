@@ -1,0 +1,54 @@
+SPARSE CPU VOXEL OCCUPANCY
+
+SparseVoxelStore is the authoritative CPU material store for a finite
+ResidentChunkLayout. It is single-threaded and not yet connected to live terrain
+rendering, GPU collision, commands or persistence.
+
+Each 32x32x32 chunk covers 4 metres per axis at 0.125-metre voxel spacing.
+Only nonempty chunks allocate occupancy: 32768 uint32 entries, 131072 bytes.
+Material IDs0..65535 remain usable; UINT32_MAX means empty. Material IDs must
+also be below the material count supplied to the constructor (1..65536).
+Reads, empty no-op writes and revision queries never allocate occupancy.
+Deleting the last occupied voxel frees that chunk's occupancy array.
+Reported payload excludes map nodes, revision records and allocator overhead.
+
+Edits
+setMaterial validates the address and material, then compares the caller's
+expected world revision. Stale edits return Stale without changing content.
+A valid no-op returns Unchanged without allocation or revision advancement.
+An actual change increments the monotonic uint64 world revision once. Revision
+exhaustion throws before mutation. Invalid addresses/materials throw even when
+the supplied revision is stale. This API performs one edit, not a multi-voxel
+transaction. It does not reserve particle slots or transfer material mass.
+All required allocations finish before occupancy/revision commitment. An
+allocation failure may leave unused zero-valued metadata records but no content
+or revision changes. There is no promise of concurrent readers or writers.
+
+Revisions
+The edited chunk's content and surface revisions receive the new world revision.
+An edit at local coordinate0 or31 also changes the surface revision of the
+resident face-sharing neighbor on that side. Edge/corner edits touch two/three
+face neighbors; diagonals remain unchanged. Interior edits affect only their
+own chunk. Neighbor coordinate arithmetic widens before addition and checks
+int32 limits before narrowing.
+Revision metadata survives emptying and recreating a chunk, preventing an old
+cache revision from becoming current again. A previously untouched resident
+chunk has content/surface revisions0. Out-of-region revision queries return no
+value. A cache of one chunk's occupancy compares content revisions; a cache of
+exposed faces must compare surface revisions because neighboring occupancy can
+change which faces are exposed. GPU acknowledgements remain future work.
+
+Snapshots
+copyChunk fills a caller-owned fixed-size span in x-fast local index order and
+returns that chunk's revision pair. Empty chunks fill with UINT32_MAX; invalid
+chunks leave the destination unchanged. Snapshots expose no mutable store data.
+They are consistent only under the store's single-threaded ownership contract.
+
+Verification
+CPU tests cover material0 and65535, empty reads, no-ops, stale/invalid edits,
+all six neighbor faces, corner/diagonal distinctions, snapshot contents,
+delete/recreate revision continuity, extreme chunk coordinates and a seeded
+3000-edit independent world map. Every voxel in the27-chunk test region is then
+compared with that oracle. Thermal storage, basin geometry, surface meshes,
+swept voxel collision, transactions, origin publication and save files remain
+open Sprint3 work; this component does not complete those tasks.

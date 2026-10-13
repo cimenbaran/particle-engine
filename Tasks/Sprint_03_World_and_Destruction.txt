@@ -8,9 +8,12 @@ Source: Particle_World_Design.docx, sections 2, 6, 8 and 10-13.
 Preparation status
 CPU chunk/voxel addressing and a checked resident layout are implemented and
 covered by exhaustive local-index, signed-boundary, extreme-value and origin
-round-trip tests; see ../docs/Voxel_Coordinates.txt. This does not allocate voxel
-terrain or publish a CPU/GPU rebase. All runtime and transaction gates below
-remain open. Existing Metal/WARP granular validation continues separately.
+round-trip tests; see ../docs/Voxel_Coordinates.txt. Sparse CPU material occupancy
+now allocates nonempty chunks and tracks monotonic content/surface revisions,
+including face-neighbor invalidation and stale-edit rejection. See
+../docs/Sparse_Voxel_Storage.txt. This has no live renderer, voxel collision,
+thermal state, save files or CPU/GPU origin publication yet. All runtime and
+transaction gates below remain open. Development currently prioritizes macOS.
 
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,

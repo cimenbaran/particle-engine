@@ -1,0 +1,21 @@
+Sparse CPU voxel storage validation on macOS
+
+Core-only CTest:12/12 passed.
+Native macOS CTest:17/17 passed.
+Standalone sparse_voxel_store_tests.cpp compiled with AppleClang C++20 and
+-fsanitize=undefined -fno-sanitize-recover=undefined: passed.
+
+Covers all65536 representable material IDs at the API boundary (explicit tests
+for0 and65535, rejection at65536), independent empty sentinel, sparse allocation,
+last-voxel release, stale/no-op/invalid writes, content/surface revisions,
+all six face neighbors, diagonal exclusion, snapshot reads and extreme chunk
+coordinates. A seeded3000-edit std::map oracle verifies occupancy and world
+revision progression; every voxel of a27-chunk region is compared afterwards.
+Allocation-failure behavior is specified but not fault-injected by these tests.
+
+Logs: out/sparse-voxel-build.log, out/sparse-voxel-tests.log,
+out/sparse-voxel-native-build.log, out/sparse-voxel-native-tests.log,
+out/sparse-voxel-ubsan.log.
+No GPU terrain publication, rendering, collision or persistence is implemented
+by this component. The installed Metal soak continues on clean sourceef26559;
+this CPU component did not replace or restart its running app.
