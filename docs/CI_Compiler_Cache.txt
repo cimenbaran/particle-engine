@@ -2,7 +2,7 @@ CI compiler cache
 =================
 
 The native build workflow uses sccache v0.16.0 with GitHub Actions cache storage
-for C and C++ compilation on macOS and Windows. The setup action is pinned to
+for C and C++ compilation on Windows. The setup action is pinned to
 the commit behind v0.0.11. Local CMake presets retain their normal compilers.
 
 Only compiler results are cached. Configure, shader generation, linking,
@@ -15,6 +15,13 @@ The cache integration passed actionlint 1.7.12 (shellcheck and pyflakes disabled
 and git diff --check locally. Hosted cold/warm cache behavior remains to be
 verified after this workflow is pushed. A passing cached build does not replace
 Metal or D3D11 hardware validation.
+
+macOS uses direct compilation. Run 38329721926 with caching enabled failed in
+bgfx renderer_vk.cpp and renderer_webgpu.cpp: the compile commands contain
+-ObjC++, but Clang reports that flag unused and rejects Objective-C declarations
+in Cocoa headers. This is a cache-path incompatibility; the uncached build path
+is retained pending a separately verified solution. No dependency sources or
+compiler language flags are changed to work around it.
 
 Upstream setup and cache documentation:
 https://github.com/Mozilla-Actions/sccache-action/tree/v0.0.11
