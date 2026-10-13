@@ -1,0 +1,21 @@
+Atomic CPU voxel batch validation on macOS
+
+Core-only CTest14/14 passed; native macOS CTest19/19 passed.
+AppleClang C++20 undefined-behavior sanitizer run passed with nonrecovering
+errors enabled. The allocation-injection executable exercised17 preparation
+failure points before a successful batch. Every failed attempt retained all
+occupancy, counts and revision values, including after partial insertion of
+zero-valued metadata records.
+
+Tests cover cross-chunk additions/removals/replacements; one world revision
+per changed batch; stale, invalid and duplicate rejection; unchanged/empty
+batches; no-op boundary entries not invalidating a neighbor; deletion/recreation;
+input-order independence; extreme signed chunk coordinates; and400 seeded
+batches of up to30 unique destinations against an independent world map.
+Every voxel in the oracle's8-cubed region is compared after each batch.
+
+Logs: out/voxel-batch-{build,tests,native-build,native-tests,ubsan}.log.
+The transaction is atomic under single-threaded CPU ownership only. Debris
+reservations, material transfer accounting, GPU acknowledgement and persistence
+are separate open tasks. The installed Metal sphere soak continues on clean
+source141175e and was not replaced or restarted by this CPU work.

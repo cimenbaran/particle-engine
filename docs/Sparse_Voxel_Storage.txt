@@ -24,6 +24,25 @@ All required allocations finish before occupancy/revision commitment. An
 allocation failure may leave unused zero-valued metadata records but no content
 or revision changes. There is no promise of concurrent readers or writers.
 
+Batched edits
+setMaterials takes unique voxel destinations and one expected world revision.
+It validates every address/material and rejects duplicate destinations before
+checking staleness. An empty or wholly unchanged valid batch returns Unchanged;
+a stale batch returns Stale. A changed batch advances the world revision once,
+and all changed chunks receive that same content revision. Only actual changes
+invalidate their own or neighboring surface revisions; no-op entries do not.
+Input order does not affect the committed state or revision stamps.
+Changed chunks are cloned into temporary occupancy arrays, while untouched
+chunks are shared only through read access. All occupancy and metadata
+allocations complete before any live content is changed. Publication swaps the
+prepared arrays and updates counters/revisions without allocation. A preparation
+failure leaves all occupancy and revisions unchanged; unused zero-valued
+metadata records may remain if allocation fails during metadata preparation.
+Temporary memory includes the sorted write list, changed-chunk snapshots and
+revision bookkeeping. Callers still own batch sizing and scheduling budgets.
+This is atomic under single-threaded CPU ownership. It is not a particle/debris
+reservation, mass-accounting transaction, GPU acknowledgement or snapshot save.
+
 Revisions
 The edited chunk's content and surface revisions receive the new world revision.
 An edit at local coordinate0 or31 also changes the surface revision of the
@@ -52,3 +71,9 @@ delete/recreate revision continuity, extreme chunk coordinates and a seeded
 compared with that oracle. Thermal storage, basin geometry, surface meshes,
 swept voxel collision, transactions, origin publication and save files remain
 open Sprint3 work; this component does not complete those tasks.
+
+Batch verification additionally covers mixed multi-chunk edits, duplicate and
+invalid destinations, stale submissions, order independence, empty/no-op batches,
+last-voxel deletion/recreation and400 seeded batches against a separate world map.
+Allocation-failure injection walks every preparation allocation up to success,
+including partial metadata insertion, and verifies unchanged occupancy/revisions.

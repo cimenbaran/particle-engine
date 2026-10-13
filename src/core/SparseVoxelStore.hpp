@@ -4,6 +4,8 @@
 #include <map>
 #include <memory>
 #include <span>
+#include <set>
+#include <vector>
 
 namespace pw::terrain {
 // Single-threaded authoritative occupancy. Empty is separate from all 65536
@@ -16,6 +18,7 @@ public:
         bool operator==(const Revisions&) const=default;
     };
     enum class Edit {Changed,Unchanged,Stale};
+    struct VoxelEdit {VoxelAddress address;std::uint32_t material;};
     SparseVoxelStore(ResidentChunkLayout layout,std::uint32_t materials)
         :layout_(layout),materials_(materials) {
         if(!materials || materials>65536)throw std::invalid_argument("Invalid voxel material count");
@@ -85,6 +88,70 @@ public:
         for(unsigned i=0;i<count;++i)chunks_.at(affected[i]).revisions.surface=revision_;
         return Edit::Changed;
     }
+    // Unique destinations, one world revision, and all-or-nothing CPU content.
+    // Validation (including duplicate detection) precedes stale-revision checks.
+    // This does not reserve debris or publish a GPU transaction.
+    Edit setMaterials(std::span<const VoxelEdit> edits,std::uint64_t expectedRevision) {
+        struct Write {std::uint32_t slot,local,material;VoxelAddress address;};
+        std::vector<Write> writes;writes.reserve(edits.size());
+        for(const auto& edit:edits) {
+            auto slot=layout_.index(edit.address.chunk),local=localIndex(edit.address.local);
+            if(!slot || !local || (edit.material!=empty && edit.material>=materials_))
+                throw std::invalid_argument("Invalid voxel batch edit");
+            writes.push_back({*slot,*local,edit.material,edit.address});
+        }
+        std::sort(writes.begin(),writes.end(),[](const Write& a,const Write& b){
+            return a.slot<b.slot || (a.slot==b.slot && a.local<b.local);
+        });
+        for(std::size_t i=1;i<writes.size();++i)
+            if(writes[i-1].slot==writes[i].slot && writes[i-1].local==writes[i].local)
+                throw std::invalid_argument("Duplicate voxel batch destination");
+        if(expectedRevision!=revision_)return Edit::Stale;
+        std::map<std::uint32_t,Entry> staged;
+        std::set<std::uint32_t> affected;
+        for(const auto& write:writes) {
+            const auto previous=*materialAt(write.address);
+            if(previous==write.material)continue;
+            if(revision_==UINT64_MAX)throw std::overflow_error("Voxel revision exhausted");
+            auto [prepared,inserted]=staged.try_emplace(write.slot);
+            auto& entry=prepared->second;
+            if(inserted) {
+                auto old=chunks_.find(write.slot);
+                entry.voxels=std::make_unique<Voxels>();
+                if(old!=chunks_.end() && old->second.voxels) {
+                    *entry.voxels=*old->second.voxels;entry.occupied=old->second.occupied;
+                } else entry.voxels->fill(empty);
+            }
+            (*entry.voxels)[write.local]=write.material;
+            if(previous==empty)++entry.occupied;
+            if(write.material==empty)--entry.occupied;
+            affected.insert(write.slot);
+            for(unsigned axis=0;axis<3;++axis) {
+                const int step=write.address.local[axis]==0?-1:write.address.local[axis]==31?1:0;
+                if(!step)continue;
+                const auto coordinate=std::int64_t(write.address.chunk[axis])+step;
+                if(coordinate<INT32_MIN || coordinate>INT32_MAX)continue;
+                auto neighbor=write.address.chunk;neighbor[axis]=std::int32_t(coordinate);
+                if(auto next=layout_.index(neighbor))affected.insert(*next);
+            }
+        }
+        if(staged.empty())return Edit::Unchanged;
+        // Finish allocations before publication. As with scalar edits, a failed
+        // metadata allocation may leave zero records, never partial occupancy.
+        for(auto slot:affected)chunks_.try_emplace(slot);
+        for(auto& [slot,prepared]:staged) {
+            auto& current=chunks_.at(slot);
+            occupied_-=current.occupied;occupied_+=prepared.occupied;
+            if(current.voxels)--allocated_;
+            if(!prepared.occupied)prepared.voxels.reset();else ++allocated_;
+            current.voxels.swap(prepared.voxels);current.occupied=prepared.occupied;
+            current.revisions.content=revision_+1;
+        }
+        ++revision_;
+        for(auto slot:affected)chunks_.at(slot).revisions.surface=revision_;
+        return Edit::Changed;
+    }
+
 private:
     using Voxels=std::array<std::uint32_t,voxelsPerChunk>;
     struct Entry {
