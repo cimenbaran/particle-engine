@@ -26,7 +26,7 @@ void main() {
   if(u_contact_floor.x>0.0) {
     vec3 velocity=b_start[id*4u+1u].xyz;float drag=b_materials[identity.x*4u].w;
     valid=valid && contactFinite3(velocity) && contactFinite(drag) && drag>=0.0 && drag<=100.0;
-    if(valid && p.y==p.w && abs(velocity.y)<=u_contact_floor.z && abs(velocity.x)<=u_contact_floor.z && abs(velocity.z)<=u_contact_floor.z) {
+    if(valid && u_contact_floor.w==0.0 && p.y==p.w && abs(velocity.y)<=u_contact_floor.z && abs(velocity.x)<=u_contact_floor.z && abs(velocity.z)<=u_contact_floor.z) {
       float damping=max(0.0,1.0-drag*u_contact_floor.y);
       float tangent=length(velocity.xz)*damping,normal=max(0.0,u_contact_floor.x*u_contact_floor.y-velocity.y)*damping;
       float speed=sqrt(tangent*tangent+normal*normal);
@@ -37,6 +37,18 @@ void main() {
       // The sweep spent min(tangent,mu*normal) stopping existing sliding.
       // Only the unused static traction may resist later position corrections.
       b_packed[id*8u+6u]=vec4(max(0.0,mu*normal-tangent)*u_contact_floor.y,0.0,0.0,0.0);
+    }
+  }
+  if(valid && u_contact_floor.x>0.0 && u_contact_floor.w!=0.0) {
+    vec3 forced=b_start[id*4u+1u].xyz;
+    forced.y-=u_contact_floor.x*u_contact_floor.y;
+    forced*=max(0.0,1.0-b_materials[identity.x*4u].w*u_contact_floor.y);
+    float largest=max(abs(forced.x),max(abs(forced.y),abs(forced.z)));
+    if(!contactFinite3(forced))valid=false;
+    else {
+      float speed=largest>0.0?largest*length(forced/largest):0.0;
+      if(speed>u_contact_floor.z)forced=(forced/largest)*(u_contact_floor.z/length(forced/largest)*.9999995231628418);
+      b_packed[id*8u+7u]=vec4(forced,u_contact_floor.y);
     }
   }
   b_packed[id*8u+4u]=p;

@@ -31,7 +31,7 @@ void main() {
     vec3 unit=scaled/magnitude;float speed=sqrt(dot(unit,unit));
     if(largest>u_voxel_motion.x/speed){v=unit*((u_voxel_motion.x/speed)*.9999995231628418);atomicAdd(b_status[1],1u);}
   }
-  float remaining=u_velocity.y;uint events=0u,normals=0u;uint contacts[8];uint contactCount=0u,excluded=0xffffffffu;
+  float remaining=u_velocity.y;uint events=0u,normals=0u;uint contactCount=0u,excluded=0xffffffffu;
   vec3 safeStart=p;
   LOOP while(remaining>0.0) {
     safeStart=p;
@@ -52,15 +52,24 @@ void main() {
       float scale=speed>0.0?max(0.0,1.0-sqrt(mechanical.y*terrainMaterial.y)*support/speed):0.0;
       v=normal*outgoing+tangent*scale;vec3 separated;float fraction;
       if(!voxelMotionSeparate(p,centre,normal,separated,fraction)){atomicOr(b_status[0],8u);return;}p=separated;
-      // Keep only earlier contacts still in the narrow separation shell.
-      uint kept=0u;bool present=false;vec3 contactNormals[8];
-      LOOP for(uint c=0u;c<contactCount;++c) {
-        uint address=contacts[c];vec3 lower=voxelMotionLower(address);
-        if(length(centre-clamp(centre,lower,lower+vec3_splat(.125)))>.0625+4e-6)continue;
-        contacts[kept]=address;contactNormals[kept]=voxelNormal(centre,lower);++kept;if(address==index)present=true;
+      // Gather the complete local shell, including nearby contacts not yet
+      // hit in this substep. Otherwise rounded endpoints can alternate between
+      // two tangent contacts forever while missing the opposite gap surfaces.
+      contactCount=0u;vec3 contactNormals[8];
+      ivec3 minimum=ivec3(b_world[0].xyz),dimensions=ivec3(b_world[1].xyz);
+      ivec3 first=max(ivec3(ceil((centre-vec3_splat(.062504))*8.0))-ivec3(1,1,1)-minimum,ivec3(0,0,0));
+      ivec3 last=min(ivec3(floor((centre+vec3_splat(.062504))*8.0))-minimum,dimensions*32-ivec3(1,1,1));
+      LOOP for(int z=first.z;z<=last.z;++z)
+      LOOP for(int y=first.y;y<=last.y;++y)
+      LOOP for(int x=first.x;x<=last.x;++x) {
+        ivec3 cell=ivec3(x,y,z),chunk=cell/32,local=cell-chunk*32;
+        uint address=uint(chunk.x+dimensions.x*(chunk.y+dimensions.y*chunk.z))*32768u+uint(local.x+32*(local.y+32*local.z));
+        uvec4 packed=b_world[4u+address/4u];if(packed[address%4u]==0xffffffffu)continue;
+        vec3 lower=vec3(minimum+cell)*.125;
+        if(length(centre-clamp(centre,lower,lower+vec3_splat(.125)))>.062504)continue;
+        if(contactCount==8u){atomicOr(b_status[0],4u);return;}
+        contactNormals[contactCount]=voxelNormal(centre,lower);++contactCount;
       }
-      contactCount=kept;
-      if(!present){if(contactCount==8u){atomicOr(b_status[0],4u);return;}contacts[contactCount]=index;contactNormals[contactCount]=voxelNormal(centre,voxelMotionLower(index));++contactCount;}
       if(contactCount>1u)v=voxelContactCone(v,contactNormals,contactCount);
       // This convex voxel cannot be entered again by the outgoing straight
       // ray. Re-enable it only after another collider changes the velocity.

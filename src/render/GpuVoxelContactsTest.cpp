@@ -51,17 +51,19 @@ void runGpuVoxelContactsTest(const std::filesystem::path& assets) {
     std::array<MaterialGpu,2> materials{};materials[1].identity[0]=1;materials[1].identity[1]=1;
     ConstraintHandle materialBuffer(bgfx::createDynamicVertexBuffer(bgfx::copy(materials.data(),sizeof(materials)),layout,BGFX_BUFFER_COMPUTE_READ));
     unsigned cases=0;
-    auto check=[&](std::vector<Vector> occupied,std::vector<ParticleGpu> input,Vector expected,unsigned error=0,unsigned iterations=1,bool badBaseline=false,unsigned terrainMaterial=0,const std::vector<Vector>& expectedPositions={},GranularGridProfile profile=GranularGridProfile::Basin) {
+    auto check=[&](std::vector<Vector> occupied,std::vector<ParticleGpu> input,Vector expected,unsigned error=0,unsigned iterations=1,bool badBaseline=false,unsigned terrainMaterial=0,const std::vector<Vector>& expectedPositions={},GranularGridProfile profile=GranularGridProfile::Basin,FloorTractionProfile traction={},float friction=0,float terrainFriction=-1,const std::vector<ParticleGpu>& suppliedBaseline=std::vector<ParticleGpu>{}) {
+        materials[0].mechanical[1]=friction;materials[1].mechanical[1]=std::max(0.0f,terrainFriction);materials[1].identity[1]=terrainFriction>=0?0:1;
+        bgfx::update(materialBuffer.value,0,bgfx::copy(materials.data(),sizeof(materials)));
         SparseVoxelStore store(ResidentChunkLayout({-4,0,-4},{8,4,8}),2);
         for(auto p:occupied)store.setMaterial(address(p),terrainMaterial,store.revision());
         GpuVoxelWorld world(store,{});VoxelContactContext context{world,store,{}};
         GpuJacobiContacts solver(assets,std::uint32_t(input.size()),1,.0625f,true,{},profile);
-        auto baseline=input;if(badBaseline)for(unsigned a=0;a<3;++a)baseline[0].positionRadius[a]=float(occupied[0][a]+.0625);
+        auto baseline=suppliedBaseline.empty()?input:suppliedBaseline;if(badBaseline)for(unsigned a=0;a<3;++a)baseline[0].positionRadius[a]=float(occupied[0][a]+.0625);
         ConstraintHandle state(bgfx::createDynamicVertexBuffer(bgfx::copy(input.data(),std::uint32_t(input.size()*sizeof(ParticleGpu))),layout,BGFX_BUFFER_COMPUTE_READ));
         ConstraintHandle old(bgfx::createDynamicVertexBuffer(bgfx::copy(baseline.data(),std::uint32_t(baseline.size()*sizeof(ParticleGpu))),layout,BGFX_BUFFER_COMPUTE_READ));
         const auto count=std::uint32_t(input.size());
         auto current=state.value;
-        for(unsigned iteration=0;iteration<iterations;++iteration){solver.submit(0,current,materialBuffer.value,2,old.value,{},&context);current=solver.output();}
+        for(unsigned iteration=0;iteration<iterations;++iteration){solver.submit(0,current,materialBuffer.value,2,old.value,traction,&context);current=solver.output();}
         ConstraintHandle image(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
         ConstraintHandle staging(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
         ConstraintHandle sourceImage(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
@@ -101,6 +103,15 @@ void runGpuVoxelContactsTest(const std::filesystem::path& assets) {
             if(iterations==1)for(unsigned a=0;a<3;++a)if(std::abs(actual[0].positionRadius[a]-expected[a])>8e-6)
                 throw std::runtime_error("Voxel Jacobi CPU/analytic position case "+std::to_string(cases)+" axis "+std::to_string(a)+": "+std::to_string(actual[0].positionRadius[a])+" expected "+std::to_string(expected[a]));
         }
+        if(traction.gravity>0) {
+            const auto before=solver.output();
+            for(auto invalid:{FloorTractionProfile{9.81f,.02f,12},FloorTractionProfile{9.81f,.004f,13}}) {
+                bool caught=false;try{solver.submit(0,state.value,materialBuffer.value,2,old.value,invalid,&context);}catch(const std::invalid_argument&){caught=true;}
+                require(caught && solver.output().idx==before.idx,"Voxel traction accepted unsafe profile");
+            }
+            bool missing=false;try{solver.submit(0,state.value,materialBuffer.value,2,BGFX_INVALID_HANDLE,traction,&context);}catch(const std::invalid_argument&){missing=true;}
+            require(missing && solver.output().idx==before.idx,"Voxel traction accepted missing baseline");
+        }
         // Host revision, owner and origin rejection must precede any output change.
         const auto previous=solver.output();
         auto reject=[&](const VoxelContactContext& invalid){bool caught=false;try{solver.submit(0,state.value,materialBuffer.value,2,old.value,{},&invalid);}catch(const std::invalid_argument&){caught=true;}require(caught && solver.output().idx==previous.idx,"Voxel Jacobi accepted stale context");};
@@ -114,6 +125,44 @@ void runGpuVoxelContactsTest(const std::filesystem::path& assets) {
         p[axis]=lower[axis]+(sign>0?.125:0)+sign*(.0625+.005);
         delta[axis]=-sign*.025;delta[(axis+1)%3]=.0125;
         auto input=pair(p,delta);check({lower},input,singleReference(input,lower));
+    }
+    const FloorTractionProfile traction{9.81f,1.0f/240,12};
+    // Six faces: force-supported micro corrections stick, larger ones slide.
+    for(unsigned axis=0;axis<3;++axis)for(double sign:{-1.0,1.0}) {
+        Vector lower{0,2,0},position{.0625,2.0625,.0625},delta{};
+        position[axis]=lower[axis]+(sign>0?.125:0)+sign*.0625;
+        delta[(axis+1)%3]=.00002;
+        auto bodies=pair(position,delta);bodies[0].velocityInvMass[axis]=float(-sign*.1);
+        check({lower},bodies,position,0,1,false,0,{},GranularGridProfile::Basin,traction,1);
+        check({lower},bodies,unconstrained(bodies),0,1,false,0,{},GranularGridProfile::Basin,traction,0);
+        delta[(axis+1)%3]=.001;bodies=pair(position,delta);bodies[0].velocityInvMass[axis]=float(-sign*.1);
+        check({lower},bodies,unconstrained(bodies),0,1,false,0,{},GranularGridProfile::Basin,traction,1);
+    }
+    Vector top{.0625,2.1875,.0625};
+    auto micro=pair(top,{.00008,0,0});
+    check({{0,2,0}},micro,top,0,1,false,0,{},GranularGridProfile::Basin,traction,1);
+    // sqrt(.25*1)=.5 permits this correction; sqrt(.01*1)=.1 does not.
+    check({{0,2,0}},micro,top,0,1,false,1,{},GranularGridProfile::Basin,traction,.25f,1);
+    check({{0,2,0}},micro,unconstrained(micro),0,1,false,1,{},GranularGridProfile::Basin,traction,.01f,1);
+    auto sliding=pair(top,{.00014,0,0});sliding[0].velocityInvMass[0]=.01f;
+    check({{0,2,0}},sliding,unconstrained(sliding),0,1,false,0,{},GranularGridProfile::Basin,traction,1);
+    micro[0].velocityInvMass[1]=.1f;check({{0,2,0}},micro,unconstrained(micro),0,1,false,0,{},GranularGridProfile::Basin,traction,1);
+    // Detached baselines must not borrow a resting contact's gravity budget.
+    auto baseline=micro;baseline[0].positionRadius[1]+=.001f;micro[0].velocityInvMass[1]=0;baseline[0].velocityInvMass[1]=0;
+    check({{0,2,0}},micro,unconstrained(micro),0,1,false,0,{},GranularGridProfile::Basin,traction,1,-1,baseline);
+    micro=pair(top,{.00008,0,0});
+    check({{0,2,0}},micro,top,0,4,false,0,{top},GranularGridProfile::Basin,traction,1);
+    // A normal positional correction supplies static traction even without
+    // force support. A gravity profile must not be required for this load.
+    auto loaded=pair({.0625,2.1925,.0625},{.0125,-.025,0});
+    check({{0,2,0}},loaded,{.0625,2.187502,.0625},0,1,false,0,{},GranularGridProfile::Basin,{},1);
+    // Rounded edge/corner contact remains clear when restoring a tiny tangent.
+    for(unsigned axes:{2u,3u}) {
+        Vector lower{0,2,0},position{.0625,2.0625,.0625},normal{};
+        for(unsigned a=0;a<axes;++a){normal[a]=1/std::sqrt(double(axes));position[a]=lower[a]+.125+normal[a]*.062502;}
+        Vector delta{-.00001,.00001,0};auto bodies=pair(position,delta);
+        for(unsigned a=0;a<3;++a)bodies[0].velocityInvMass[a]=float(-normal[a]*.2);
+        check({lower},bodies,position,0,1,false,0,{},GranularGridProfile::Basin,traction,1);
     }
     // Rounded edge/corner, tangent escape and a second perpendicular surface.
     for(unsigned axes:{2u,3u}) {

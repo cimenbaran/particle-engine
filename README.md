@@ -6,7 +6,7 @@ mode with pair contacts and bounded walls. Water, reactions and persistent terra
 remain planned; cross-platform granular stability and release gates are still open.
 A resident voxel basin runs with `--terrain-preview`, including interacting sand
 and diagnostic collision probes. Live voxel support now reports settling candidates.
-Terrain static traction, editing and mass conversion
+Terrain editing and mass conversion
 remain open. Development currently prioritizes macOS.
 
 ## Build

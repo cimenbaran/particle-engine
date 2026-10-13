@@ -85,3 +85,10 @@ A later free-axis fixture caught lost tangential travel during backoff, and
 restoring that time exposed impossible repeated entries on the same convex
 voxel. Time accounting and event eligibility now have regression coverage.
 This short correctness run does not replace the planned long terrain/edit soak.
+
+Contact shell update
+Prediction now gathers all nearby occupied voxel normals within the 4-micrometre
+shell at an impact, including contacts not yet hit in this substep. This prevents
+repeated tangent impacts from hiding opposite gap surfaces. The existing
+8-normal capacity and 16-event limit remain checked. The free-axis wedge test
+and exact captured four-corner state guard this change; see GPU_Voxel_Traction.txt.

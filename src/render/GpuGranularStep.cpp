@@ -91,7 +91,7 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
         else {sweep_.submit(view,forced_,materials,count,status_,plan_.substepSeconds,profile_.speedLimit,0.5f,16,obstacle_);collect(view,sweep_.status(),2,1);}
         const auto substepStart=current;
         const auto predicted=terrain?prediction_:sweep_.output();current=predicted;
-        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart,terrain?FloorTractionProfile{}:FloorTractionProfile{gravity_,plan_.substepSeconds,profile_.speedLimit},terrain);current=contacts_.output();collect(view,contacts_.status(),4,2);total(view,contacts_.diagnosticRecords(),contacts_.status(),0);}
+        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart,FloorTractionProfile{gravity_,plan_.substepSeconds,profile_.speedLimit},terrain);current=contacts_.output();collect(view,contacts_.status(),4,2);total(view,contacts_.diagnosticRecords(),contacts_.status(),0);}
         velocity_.submit(view,predicted,current,materials,count,status_,plan_.substepSeconds,VelocityReconstructionMode::Correction);collect(view,velocity_.status(),8,0);
         response_.submit(view,predicted,velocity_.output(),materials,count,status_);collect(view,response_.status(),16,2);total(view,response_.diagnosticRecords(),response_.status(),1);
         if(terrain) {

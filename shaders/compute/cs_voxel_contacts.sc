@@ -86,6 +86,58 @@ uint voxelCorrection(vec3 original,vec3 delta,out vec3 result) {
   }
   return 8u;
 }
+// Consider each contact's own Coulomb budget; do not sum duplicated voxel
+// faces. Keep one admissible sticking correction, then sweep it again.
+void voxelTractionCandidate(vec3 position,vec3 requested,vec3 baseline,vec3 normal,
+    float mu,vec4 forced,bool supported,inout vec3 best) {
+  vec3 relative=position-baseline;
+  vec3 tangent=relative-normal*dot(relative,normal);
+  float budget=mu*max(0.0,dot(position-requested,normal));
+  if(supported && forced.w>0.0) {
+    float normalSpeed=max(0.0,-dot(forced.xyz,normal));
+    vec3 sliding=forced.xyz-normal*dot(forced.xyz,normal);
+    // Prediction already spent friction on pre-existing tangent velocity.
+    budget+=max(0.0,mu*normalSpeed-length(sliding))*forced.w;
+  }
+  float magnitude=length(tangent);
+  if(magnitude<=budget && magnitude>length(best))best=tangent;
+}
+uint voxelTraction(uint slot,vec3 original,vec3 requested,inout vec3 proposed) {
+  if(b_state[slot*8u+5u].x==0.0)return 0u;
+  float own=b_state[slot*8u+5u].y;
+  vec3 baseline=b_state[slot*8u+4u].xyz,best=vec3_splat(0.0);
+  vec4 forced=b_state[slot*8u+7u];
+  ivec3 minimum=ivec3(b_world[0].xyz),dimensions=ivec3(b_world[1].xyz);
+  vec3 lo=vec3(minimum)*.125+vec3_splat(.0625);
+  vec3 hi=vec3(minimum)*.125+vec3(dimensions)*4.0-vec3_splat(.0625);
+  LOOP for(uint axis=0u;axis<3u;++axis) {
+    vec3 n=vec3_splat(0.0);bool supported=false;
+    if(proposed[axis]<=lo[axis]+4e-6){n[axis]=1.0;supported=baseline[axis]<=lo[axis]+4e-6;}
+    else if(proposed[axis]>=hi[axis]-4e-6){n[axis]=-1.0;supported=baseline[axis]>=hi[axis]-4e-6;}
+    if(n[axis]!=0.0)voxelTractionCandidate(proposed,requested,baseline,n,own,forced,supported,best);
+  }
+  ivec3 first=max(ivec3(ceil((proposed-vec3_splat(.062504))*8.0))-ivec3(1,1,1)-minimum,ivec3(0,0,0));
+  ivec3 last=min(ivec3(floor((proposed+vec3_splat(.062504))*8.0))-minimum,dimensions*32-ivec3(1,1,1));
+  LOOP for(int z=first.z;z<=last.z;++z)
+  LOOP for(int y=first.y;y<=last.y;++y)
+  LOOP for(int x=first.x;x<=last.x;++x) {
+    ivec3 cell=ivec3(x,y,z),chunk=cell/32,local=cell-chunk*32;
+    uint address=uint(chunk.x+dimensions.x*(chunk.y+dimensions.y*chunk.z))*32768u+uint(local.x+32*(local.y+32*local.z));
+    uvec4 packed=b_world[4u+address/4u];uint material=packed[address%4u];if(material==0xffffffffu)continue;
+    vec3 lower=vec3(minimum+cell)*.125;
+    if(length(proposed-clamp(proposed,lower,lower+vec3_splat(.125)))>.062504)continue;
+    if(material>=uint(u_contact_friction.y) || floatBitsToUint(b_materials[material*4u+3u]).y!=0u)return 4u;
+    float other=b_materials[material*4u].y;uint bits=floatBitsToUint(other);
+    if((bits&0x7fffffffu)>0x3f800000u || ((bits&0x80000000u)!=0u && (bits&0x7fffffffu)!=0u))return 4u;
+    bool supported=length(baseline-clamp(baseline,lower,lower+vec3_splat(.125)))<=.062504;
+    voxelTractionCandidate(proposed,requested,baseline,voxelNormal(proposed,lower),sqrt(own*other),forced,supported,best);
+  }
+  if(dot(best,best)>0.0) {
+    vec3 result;uint error=voxelCorrection(original,proposed-best-original,result);
+    if(error!=0u)return error;proposed=result;
+  }
+  return 0u;
+}
 NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint slot=gl_GlobalInvocationID.x;if(slot>=uint(u_contacts.x))return;
@@ -95,6 +147,7 @@ void main() {
   if(!voxelMotionClear(original))counts.w=6u;
   else if(b_state[slot*8u+5u].x!=0.0 && !voxelMotionClear(b_state[slot*8u+4u].xyz))counts.w=7u;
   else counts.w=voxelCorrection(original,b_corrections[slot*2u].xyz,proposed);
+  if(counts.w==0u)counts.w=voxelTraction(slot,original,original+b_corrections[slot*2u].xyz,proposed);
   if(counts.w==0u) {
     vec3 delta=proposed-original,stored=original+delta;
     if(!contactFinite3(stored) || length(delta)>u_contacts.w+2e-6 || !voxelMotionClear(stored))counts.w=5u;

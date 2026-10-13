@@ -1,0 +1,62 @@
+VOXEL STATIC TRACTION
+
+Purpose
+The swept predictor spends material friction on existing sliding velocity. Pair
+position corrections can then restart sliding even when a grain was resting.
+The voxel Jacobi stage now uses the immutable substep baseline to resist those
+small displacements within a static Coulomb budget. Sliding still belongs to the
+velocity passes; the position stage does not add a second kinetic impulse.
+
+Budget and geometry
+For a candidate contact normal n, traction combines:
+  sqrt(particle_mu * terrain_mu) times the removed inward position correction;
+  unused force traction times dt, if the baseline was in that contact shell.
+Unused force traction is max(0, mu * inward_speed - tangential_speed), evaluated
+from the baseline velocity after gravity, drag and the prediction speed cap.
+The force profile is passed by the coordinator to each iteration. Packed lane 7
+holds this post-force velocity and dt; analytic floor accounting stays in lane 6.
+The force profile requires an immutable baseline, dt<=.01s and speed limit<=12m/s.
+Without a force profile, normal positional correction can still support traction.
+
+Every occupied voxel within the 4-micrometre shell is considered, including
+rounded edges/corners. Material friction is checked and combined geometrically.
+The same resident containment planes use the particle's boundary coefficient.
+For each contact, the full tangent displacement from the baseline must fit its
+own budget to stick. The largest admissible sticking displacement is selected;
+duplicate coplanar voxel contacts never have their budgets summed. This is a
+per-contact sticking rule, not a coupled multi-contact static-friction solve.
+Deterministic traversal resolves equal choices. Detached or separating baselines
+cannot borrow a resting gravity budget. Zero friction cannot stick.
+
+The adjusted displacement is swept again from the immutable iteration input.
+Checked separation, correction limits, endpoint nonpenetration and whole-pass
+rollback still apply. Repeated iterations share the same baseline; they do not
+accumulate force budget independently into a new reference position.
+
+Motion contact shell
+The first integrated run exposed a narrow four-corner gap at tick 112. Motion
+retained only two hit contacts. Float endpoint rounding repeatedly re-entered
+those tangencies before reaching the opposite nearby corners, exhausting the
+16-event limit. Prediction now rebuilds the complete nearby contact shell at
+impact before projecting velocity onto the contact cone. It retains the existing
+8-contact capacity (overflow remains an error) and 16-event budget. Geometry
+still sweeps each segment. This matches the finish pass's nearby-contact policy.
+The free Z direction in the independent narrow-wedge fixture remains unchanged.
+Joint resolution may now require one collision event instead of several; event
+counters describe impacts, not the number of gathered shell normals.
+
+Validation and limits
+Face tests distinguish sticking, sliding and zero friction on all six axes.
+Additional tests cover mixed coefficients, already-spent sliding friction,
+separating/detached baselines, repeated iterations, load from position correction,
+rounded geometry, and invalid/missing force profiles. Existing tests retain
+immutable state, correction bounds, terrain clearance and rollback checks.
+An exact-bit motion regression reproduces the four-corner failure, checking
+energy, final containment and stopped constrained velocity. Earlier captured
+free-tangent regressions remain enabled. The live 600-tick basin fixture now
+requires all final speeds <=.05m/s, and still checks collision/identity/fault gates.
+This is an endpoint regression, not proof of indefinite settling or deposition.
+See ../tests/results/m3-max-voxel-traction.txt for execution results.
+
+Active command pool integration, terrain mass conversion, editing transactions,
+persistence, water and thermal simulation remain separate unfinished work.

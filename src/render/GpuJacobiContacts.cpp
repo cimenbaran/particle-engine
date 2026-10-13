@@ -44,7 +44,7 @@ void GpuJacobiContacts::release() {
 }
 void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,bgfx::DynamicVertexBufferHandle start,FloorTractionProfile floor,const VoxelContactContext* terrain) {
     if(terrain) {
-        if(!terrain->world.isCurrent(terrain->source,terrain->origin) || obstacle_.radius>0 || floor.gravity>0)
+        if(!terrain->world.isCurrent(terrain->source,terrain->origin) || obstacle_.radius>0)
             throw std::invalid_argument("Stale or incompatible Jacobi terrain context");
         const auto h=terrain->world.buffer();
         if(h.idx==input.idx || h.idx==materials.idx || h.idx==start.idx)
@@ -52,8 +52,10 @@ void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandl
     }
     if(!std::isfinite(floor.gravity) || floor.gravity<0 || floor.gravity>100 || !std::isfinite(floor.substepSeconds) || floor.substepSeconds<0 || floor.substepSeconds>1 ||
        !std::isfinite(floor.speedLimit) || floor.speedLimit<0.001f || floor.speedLimit>1000000 ||
-       (floor.gravity>0 && (!bounded_ || !bgfx::isValid(start) || floor.substepSeconds<std::numeric_limits<float>::min())))
+       (floor.gravity>0 && ((!bounded_ && !terrain) || !bgfx::isValid(start) || floor.substepSeconds<std::numeric_limits<float>::min())))
         throw std::invalid_argument("Invalid floor traction profile");
+    if(terrain && floor.gravity>0 && (floor.substepSeconds>.01f || floor.speedLimit>12))
+        throw std::invalid_argument("Voxel traction requires substep <=.01s and speed <=12m/s");
     if(!bgfx::isValid(input) || !bgfx::isValid(materials) || input.idx==materials.idx || input.idx==corrections_.idx ||
        materials.idx==corrections_.idx || materials.idx==states_[0].idx || materials.idx==states_[1].idx || !materialCount || materialCount>65536)
         throw std::invalid_argument("Invalid Jacobi input or material buffer");
@@ -67,7 +69,7 @@ void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandl
     ranges_.submit(view,sort_.output(),keys_.status());hash_.submit(view,ranges_.ranges(),ranges_.metadata());
     bgfx::setBuffer(0,hash_.metadata(),bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(!capacity_) return;
-    const float floorParameters[]{floor.gravity,floor.substepSeconds,floor.speedLimit,0};bgfx::setUniform(floorParams_,floorParameters);
+    const float floorParameters[]{floor.gravity,floor.substepSeconds,floor.speedLimit,terrain?1.0f:0.0f};bgfx::setUniform(floorParams_,floorParameters);
     const float friction[]{float(capacity_),float(materialCount),bgfx::isValid(start)?1.0f:0.0f,0};
     bgfx::setUniform(frictionParams_,friction);bgfx::setBuffer(0,input,bgfx::Access::Read);
     bgfx::setBuffer(1,bgfx::isValid(start)?start:input,bgfx::Access::Read);bgfx::setBuffer(2,materials,bgfx::Access::Read);

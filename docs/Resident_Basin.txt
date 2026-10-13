@@ -53,7 +53,8 @@ two adjacent voxels produce ten exposed faces.
 
 Live interacting particles now report settling candidates from voxel/pair support
 with speed/contact hysteresis; candidates remain active (GPU_Settling.txt).
-Remaining integration: terrain static traction; active
+Voxel static traction is enabled (GPU_Voxel_Traction.txt).
+Remaining integration: active
 particle command ownership; consistent terrain edits and physical debris /
 deposition transactions; dirty chunk mesh reuse; origin rebases at tick boundaries,
 fluids, thermal state and persistence. The complete particle/terrain tick now runs

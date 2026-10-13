@@ -103,6 +103,8 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
             ReferenceResult expected;
             if(basinReplay) {
                 expected.p={result.positionRadius[0],result.positionRadius[1],result.positionRadius[2]};expected.v={result.velocityInvMass[0],result.velocityInvMass[1],result.velocityInvMass[2]};
+                if(source.velocityInvMass[0]==0 && source.velocityInvMass[2]==0)
+                    require(std::hypot(result.velocityInvMass[0],result.velocityInvMass[1],result.velocityInvMass[2])<1e-5,"Four-corner shell failed to constrain resting grain");
                 if(source.velocityInvMass[0]>.8f)require(result.positionRadius[0]-source.positionRadius[0]>.003f,"Captured basin skin case lost free X travel");
             } else if(wedge) {
                 // Opposing rounded edges constrain XY, leaving the Z direction
@@ -120,7 +122,8 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
             Vector position{result.positionRadius[0],result.positionRadius[1],result.positionRadius[2]};
             for(auto address:occupied)require(reference::voxelDistance(position,*relativeCorner(address,{}))>=.0625-1e-7,"Voxel motion published penetration");
         }
-        if(wedge)require(stats[2]>=2 && stats[2]<=16 && stats[3]==stats[2],"Narrow gap did not exercise multiple contacts");
+        // A complete shell can resolve both wedge normals in one collision event.
+        if(wedge)require(stats[2]>=1 && stats[2]<=16 && stats[3]==stats[2],"Narrow gap contact event accounting failed");
         if(!expectedError && !wedge && !basinReplay)require(stats[1]==capped && stats[2]==events && stats[3]==normals,"Voxel motion counters disagree");
         ++cases;particles+=count;
     };
@@ -159,9 +162,10 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
     materials[0].mechanical[2]=materials[1].mechanical[2]=0;
     check(wedgeWorld,wedgeCells,{body({std::nextafter(-5.6875f,0.0f),3.8755f,-7.1875f},{0,-1,1})},.01f,0,0,16,nullptr,true);
     // Exact prediction inputs captured from the dense interacting basin.
-    const std::array<std::array<std::uint32_t,16>,2> basinCases{{
+    const std::array<std::array<std::uint32_t,16>,3> basinCases{{
         {3225596409u,1075316310u,3230793729u,1031798784u,1063122435u,3173475230u,0u,1058829479u,1133679411u,0u,0u,1068883462u,1u,1u,95u,1u},
-        {3227779071u,1076104597u,3231187343u,1031798784u,952768685u,3204461930u,3171002964u,1058829479u,1133679411u,0u,0u,1070491300u,1u,1u,86u,1u}
+        {3227779071u,1076104597u,3231187343u,1031798784u,952768685u,3204461930u,3171002964u,1058829479u,1133679411u,0u,0u,1070491300u,1u,1u,86u,1u},
+        {3230793726u,1078986427u,3232104447u,1031798784u,0u,3173475230u,0u,1058829479u,1133679411u,0u,0u,1072448668u,1u,1u,3u,1u}
     }};
     auto basin=buildBasin(1337,3,0,1,2);materials[0].mechanical[1]=.7f;materials[0].mechanical[2]=.18f;materials[1].mechanical[1]=.5f;materials[1].mechanical[2]=.12f;
     for(auto words:basinCases) {

@@ -108,7 +108,7 @@ the physics latch as upstream status. Rollback invalidates history, while stale
 host-rejected ticks do not advance it. A separate asynchronous diagnostic sample
 reports candidates in the preview. Dropping particles or rebuilding the basin
 recreates the tracker; pausing schedules no ticks. Candidates remain active and
-do not change physics, ownership or terrain. Static traction and deposition
-remain pending.
+do not change physics, ownership or terrain. Static traction now uses voxel contacts (GPU_Voxel_Traction.txt). Deposition
+remains pending.
 
 Execution evidence: ../tests/results/m3-max-voxel-settling.txt.

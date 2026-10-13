@@ -9,6 +9,7 @@
 namespace pw {
 // Position-only common-radius granular Jacobi iteration. Not a full time step:
 // prediction, velocity reconstruction and terrain velocity response remain caller work.
+// Unused post-prediction force traction, shared by analytic floor and voxel terrain.
 struct FloorTractionProfile {float gravity=0,substepSeconds=0,speedLimit=12;};
 class GpuJacobiContacts {
 public:
@@ -27,8 +28,9 @@ public:
                 bgfx::DynamicVertexBufferHandle substepStart=BGFX_INVALID_HANDLE,FloorTractionProfile floor={},const VoxelContactContext* terrain=nullptr);
     bgfx::DynamicVertexBufferHandle output() const {return output_;}
     // Optional terrain is swept before committing corrections. Its source must
-    // remain current/alive through GPU execution. Cannot combine with a sphere
-    // or analytic floor traction. Terrain solve exhaustion reports bit 64.
+    // remain current/alive through GPU execution. Cannot combine
+    // with a sphere. Voxel force traction requires dt<=.01 and speed<=12.
+    // Terrain solve exhaustion reports bit 64.
     // error bits, max overlaps per particle, max candidates, max hash probes.
     // Any error copies input unchanged across the whole iteration.
     bgfx::DynamicIndexBufferHandle status() const {return status_;}

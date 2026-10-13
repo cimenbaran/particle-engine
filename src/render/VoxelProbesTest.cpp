@@ -79,6 +79,7 @@ static void voxelProbesCase(const std::filesystem::path& assets,bool interacting
             for(unsigned j=0;j<i;++j){double squared=0;for(unsigned a=0;a<3;++a){const double d=double(actual[i].positionRadius[a])-actual[j].positionRadius[a];squared+=d*d;}const double overlap=.125-std::sqrt(squared);if(overlap>0){++contacts;if(overlap>.00625)++deep;maxPenetration=std::max(maxPenetration,overlap);}}
         }
         require(deep*100<=std::max(1u,contacts),"Basin has too many deep particle overlaps");require(maxSpeed<=12.00002,"Basin speed limit exceeded");
+        require(maxSpeed<=.05,"Terrain traction failed the 10-second low-speed fixture");
         std::cout<<"Interacting basin final: peak degree "<<peakContacts<<", max penetration "<<maxPenetration<<", deep "<<deep<<"/"<<contacts<<", max speed "<<maxSpeed<<"\n";
     }
     if(interacting)require(peakContacts>0,"Interacting basin did not execute particle contacts");

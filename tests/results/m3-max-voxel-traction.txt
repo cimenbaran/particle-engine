@@ -1,0 +1,45 @@
+VOXEL STATIC TRACTION AND COMPLETE MOTION CONTACT SHELL
+Date: 2026-10-13
+Platform: local macOS, Apple M3 Max, Metal
+
+Workgroup 128: complete --gpu-test exit 0; native CTest 21/21 pass.
+Workgroup 256: complete --gpu-test exit 0; native CTest 21/21 pass.
+All temporary GPU tracing and diagnostic getters were removed before these runs.
+
+Voxel Jacobi: 60 fixtures per configuration, including 28 new traction fixtures.
+Six faces cover static support, sliding above budget and zero friction. Other
+fixtures check mixed terrain/particle coefficients, sliding friction already
+spent by prediction, separating/detached baselines, repeated iterations, normal
+position-correction load without a force profile, and rounded edges/corners.
+Unsafe dt/speed profiles and missing immutable baselines reject before mutation.
+Existing bytewise immutable inputs, correction bounds, terrain clearance,
+whole-iteration rollback and revision/origin/owner gates remain enabled.
+
+Voxel motion: 25 cases / 1751 particles per configuration.
+The exact-bit tick-112 failure is a new permanent regression. Four nearby rounded
+voxel corners now constrain the resting grain without exhausting 16 events.
+The independent two-sided wedge retains free Z velocity/travel. Earlier basin
+captures retain their free X travel and checked separation. Energy, materials,
+identity, containment, event accounting and whole-pass rollback tests pass.
+
+Interacting seed-1337 basin: 256 particles, 600 ticks / 2400 substeps.
+Both workgroups produce:
+  Maximum final speed: 0.00896472 m/s (required <=0.05 m/s).
+  Before this change: 0.909643 m/s at the same test endpoint.
+  Maximum final pair penetration: 0.000114376 m.
+  Deep overlaps (>0.00625 m): 0 / 92 overlapping pairs.
+  Peak contact degree: 5.
+  Settling candidates: 247; acquiring: 0; support-loss grace: 0.
+  Terrain nonpenetration, physical radius/mass/identity, final age 10s,
+  stale-world rejection, rollback and settling-history invalidation pass.
+
+Logs (ignored local artifacts):
+  out/voxel-traction-gpu128.log
+  out/voxel-traction-gpu256.log
+  out/voxel-traction-ctest128.log
+  out/voxel-traction-ctest256.log
+
+Limits: the final speed check is an endpoint regression, not indefinite settling,
+a ten-minute soak or reference-device performance acceptance. Static traction
+uses individual admissible contact budgets rather than a coupled friction solve.
+All candidates remain active. Pool integration and deposition remain pending.
