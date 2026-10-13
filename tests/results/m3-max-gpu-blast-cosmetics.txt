@@ -1,0 +1,36 @@
+GPU BLAST DUST / SPARKS — APPLE M3 MAX / METAL
+
+AppleClang 21.0.0.21000099. Complete --gpu-test and all 26 native CTests pass
+for workgroups 128 and 256. Default 128 is restored for installation.
+
+Nine real Metal scenarios verify:
+- family capacities (dust/spark): 0/1, 1/0, 1/1, 127/129, 128/256, 512/256,
+  2048/2048; a disabled/full family cannot consume the other's capacity;
+- exact CPU seed upload, slot identity/generation, zero inverse mass and lifetime;
+- every live trajectory against an independent double-precision one-step oracle;
+- fading render-instance alpha, complete expiration after the maximum lifetime,
+  retained drop counts, generation reuse and reset of all state/counters;
+- full-pool overflow leaves every existing record byte-identical;
+- generation UINT32_MAX retires permanently rather than wrapping;
+- invalid capacities, views, timestep and quotas reject;
+- a nonzero physical command pool remains byte-identical through cosmetic work;
+- a real offscreen render is visible initially, has approximately half RGB energy
+  at half lifetime and is completely black after expiration.
+
+The initial shared physical fragment shader forced alpha=1, so the cosmetic path
+now uses fs_cosmetics with lifetime alpha and soft disk coverage. The offscreen
+pixel check verifies the final fragment result, not only instance buffer values.
+
+The preview is wired to consume one accepted-blast event, emit 48 dust/16 sparks,
+advance an independent paused-aware fixed clock, show counts, and clear cosmetics
+on reset/rebuild/mode changes. Effects never feed physical physics, mass or heat.
+The existing eleven staged-command tests retain one-shot acknowledgement gates.
+
+Live visual QA is incomplete. Both the new build and the installed a7536d4
+baseline showed a blank native window in this desktop session. Focus/raise and
+resize did not resolve it; both exited normally through Escape. A process sample
+showed continuing frame submission and Metal fallback texture allocation in
+SwapChainMtl::currentDrawableTexture. The underlying presentation cause is not
+proven. No claim of verified live appearance or interactive controls is made.
+Offscreen GPU tests passed in the same session. Repeat live QA when presentation
+is available. Windows and long-running performance/soak gates remain deferred.

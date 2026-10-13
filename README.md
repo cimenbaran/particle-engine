@@ -15,7 +15,8 @@ into physical debris per click, with conversion mass totals shown in the panel.
 A [bounded explosion planner](docs/Terrain_Explosion.txt) now supplies radial
 debris and conservative energy budgets to [live staged blasts](docs/Staged_Explosion.txt).
 Blasts now kick existing grains once within a shared energy budget before terrain
-conversion. Cosmetic blast effects, deposition and save/load remain open.
+conversion. [Cosmetic dust and sparks](docs/Blast_Cosmetics.txt) use separate GPU
+capacity and fade independently. Deposition and save/load remain open.
 Development currently prioritizes macOS.
 
 ## Build

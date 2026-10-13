@@ -1,3 +1,4 @@
+#include "render/GpuBlastCosmetics.hpp"
 #include "assets/ExplosionMaterials.hpp"
 #include "TerrainPreview.hpp"
 #include "platform/Window.hpp"
@@ -48,6 +49,8 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
     std::unique_ptr<VoxelProbes> probes;FixedStep clock;auto previous=std::chrono::steady_clock::now();std::uint32_t completed=0;bool paused=false;int spawnCount=256;float brushCentre[]{-6,6,-4.5f},brushHalf=.5f,brushVelocity[]{2,0,0};
     std::unique_ptr<PendingDebrisTransaction> excavation;
     std::unique_ptr<StagedExplosion> blast;
+    GpuBlastCosmetics cosmetics(assets);PoolDiagnostics cosmeticCounts(assets);FixedStep cosmeticClock;
+    const auto clearCosmetics=[&]{cosmetics.reset(0);cosmeticCounts.beginEpoch();cosmeticClock.reset();};
     const auto blastMaterials=explosionMaterials(materials);
     float blastCentre[]{-8,3.875f,-4},blastRadius=.5f,blastSpeed=2,blastEnergy=2000,blastExistingPercent=25;
 
@@ -59,7 +62,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
     std::uint32_t brushMaterial=sand;
     std::cout<<"Resident basin: "<<basin->store->occupiedVoxelCount()<<" voxels, "<<basin->mesh->faceCount()<<" exposed faces, seed "<<seed<<"; terrain inspection with optional collision probes\n";
     while(running) {
-        if(probes)probes->poll(completed);
+        if(probes)probes->poll(completed);cosmeticCounts.poll(completed);
         if(excavation) {
             excavation->poll(completed);
             if(excavation->state()==PendingDebrisTransaction::State::Ready) {
@@ -79,6 +82,10 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                 basin->refresh();clock.reset();message="Blast update committed.";
                 std::cout<<"Blast update: "<<blast->batches()<<" terrain batches, "<<blast->removedVoxels()<<" voxels, "<<blast->impulsedParticles()<<" existing grains, "<<blast->impulseJoules()<<" impulse J; "<<blast->remainingJoules()<<" J remaining"<<std::endl;
             }}catch(const std::exception& error){blast->cancel();message=error.what();}
+        }
+        if(blast)if(const auto visual=blast->takeCosmeticEvent()) {
+            try{cosmetics.emit(0,*visual);std::cout<<"Blast cosmetics: 48 dust + 16 spark seeds queued"<<std::endl;}
+            catch(const std::exception& error){message=std::string("Visual burst skipped: ")+error.what();}
         }
         auto now=std::chrono::steady_clock::now();double elapsed=std::chrono::duration<double>(now-previous).count();previous=now;
         SDL_Event event;
@@ -105,7 +112,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         ImGui::SliderAngle("Orbit",&yaw,-180,180);ImGui::SliderFloat("Distance",&distance,18,65,"%.1f m");ImGui::SliderFloat("Height",&elevation,5,50,"%.1f m");
         ImGui::InputInt("Seed",&seed);seed=std::max(0,seed);
         if(ImGui::Button("Rebuild basin")) {
-            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));blast.reset();excavation.reset();probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
+            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));blast.reset();excavation.reset();clearCosmetics();probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
             catch(const std::exception& error){message=error.what();}
         }
         }
@@ -215,9 +222,16 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                 ImGui::Text("Existing: %u grains | %.2f J",blast->impulsedParticles(),blast->impulseJoules());
             }
         }
-        if(ImGui::Button("Reset particle pool")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();message="Empty particle pool; counters and faults reset";}catch(const std::exception& error){message=error.what();}}
-        if(ImGui::Button("Drop interacting diagnostics")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 fixed diagnostic grains";}catch(const std::exception& error){message=error.what();}}
-        if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::CollapsingHeader("Blast cosmetics")) {
+            ImGui::TextUnformatted("Separate capacity: 512 dust / 256 sparks");
+            const auto& visual=cosmeticCounts.latest();
+            if(visual.valid){ImGui::Text("Active: %u dust | %u sparks",visual.active,visual.free);ImGui::Text("Dropped: %u dust | %u sparks",visual.reserved,visual.rejected);}
+            ImGui::TextWrapped("Visual only. Bursts fade independently of terrain preparation; pausing freezes their lifetime.");
+            if(ImGui::Button("Clear cosmetics"))clearCosmetics();
+        }
+        if(ImGui::Button("Reset particle pool")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);blast.reset();excavation.reset();clearCosmetics();probes=std::move(candidate);clock.reset();message="Empty particle pool; counters and faults reset";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::Button("Drop interacting diagnostics")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);blast.reset();excavation.reset();clearCosmetics();probes=std::move(candidate);clock.reset();paused=false;message="256 fixed diagnostic grains";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);blast.reset();excavation.reset();clearCosmetics();probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
         if(probes){ImGui::Checkbox("Pause simulation",&paused);ImGui::Text("Simulation tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->hasSettling()) {
             const auto& settling=probes->settlingSnapshot();
             if(settling.valid){ImGui::Text("Settling candidates: %u / %u",settling.free,probes->capacity());if(settling.active)ImGui::TextWrapped("Settling tracker fault. Reset the particle pool to recover.");}
@@ -230,13 +244,16 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         // Sample by rendered frame: a four-tick catch-up cadence can skip every
         // tick divisible by eight and leave old diagnostics visible indefinitely.
         if(probes){for(unsigned tick=0;tick<batch.count;++tick)probes->tick(std::uint16_t(tick+1),*basin->occupancy,*basin->store);probes->prepare(5);if(paused || frames%8==0)probes->request(6);}
+        const auto visualBatch=cosmeticClock.advance(elapsed,paused,false);
+        for(unsigned tick=0;tick<visualBatch.count;++tick)cosmetics.step(std::uint16_t(tick+1));
+        if(paused || frames%8==0)cosmeticCounts.request(6,cosmetics.counts(),frames);
         float view[16],projection[16];
         bx::mtxLookAt(view,{std::sin(yaw)*distance,elevation,std::cos(yaw)*distance},{0,1,0});
         bx::mtxProj(projection,50.0f,float(width)/float(height),.1f,200.0f,bgfx::getCaps()->homogeneousDepth);
-        bgfx::setViewRect(10,0,0,std::uint16_t(width),std::uint16_t(height));
+        bgfx::setViewMode(10,bgfx::ViewMode::Sequential);bgfx::setViewRect(10,0,0,std::uint16_t(width),std::uint16_t(height));
         bgfx::setViewClear(10,BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH,0x182333ff,1.0f,0);bgfx::setViewTransform(10,view,projection);bgfx::touch(10);
         basin->mesh->render(10,*basin->store,*basin->occupancy,{});
-        if(probes)probes->render(10);
+        if(probes)probes->render(10);cosmetics.render(10);
         ImGui::Render();renderer.render(ImGui::GetDrawData(),20);completed=bgfx::frame();
         ++frames;if(frameLimit && frames>=frameLimit)break;
     }

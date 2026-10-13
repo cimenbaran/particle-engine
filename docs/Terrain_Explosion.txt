@@ -4,7 +4,7 @@ TerrainExplosion.hpp provides a read-only, typed ExplosionRequest and a plan
 that can be passed to PendingDebrisTransaction. StagedExplosion now owns live
 batched execution and command energy in the preview; see Staged_Explosion.txt.
 Existing-particle impulses now precede terrain batches through StagedExplosion;
-cosmetic blast quotas remain open.
+separate cosmetic blast quotas now feed the live GPU effect pool.
 
 Request and bounds
 The request contains tick, stable sequence, centre, radius, maximum debris speed

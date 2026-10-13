@@ -1,4 +1,4 @@
-BOUNDED BLAST COSMETIC EVENTS — macOS preparation
+BOUNDED BLAST COSMETICS — macOS / Metal
 
 StagedExplosion exposes takeCosmeticEvent after its first published physical
 change: a nonzero existing-grain impulse or an accepted terrain batch. It returns
@@ -11,7 +11,7 @@ for a physical publication to succeed.
 planBlastCosmetics creates bounded visual-only seeds from that event. Defaults
 are 48 dust and 16 sparks; hard limits are independently 128 and 64. Dust has
 0.5..2 m/s initial speed, .055 m radius and .8..2 s lifetime. Sparks have 3..8 m/s
-initial speed, .018 m radius and .2...8 s lifetime. Directions cover the upper
+initial speed, .018 m radius and .2..0.8 s lifetime. Directions cover the upper
 hemisphere; centres start within half the blast radius. These visual seeds may
 extend outside the basin or intersect terrain. They do not represent physical
 matter and never authorize terrain removal, heat, mass or energy changes.
@@ -23,8 +23,44 @@ same host/library, not promised bit-identical across platforms. Planning has no
 physical pool handles and cannot consume physical capacity. Lifetime is always
 finite. Invalid centres, radius and quotas reject before creating output.
 
-This is an event and seed-planning API only. The terrain preview does not yet
-consume it, and there are no new visible dust/spark effects yet. GPU allocation,
-per-family pool overflow counters, lifetime evolution, drawing and reset wiring
-remain required before the cosmetic blast feature is complete. The earlier
-ballistic cosmetic demo remains independent of this terrain blast path.
+GpuBlastCosmetics consumes the seeds into separate GPU partitions: the preview
+uses 512 dust slots and 256 spark slots. Capacity is configurable up to 2048 per
+family (4096 total); a family can be disabled with zero slots. A single bounded
+allocation dispatch scans each partition in ascending slot order. Full or
+exhausted-generation slots cannot steal capacity from the other family. Dropped
+counts saturate at UINT32_MAX. Existing effects are never overwritten on overflow.
+The API accepts no physical pool, material table or terrain handles. Visual seed
+records have zero inverse mass and never enter the physical solver.
+
+GPU evolution uses fixed 1/60 s steps. Dust has upward acceleration .4 m/s^2 and
+drag 1.8/s; sparks have downward acceleration 9.81 m/s^2 and drag .3/s. There is
+no collision or heat transfer. Expiration retires slots; reuse advances generation
+without wrapping. The render stream fades alpha over the finite lifetime. A soft
+circular fragment shader uses alpha blending, depth testing and no depth writes.
+Cosmetics draw after opaque terrain/particles; particles are not depth sorted,
+so overlapping transparent effects are approximate.
+
+The preview consumes one event after accepted physical publication. Visual
+allocation failures report a skipped burst without cancelling the physical
+command. Cosmetic time continues through terrain preparation/backpressure and
+stops when the user pauses. The Blast cosmetics panel reports active and dropped
+counts per family, and provides Clear cosmetics. Resetting the particle pool,
+rebuilding terrain or switching diagnostic modes clears effects and counters.
+Cancellation retains already emitted effects, which expire normally. Diagnostics
+read four count words asynchronously; production never reads full visual state.
+
+Validation
+Real Metal tests exercise disabled families, workgroup boundaries, maximum
+capacity, exact seed upload, independent overflow, retained drop counters,
+CPU-referenced trajectories, render-instance alpha, expiration, generation reuse,
+exhausted generations, invalid input and reset. An offscreen pixel test verifies
+visible output, approximately half brightness at half lifetime and black output
+after expiration. A nonzero physical pool remains byte-identical throughout.
+The prior event tests retain acknowledgement, once-only and cancellation guards.
+
+Verification limit: the live preview and the previously installed baseline both
+showed blank native windows in the current desktop session. Process sampling
+showed ongoing frame submission and Metal fallback drawable allocation. Raising
+and resizing did not restore presentation. The cause is not established. Live
+control/appearance QA must be repeated when window presentation is available;
+passing offscreen pixel tests do not close that check.

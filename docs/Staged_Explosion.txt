@@ -6,8 +6,10 @@ energy and Grain allowance, then Start blast. Settings are snapshotted. The
 preview defaults to a 25% allowance for existing grains: an acknowledged impulse
 runs once before terrain conversion, then its actual conservative ticket charge
 is subtracted from the total. Unspent allowance remains available for terrain.
-The preview converts up to 32 voxels per accepted terrain batch. Cosmetic blast
-emissions remain open. The coordinator API defaults to a zero existing allowance
+The preview converts up to 32 voxels per accepted terrain batch. A one-shot
+cosmetic event emits 48 dust and 16 spark seeds after the first effective physical
+publication. Separate GPU capacity can drop only visual effects; see
+Blast_Cosmetics.txt. The coordinator API defaults to a zero existing allowance
 for terrain-only callers; fractions must be finite and in [0,1]. A positive
 allowance requires radius >= .0625 m. Sub-microjoule allocations or zero requested
 speed skip the existing-grain phase.
