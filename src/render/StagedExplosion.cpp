@@ -13,7 +13,9 @@ StagedExplosion::StagedExplosion(const std::filesystem::path& assets,VoxelProbes
        particles.materialHash_!=materials.contentHash || !expected_->matchesMaterials(materials))
         throw std::invalid_argument("Explosion requires an available matching basin pool and material epoch");
     for(unsigned m=0;m<profiles.size();++m)if(profiles[m].density!=materials.entries[m].gpu.mechanical[0] ||
-        profiles[m].solid!=(materials.entries[m].gpu.identity[1]==0))
+        profiles[m].solid!=(materials.entries[m].gpu.identity[1]==0) ||
+        profiles[m].resistance!=materials.entries[m].fractureResistance ||
+        profiles[m].fuel!=(materials.entries[m].gpu.thermal[3]>0?1.f:0.f))
         throw std::invalid_argument("Explosion energy profiles must match physical materials");
 }
 void StagedExplosion::cancel() {if(!active())return;impulse_.reset();pending_.reset();expected_.reset();state_=State::Cancelled;}

@@ -35,8 +35,9 @@ charge only successful commits and defer under capacity/clearance pressure
 with overflow-safe integer allocation (../docs/GPU_Blast_Impulse.txt). A frozen
 acknowledgement now gates live adoption and settling invalidation, with one
 existing-grain phase sharing the command budget before terrain batches
-(../docs/Pending_Blast_Impulse.txt). Cosmetic blast quotas and persisted material
-resistance remain open.
+(../docs/Pending_Blast_Impulse.txt). Fracture resistance is now persisted in schema-2 material JSON, included in
+portable encoding and material-version guards, and consumed by the live planner
+(../docs/Materials.md). Cosmetic blast quotas remain open.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals

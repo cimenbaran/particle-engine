@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "units": {
     "length": "m",
     "mass": "kg",
@@ -25,7 +25,8 @@
         0.55,
         1
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 1000
     },
     {
       "id": 1,
@@ -45,7 +46,8 @@
         0.22,
         1
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 100
     },
     {
       "id": 2,
@@ -65,7 +67,8 @@
         0.85,
         0.6
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 1000
     },
     {
       "id": 3,
@@ -87,7 +90,8 @@
       ],
       "transitions": [
         4
-      ]
+      ],
+      "fracture_resistance": 300
     },
     {
       "id": 4,
@@ -107,7 +111,8 @@
         0.33,
         1
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 50
     },
     {
       "id": 5,
@@ -127,7 +132,8 @@
         0.24,
         0.4
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 1000
     },
     {
       "id": 6,
@@ -147,7 +153,8 @@
         0.9,
         0.3
       ],
-      "transitions": []
+      "transitions": [],
+      "fracture_resistance": 1000
     }
   ]
 }

@@ -1,3 +1,4 @@
+#include "assets/ExplosionMaterials.hpp"
 #include "StagedExplosion.hpp"
 #include "core/ParticleTypes.hpp"
 #include <SDL3/SDL.h>
@@ -8,7 +9,7 @@ void runStagedExplosionTest(const std::filesystem::path& assets) {
     const auto require=[](bool ok,const char* message){if(!ok)throw std::runtime_error(message);};
     const auto rejects=[&](auto f){bool bad=false;try{f();}catch(const std::invalid_argument&){bad=true;}require(bad,"Invalid staged blast accepted");};
     const auto materials=loadMaterials(assets/"materials/default.json");
-    std::vector<terrain::ExplosionMaterial> profiles;for(const auto& m:materials.entries)profiles.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,1000,0});
+    const auto profiles=explosionMaterials(materials);
     const auto makeBase=[&] {
         auto source=std::make_unique<Store>(terrain::ResidentChunkLayout({0,0,0},{1,1,1}),unsigned(materials.entries.size()));
         const std::array edits{Store::VoxelEdit{*terrain::addressOf({8,8,8}),0},Store::VoxelEdit{*terrain::addressOf({10,8,8}),1},Store::VoxelEdit{*terrain::addressOf({12,8,8}),0}};
@@ -70,7 +71,10 @@ void runStagedExplosionTest(const std::filesystem::path& assets) {
         require(blast.state()==State::Stale && live==replacement && blast.remainingJoules()==request.energyJoules && !particles.transactionPending(),"Replaced terrain accepted an old staged blast");
         StagedExplosion other(assets,particles,live,materials,request,profiles);VoxelProbes newParticles(assets,materials,true,true);other.pump(frame,newParticles,live);
         require(other.state()==State::Stale && other.remainingJoules()==request.energyJoules,"Replacement pool accepted old blast");
-        auto bad=profiles;bad[0].density*=.5f;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});bad=profiles;bad[0].solid=false;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});++cases;
+        auto bad=profiles;bad[0].density*=.5f;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});bad=profiles;bad[0].solid=false;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});
+        bad=profiles;bad[0].resistance*=.5;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});
+        bad=profiles;bad[0].fuel=1;rejects([&]{StagedExplosion wrong(assets,particles,live,materials,request,bad);});
+        auto changed=materials;changed.entries[0].fractureResistance*=2;rejects([&]{StagedExplosion wrong(assets,particles,live,changed,request,explosionMaterials(changed));});++cases;
     }
     {
         auto live=makeBase();VoxelProbes particles(assets,materials,true,true);auto zero=request;zero.energyJoules=0;StagedExplosion exhausted(assets,particles,live,materials,zero,profiles);exhausted.pump(frame,particles,live);

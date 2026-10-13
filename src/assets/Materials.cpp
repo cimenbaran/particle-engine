@@ -16,12 +16,15 @@ void keys(const Json& object, std::initializer_list<std::string_view> allowed) {
     if(!object.is_object() || object.size()!=allowed.size()) throw std::runtime_error("Material object has missing or extra fields");
     for(auto key:allowed) if(!object.contains(key)) throw std::runtime_error("Missing material field: "+std::string(key));
 }
-float scalar(const Json& object, const char* key, double low, double high) {
+double preciseScalar(const Json& object, const char* key, double low, double high) {
     const auto& field=object.at(key);
     if(!field.is_number()) throw std::runtime_error(std::string(key)+" must be numeric");
     const double value=field.get<double>();
     if(!std::isfinite(value) || value<low || value>high) throw std::runtime_error(std::string(key)+" is outside its supported range");
-    return static_cast<float>(value);
+    return value;
+}
+float scalar(const Json& object, const char* key, double low, double high) {
+    return static_cast<float>(preciseScalar(object,key,low,high));
 }
 std::uint32_t index(const Json& field) {
     if(!field.is_number_integer() || field.get<double>()<0 || field.get<double>()>255)
@@ -50,7 +53,7 @@ MaterialLibrary parseMaterials(std::string_view text) {
     if(text.size()>1024*1024) throw std::runtime_error("Material JSON exceeds 1 MiB limit");
     const auto root=Json::parse(text);
     keys(root,{"schema_version","units","materials"});
-    if(!root.at("schema_version").is_number_integer() || root.at("schema_version")!=1)
+    if(!root.at("schema_version").is_number_integer() || root.at("schema_version")!=2)
         throw std::runtime_error("Unsupported material schema version");
     const Json units={{"length","m"},{"mass","kg"},{"time","s"},{"temperature","K"}};
     if(root.at("units")!=units) throw std::runtime_error("Material units must be m, kg, s and K");
@@ -59,8 +62,9 @@ MaterialLibrary parseMaterials(std::string_view text) {
     MaterialLibrary result;
     std::set<std::string> names;
     for(const auto& item:materials) {
-        keys(item,{"id","name","phase","density","friction","restitution","drag","conductivity","heat_capacity","ignition_kelvin","burn_rate","color","transitions"});
+        keys(item,{"id","name","phase","density","friction","restitution","drag","conductivity","heat_capacity","ignition_kelvin","burn_rate","color","transitions","fracture_resistance"});
         MaterialDesc desc;
+        desc.fractureResistance=preciseScalar(item,"fracture_resistance",1e-6,1e12);
         desc.name=item.at("name").get<std::string>();
         if(desc.name.empty() || desc.name.size()>64 || !names.insert(desc.name).second)
             throw std::runtime_error("Material names must be unique and 1-64 bytes long");
@@ -137,13 +141,14 @@ void validateMaterialReload(const MaterialLibrary& current,const MaterialLibrary
 std::vector<std::byte> encodeMaterials(const MaterialLibrary& library) {
     std::vector<std::byte> bytes;
     append32(bytes,0x544d5750); // ASCII PWMT
-    append32(bytes,1); append32(bytes,64); append32(bytes,static_cast<std::uint32_t>(library.entries.size()));
+    append32(bytes,2); append32(bytes,72); append32(bytes,static_cast<std::uint32_t>(library.entries.size()));
     append64(bytes,fingerprint(materialSchema)); append64(bytes,library.contentHash);
     for(const auto& entry:library.entries) {
         for(float value:entry.gpu.mechanical) append32(bytes,std::bit_cast<std::uint32_t>(value));
         for(float value:entry.gpu.thermal) append32(bytes,std::bit_cast<std::uint32_t>(value));
         for(float value:entry.gpu.color) append32(bytes,std::bit_cast<std::uint32_t>(value));
         for(auto value:entry.gpu.identity) append32(bytes,value);
+        append64(bytes,std::bit_cast<std::uint64_t>(entry.fractureResistance));
     }
     return bytes;
 }

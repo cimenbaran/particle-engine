@@ -1,3 +1,4 @@
+#include "assets/ExplosionMaterials.hpp"
 #include "TerrainPreview.hpp"
 #include "platform/Window.hpp"
 #include "core/BasinWorld.hpp"
@@ -47,11 +48,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
     std::unique_ptr<VoxelProbes> probes;FixedStep clock;auto previous=std::chrono::steady_clock::now();std::uint32_t completed=0;bool paused=false;int spawnCount=256;float brushCentre[]{-6,6,-4.5f},brushHalf=.5f,brushVelocity[]{2,0,0};
     std::unique_ptr<PendingDebrisTransaction> excavation;
     std::unique_ptr<StagedExplosion> blast;
-    std::vector<terrain::ExplosionMaterial> blastMaterials;
-    for(const auto& m:materials.entries) {
-        const double resistance=m.name=="Sand"?100:m.name=="Wood"?300:m.name=="Ash"?50:1000;
-        blastMaterials.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,resistance,m.gpu.thermal[3]>0?1.f:0.f});
-    }
+    const auto blastMaterials=explosionMaterials(materials);
     float blastCentre[]{-8,3.875f,-4},blastRadius=.5f,blastSpeed=2,blastEnergy=2000,blastExistingPercent=25;
 
     std::vector<terrain::ExcavationMaterial> excavationMaterials;

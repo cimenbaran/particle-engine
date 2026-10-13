@@ -1,0 +1,29 @@
+PERSISTED FRACTURE RESISTANCE — macOS / APPLE M3 MAX / METAL
+
+AppleClang 21.0.0.21000099; default workgroup 128.
+All 25 native CTests and the complete --gpu-test suite pass.
+No shader or GPU material layout changes; workgroup 256 was not rerun for this
+CPU material/schema change.
+
+Material validation now tests schema-1 rejection, required resistance, bad types,
+null, negative/zero/out-of-range values and both supported endpoints. A value
+below float32 resolution retains its exact binary64 representation through JSON
+parse and little-endian encoding. Changed resistance changes the content hash;
+a manually changed value with an unchanged hash still changes full encoding.
+
+The JSON-to-planner adapter is independent of material names. A centred Stone
+voxel with 1000 J/m^3 resistance has fracture cost 1000/512 J (with conservative
+rounding) and fits a 10 J budget. Editing the JSON to 100000 J/m^3 makes the same
+voxel unaffordable, without changing terrain. Live-material reload validation
+accepts resistance edits; the terrain preview itself requires a restart.
+
+The real Metal staged coordinator rejects profiles with changed resistance or
+fuel and an altered material library retaining its previous hash. Existing ten
+staged-blast cases, acknowledgement/publication, full physics and rendering
+regressions pass with the schema-2 table.
+
+The asset builder produces PWMT version 2, record stride 72, count 7, 536 bytes.
+Resistance values are 1000, 100, 1000, 300, 50, 1000, 1000 J/m^3. The GPU record
+remains 64 bytes; the extra float64 is CPU planning data in the portable file.
+Old JSON requires explicit schema migration; there is no name-based fallback.
+This closes persisted blast resistance, not cosmetic blasts or the whole sprint.

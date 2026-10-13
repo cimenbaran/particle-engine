@@ -20,11 +20,12 @@ static_assert(sizeof(MaterialGpu)==64 && alignof(MaterialGpu)==16);
 static_assert(offsetof(MaterialGpu,mechanical)==0 && offsetof(MaterialGpu,thermal)==16);
 static_assert(offsetof(MaterialGpu,color)==32 && offsetof(MaterialGpu,identity)==48);
 inline constexpr std::string_view materialSchema =
-    "PWMaterial/1/le/64:mechanical=f32x4:thermal=f32x4:color=f32x4:identity=u32x4;units=m,kg,s,K;transitions=acyclic";
+    "PWMaterial/2/le/72:gpu64:mechanical=f32x4:thermal=f32x4:color=f32x4:identity=u32x4:fracture_resistance=f64;units=m,kg,s,K,J/m3;transitions=acyclic";
 struct MaterialDesc {
     std::string name;
     MaterialGpu gpu{};
     std::vector<std::uint32_t> transitions;
+    double fractureResistance=1000; // calibrated fracture work in J/m^3; CPU planning
 };
 struct MaterialLibrary {
     std::vector<MaterialDesc> entries;

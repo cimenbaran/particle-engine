@@ -12,11 +12,12 @@ for terrain-only callers; fractions must be finite and in [0,1]. A positive
 allowance requires radius >= .0625 m. Sub-microjoule allocations or zero requested
 speed skip the existing-grain phase.
 
-The preview uses calibrated fracture resistance in J/m^3: Sand 100, Wood 300,
-Ash 50, other materials 1000. Density, solid phase and fuel come from the loaded
-material table. The coordinator checks that energy-profile density and phase
-match the physical material table exactly; a lower-density budget cannot fund
-heavier GPU grains. Persisting resistance in material JSON is still pending.
+The preview reads calibrated fracture resistance in J/m^3 from schema-2
+material JSON: defaults are Sand 100, Wood 300, Ash 50, others 1000. Density,
+solid phase and fuel also come from the loaded material table. The coordinator
+checks all four profile values against that table exactly. Full encoded material
+comparison includes resistance, even if a caller retains an obsolete hash.
+Restart the terrain preview after material edits. See Materials.md.
 See Terrain_Explosion.txt for radial selection, placement and energy arithmetic.
 
 Coordinator and ordering

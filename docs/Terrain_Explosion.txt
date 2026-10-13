@@ -76,3 +76,8 @@ The real Metal transaction fixture converts 32 basin voxels to 61 radial grains,
 measures initial kinetic energy from complete GPU records, then checks all
 61 grains through 240 physics ticks. Existing excavation regressions retain
 138 planner cases and the live-compatible repeated transaction tests.
+
+Live material profiles now use schema-2 fracture_resistance from JSON (J/m^3).
+The shared assets/ExplosionMaterials.hpp adapter supplies resistance, encoded
+density, solid phase and fuel; StagedExplosion rejects mismatched profiles.
+See Materials.md for schema migration and reload limits.

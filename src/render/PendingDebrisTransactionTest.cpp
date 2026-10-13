@@ -1,3 +1,4 @@
+#include "assets/ExplosionMaterials.hpp"
 #include "PendingDebrisTransaction.hpp"
 #include "Shaders.hpp"
 #include "core/ParticleTypes.hpp"
@@ -176,8 +177,7 @@ void runPendingDebrisTransactionTest(const std::filesystem::path& assets) {
         auto source=terrain::buildBasin(1337,unsigned(materials.entries.size()),0,1,3);
         VoxelPublicationPtr live=std::make_shared<VoxelPublication>(assets,std::move(source),terrain::Chunk{},materials);
         const auto original=live->source().occupiedVoxelCount();VoxelProbes particles(assets,materials,true,true);
-        std::vector<terrain::ExplosionMaterial> profiles;
-        for(const auto& m:materials.entries)profiles.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,1000,m.gpu.thermal[3]>0?1.f:0.f});
+        const auto profiles=explosionMaterials(materials);
         terrain::ExplosionRequest request;request.centre={-8,3.875f,-4};request.radius=.5f;request.impulse=2;request.energyJoules=100000;
         const auto plan=terrain::planExplosion(live->source(),request,0,profiles);
         require(plan.state==terrain::ExplosionPlan::State::Ready && plan.removals.size()==32 && plan.seeds.size()==61,"Basin explosion proposal failed");
