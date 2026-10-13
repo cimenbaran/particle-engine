@@ -1,0 +1,63 @@
+PRIVATE DEBRIS ACTIVATION — macOS / Metal
+
+GpuDebrisActivation initializes complete particles in a private transaction
+snapshot after GpuDebrisReservation. It does not modify either the live source or
+the reservation buffers. It does not publish terrain or particle state.
+
+Each immutable DebrisSeed supplies position, velocity, solid material ID,
+temperature and fuel. CPU preparation validates the material ID/phase, density,
+finite coordinates and velocity, radius-inset Basin bounds, speed <=12 m/s,
+temperature 0..1,000,000 K and fuel 0..1. A batch contains at most 4,096 seeds.
+New particles use .0625 m radius, the exact float inverse mass produced by
+conversionMassProfile, infinite lifetime and zero age. Slot and generation come
+only from validated GPU claims, not from CPU particle allocation. The object
+captures the material library hash for the later transaction coordinator.
+
+The one-shot seed upload cannot be overwritten by another submission. A second
+submit throws; an unsubmitted reservation or mismatched capacity rejects before
+GPU work. After reservation execution, activation runs in the same sequential
+view or a later view; if crossing frames, the reservation must have completed.
+The caller keeps its reservation buffers immutable/alive through execution.
+
+GPU stages:
+1. Validate successful reservation status, requested/reserved counts and capacity.
+2. Clear a slot-to-seed ownership map and count all reserved snapshot identities.
+3. Validate each claim: in-range slot, nonzero/nonwrapped next generation, zero
+   padding, strictly ascending unique slots and exact snapshot identity match.
+   Atomic ownership assignment detects duplicate mappings.
+4. Require the reserved-slot count to equal the seed count. Any invalid claim
+   or missing/extra reserved slot invalidates the entire batch.
+5. On success, initialize every claimed slot from its seed while retaining the
+   reserved slot ID/generation and replacing reserved flag 2 with alive flag 1.
+   Existing live and dead slots stay byte-for-byte unchanged. On failure, copy
+   the entire reservation snapshot unchanged; never activate a subset.
+
+Status words: errors, seed count, observed reserved slots, activated count.
+Error bit 1 means failed reservation/count validation; bit 2 means a claim,
+identity, generation or ownership mismatch. Errors may combine. Any error gives
+zero activated count. A zero-capacity/zero-seed batch is valid; only rows below
+capacity have initialized output contents.
+
+Required remaining gates
+The initialized output remains private. Numeric seed validation and complete
+ownership do not prove geometric clearance. New particles still require current
+terrain clearance and checks against existing and other new particles. The
+transaction must also verify a healthy/current base tick, stable materials and
+per-material mass plans; acknowledge terrain/particle preparation; then adopt
+both states together at one tick boundary. Failed outputs may still contain
+reserved flags and must be discarded, never passed to a normal ParticlePool.
+There is no release/rollback of live state because live state was never changed.
+
+This stage does not verify the numeric/physical state of pre-existing particles,
+reserve terrain mass, update a committed mass ledger, or enable live explosions.
+These remain coordinator responsibilities. The maximum 5% quantization policy
+and signed proposed balances are described in Terrain_Mass_Quantization.txt.
+
+GPU tests exercise 207 batches over capacities 0,1,127,128,129,255,256,257,4096,
+including empty/mixed/full/generation-exhausted pools and mixed solid materials.
+They compare every output record, verify both inputs unchanged, check encoded
+mass/thermal/identity initialization and inject malformed/out-of-range/reversed/
+duplicate claims, generation mismatch, missing/extra reservation and count errors.
+Host tests reject unsupported materials, invalid positions/velocities/thermal
+values, oversize seed batches, unsubmitted reservations, capacity mismatch and
+repeated submission. Both Metal workgroup profiles use the same fixtures.

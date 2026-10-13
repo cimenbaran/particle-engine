@@ -41,8 +41,9 @@ classification does not understand transaction-only flag 2. It must remain
 private. A future coordinator must either freeze simulation/commands during the
 transaction or reject an obsolete base tick before adopting the candidate.
 Reservation in a private snapshot is not a lock on a live pool that continues to
-change. Before publication it must validate material mass and spawn clearance,
-initialize all reserved debris and replace reserved flags with alive flags.
+change. Private record initialization and claim validation are now implemented in
+GPU_Debris_Activation.txt. Before publication the coordinator must still validate
+material mass, geometric clearance and base-tick freshness.
 
 Only after all those gates and the terrain upload acknowledgement succeed may
 terrain occupancy/rendering and active particle state advance together. If any

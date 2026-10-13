@@ -1,0 +1,34 @@
+PRIVATE DEBRIS ACTIVATION — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+PW_WORKGROUP_SIZE=128 and 256: full --gpu-test suite passes.
+Both profiles: all 23 native CTest tests pass.
+Default installed workgroup is restored to 128.
+
+The new GPU activation fixture passes 207 batches per profile over capacities
+0,1,127,128,129,255,256,257,4096. Sources include empty, mixed, full and
+non-reusable-generation slots. Seeds use three solid materials with distinct
+velocities, temperatures and fuel values.
+
+Every successful batch compares complete output ParticleGpu records, including
+encoded mass, radius, thermal fields, age/lifetime, material, slot and generation.
+Both the live source and private reserved snapshot are read back unchanged.
+Existing live and unallocated slots retain all bytes. A failed capacity request
+activates no particles.
+
+Private fault injection occurs only after reservation execution and covers:
+- out-of-range slots and malformed record padding;
+- mismatched new/old generation and changed reserved generation;
+- duplicate and reversed claims;
+- extra or missing reserved identities;
+- requested product count mismatch.
+All fail without partially activating the batch; output retains the complete
+private reservation snapshot. Host validation rejects invalid material phase/ID,
+bounds, speed, nonfinite input, thermal values and seed quota. Unsubmitted,
+wrong-capacity and repeated submissions reject before activation work.
+
+This is initialization/ownership evidence, not geometric clearance or a joint
+terrain/particle commit. No live explosions, mass-ledger updates, Windows or
+reference-performance acceptance are claimed.
+
+Ignored logs: out/debris-activation-{gpu128,gpu256,ctest128,ctest256}.log.

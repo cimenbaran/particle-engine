@@ -14,6 +14,8 @@ public:
     // coordinator must separately freeze or validate its base tick at commit.
     void submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,std::uint32_t requested);
     // Outputs remain valid until the next submit; rows below capacity only.
+    bool submitted() const{return submitted_;}
+    std::uint32_t capacity() const{return capacity_;}
     bgfx::DynamicVertexBufferHandle snapshot() const{return snapshot_;}
     // One uvec4 per requested slot: slot, new generation, old generation, 0.
     // Sorted by slot. Unused rows within capacity are UINT_MAX,0,0,0.
@@ -24,6 +26,7 @@ public:
 private:
     void release();
     std::uint32_t capacity_;
+    bool submitted_=false;
     GpuPrefixScan scan_;
     bgfx::DynamicVertexBufferHandle snapshot_=BGFX_INVALID_HANDLE,claims_=BGFX_INVALID_HANDLE;
     bgfx::DynamicIndexBufferHandle flags_=BGFX_INVALID_HANDLE,status_=BGFX_INVALID_HANDLE;

@@ -26,6 +26,7 @@ void GpuDebrisReservation::release() {
 }
 void GpuDebrisReservation::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,std::uint32_t requested) {
     if(!bgfx::isValid(input) || input.idx==snapshot_.idx || input.idx==claims_.idx)throw std::invalid_argument("Invalid debris reservation source");
+    submitted_=true;
     const float params[]{float(capacity_),std::bit_cast<float>(requested),0,0};
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);bgfx::setUniform(params_,params);
     bgfx::setBuffer(0,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
