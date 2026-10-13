@@ -40,10 +40,10 @@ impulse, removal, lifetime, generation exhaustion and delayed diagnostics remain
 in the same suite. See ../tests/results/m3-max-voxel-pool.txt.
 
 Remaining integration
-The live basin still uses its fixed 256-particle seed. This allocation primitive
+The live basin now exposes a 1,024-slot command pool. This allocation primitive
 checks terrain; optional GranularLattice placement now provides within-command
 spacing (Granular_Spawn_Placement.txt), and optional GpuSpawnClearance prevents
 overlap with existing particles and previous commands (GPU_Spawn_Clearance.txt).
-Basin speed capping and UI/command integration remain pending. Those remain required before general interactive basin spawning.
+Basin speed capping and UI/command integration are connected (GPU_Basin_Pool.txt).
 Existing ownership and physical terrain edits/deposition are separate systems;
 no mass-transfer transaction or persistence is claimed here.

@@ -5,7 +5,9 @@ The foundation includes ballistic simulation and an experimental GPU granular
 mode with pair contacts and bounded walls. Water, reactions and persistent terrain
 remain planned; cross-platform granular stability and release gates are still open.
 A resident voxel basin runs with `--terrain-preview`, including interacting sand
-and diagnostic collision probes. Live voxel support now reports settling candidates.
+in a 1,024-slot command pool and diagnostic collision probes. Add sand, remove,
+impulse and clear controls use guarded GPU spawning; see
+[basin controls](docs/GPU_Basin_Pool.txt). Live voxel support reports settling candidates.
 Terrain editing and mass conversion
 remain open. Development currently prioritizes macOS.
 
@@ -60,8 +62,9 @@ open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-pr
 ```
 
 Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
-panel controls the camera and rebuilds the seed. **Drop interacting sand** starts
-256 grains with both particle and terrain collisions. **Drop collision probes**
+panel controls the camera and rebuilds the seed. **Add sand** queues a brush in
+the 1,024-slot interactive pool. **Drop interacting diagnostics** starts
+256 fixed grains with both particle and terrain collisions. **Drop collision probes**
 keeps the terrain-only diagnostic mode. **Pause simulation** stops either mode;
 Rebuild clears the particles. See [basin physics](docs/GPU_Basin_Tick.txt) and
 [resident basin status](docs/Resident_Basin.txt).

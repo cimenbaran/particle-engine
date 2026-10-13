@@ -34,12 +34,11 @@ traction now resists supported position corrections (GPU_Voxel_Traction.txt).
 Settling checks current voxel faces/edges/corners
 and reports live basin candidates with hysteresis and physics-fault invalidation.
 Candidates remain active; deposition remains pending. An optional pool spawn
-path now checks current voxel occupancy before reserving slots; live basin
-command/pool integration remains open (../docs/GPU_Voxel_Pool.txt). Optional
+path now checks current voxel occupancy before reserving slots; the live basin now exposes an active command pool (../docs/GPU_Basin_Pool.txt). Optional
 lattice brushes now space candidates within a command, and a fresh sparse-index
 query excludes existing particles across commands (../docs/GPU_Spawn_Clearance.txt).
-Live basin command/pool integration remains open. The complete particle/terrain tick
-now powers Drop interacting sand in the basin preview, with whole-tick rollback;
+Live basin spawning, removal, impulses and clear now use a 1,024-slot GPU pool. The complete particle/terrain tick
+now powers Drop interacting diagnostics in the basin preview, with whole-tick rollback;
 see ../docs/GPU_Basin_Tick.txt.
 A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed

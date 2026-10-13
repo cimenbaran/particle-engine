@@ -58,5 +58,6 @@ requires all final speeds <=.05m/s, and still checks collision/identity/fault ga
 This is an endpoint regression, not proof of indefinite settling or deposition.
 See ../tests/results/m3-max-voxel-traction.txt for execution results.
 
-Active command pool integration, terrain mass conversion, editing transactions,
+The active command pool is now connected (GPU_Basin_Pool.txt). Terrain mass
+conversion, editing transactions,
 persistence, water and thermal simulation remain separate unfinished work.

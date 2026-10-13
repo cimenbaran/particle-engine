@@ -59,7 +59,7 @@ repeated brushes, remove/refill, failure immutability and reload rejection.
 See ../tests/results/m3-max-spawn-clearance.txt for execution evidence.
 
 Remaining integration
-The live basin still uses its fixed 256-particle seed. Connecting its command
-queue, active pool, visibility/rendering, impulses and settling remains next.
+The live basin now connects these guards to its 1,024-slot command pool,
+rendering, impulses and settling (GPU_Basin_Pool.txt).
 These guards allocate active particles only; they are not terrain destruction,
 deposition or a mass-transfer transaction. No performance acceptance is claimed.

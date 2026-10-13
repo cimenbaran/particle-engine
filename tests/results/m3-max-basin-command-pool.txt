@@ -1,0 +1,44 @@
+LIVE BASIN COMMAND POOL — APPLE M3 MAX / METAL
+
+Environment: Apple M3 Max, 48 GB; macOS; AppleClang 21.0.0.21000099.
+Both PW_WORKGROUP_SIZE=128 and 256 completed the full --gpu-test suite.
+Both configurations completed all 22 macos-release CTest tests.
+The installed default is restored to workgroup 128.
+
+New GPU integration coverage:
+- Empty 1,024-slot pool; queued commands leave state/tick unchanged until tick.
+- Ordered duplicate spawn rejects overlap; ordered spawn/remove leaves no bodies.
+- Clear/refill and impulse after spawn; state agrees with active/free counts.
+- Expiration rebuilds membership; removal clears settling dwell/candidates.
+- Unsupported command and >12 m/s brush rejection; 8,192 requests/tick quota.
+- Stale terrain rejects before consuming commands or advancing tick; current
+  replacement consumes the preserved queue.
+- Full 1,024-slot clear/refill increments every generation and resets history.
+- Default 256-request brush: 600 ticks / 2,400 substeps, no faults; all particles
+  retained with correct slot/generation/age, bounded speeds and independent CPU
+  terrain clearance checks.
+
+The default brush originally failed near tick 156. Temporary first-failure
+tracing identified position correction, source bit 64 (collision-event budget),
+not motion prediction. Correction now gathers all nearby contact normals when
+revisiting a retained voxel, without changing its 8-normal/16-event limits.
+Temporary trace APIs, buffers and shader writes were removed before validation.
+
+The original fixed 256-grain, 600-tick regression remains unchanged on both
+workgroups: 247 settling candidates, 0 acquiring, 0 support grace; peak contact
+degree 5, maximum penetration 0.000114376 m, deep overlaps 0/92, maximum speed
+0.00896472 m/s. The terrain-only diagnostic regression also passes.
+
+Raw ignored logs: out/basin-pool-{gpu128,gpu256,ctest128,ctest256}.log.
+This is functional macOS evidence, not a reference-GPU performance or release
+certification. Windows is deferred. Terrain edits, destruction, deposition and
+persistence remain open.
+
+Native UI verification on the restored workgroup-128 build:
+- Add sand displayed 256 / 1,024 with zero rejected requests.
+- Paused at tick 596, a second brush remained pending with 256 active grains.
+- Resume consumed that command and displayed 512 grains, without a fault.
+- Clear sand displayed zero active grains and zero settling candidates at tick
+  1493; rendered sand disappeared while the terrain remained visible.
+- Reset while paused discarded a pending spawn and restored tick/counts to zero,
+  retaining the pause checkbox. Escape exited normally.

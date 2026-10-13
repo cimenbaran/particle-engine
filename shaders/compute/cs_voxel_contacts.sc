@@ -79,6 +79,28 @@ uint voxelCorrection(vec3 original,vec3 delta,out vec3 result) {
       if(contactCount==8u)return 8u;
       contacts[contactCount]=index;normals[contactCount]=voxelNormal(centre,voxelMotionLower(index));++contactCount;
     }
+    // Revisiting a retained contact means the two-surface projection did not
+    // clear this local gap. Include unvisited nearby surfaces before retrying.
+    if(present) {
+    // Gather the entire local shell. Retaining only previously hit voxels
+    // can alternate between tangent endpoints without ever seeing the other
+    // surfaces that constrain this correction in a narrow rounded gap.
+    contactCount=0u;
+    ivec3 minimum=ivec3(b_world[0].xyz),dimensions=ivec3(b_world[1].xyz);
+    ivec3 first=max(ivec3(ceil((centre-vec3_splat(.062504))*8.0))-ivec3(1,1,1)-minimum,ivec3(0,0,0));
+    ivec3 last=min(ivec3(floor((centre+vec3_splat(.062504))*8.0))-minimum,dimensions*32-ivec3(1,1,1));
+    LOOP for(int z=first.z;z<=last.z;++z)
+    LOOP for(int y=first.y;y<=last.y;++y)
+    LOOP for(int x=first.x;x<=last.x;++x) {
+      ivec3 cell=ivec3(x,y,z),chunk=cell/32,local=cell-chunk*32;
+      uint address=uint(chunk.x+dimensions.x*(chunk.y+dimensions.y*chunk.z))*32768u+uint(local.x+32*(local.y+32*local.z));
+      uvec4 packed=b_world[4u+address/4u];if(packed[address%4u]==0xffffffffu)continue;
+      vec3 lower=vec3(minimum+cell)*.125;
+      if(length(centre-clamp(centre,lower,lower+vec3_splat(.125)))>.062504)continue;
+      if(contactCount==8u)return 8u;
+      contacts[contactCount]=address;normals[contactCount]=voxelNormal(centre,lower);++contactCount;
+    }
+    }
     if(contactCount>1u)remaining=voxelContactCone(remaining,normals,contactCount);
     budget=max(0.0,budget-travelled);p=separated;excluded=index;
     if(!contactFinite3(p) || !contactFinite3(remaining))return 5u;

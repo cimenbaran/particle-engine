@@ -5,7 +5,7 @@ Open the installed Mac app's terrain inspection mode:
 Or run its executable with --terrain-preview --frames 180 for a bounded smoke run.
 The normal launch still opens the particle sandbox. Inspection now includes
 optional interacting sand (GPU_Basin_Tick.txt) and terrain-only GPU collision
-probes (GPU_Voxel_Motion.txt). Editing commands are not connected. Water, burning, destruction and deposition remain
+probes (GPU_Voxel_Motion.txt). Sand spawn/remove/impulse commands are connected (GPU_Basin_Pool.txt). Terrain editing commands are not connected. Water, burning, destruction and deposition remain
 open. Escape closes it.
 
 The version 1 deterministic recipe uses 256 chunks across [-16,16) x [0,16) x
@@ -41,8 +41,9 @@ upload buffers. Rebuilds temporarily hold old and new publications concurrently.
 
 Material hot reload is not enabled in inspection mode.
 The panel offers orbit, distance, height and a nonnegative integer seed. Rebuild
-regenerates the basin and clears live particles. Drop interacting sand starts
-256 grains with particle and terrain collisions. Drop collision probes retains
+regenerates the basin and clears live particles. Add sand appends guarded lattice
+brushes to a 1,024-slot pool. Drop interacting diagnostics starts
+256 fixed grains with particle and terrain collisions. Drop collision probes retains
 the terrain-only diagnostic mode; Pause simulation pauses either mode. Material
 colors come from the existing material library.
 Native UI inspection confirmed the seed 1337 view and a successful seed 42 rebuild
@@ -54,8 +55,7 @@ two adjacent voxels produce ten exposed faces.
 Live interacting particles now report settling candidates from voxel/pair support
 with speed/contact hysteresis; candidates remain active (GPU_Settling.txt).
 Voxel static traction is enabled (GPU_Voxel_Traction.txt).
-Remaining integration: active
-particle command ownership; consistent terrain edits and physical debris /
+Remaining integration: consistent terrain edits and physical debris /
 deposition transactions; dirty chunk mesh reuse; origin rebases at tick boundaries,
 fluids, thermal state and persistence. The complete particle/terrain tick now runs
 in the basin; see GPU_Basin_Tick.txt for tests and its current limits.

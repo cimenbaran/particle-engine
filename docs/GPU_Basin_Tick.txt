@@ -1,6 +1,6 @@
 INTERACTING RESIDENT BASIN TICK — MACOS / METAL
 
-Launch --terrain-preview and choose Drop interacting sand. This starts 256 Sand
+Launch --terrain-preview and choose Drop interacting diagnostics. This starts 256 Sand
 particles in an 8x8x4 arrangement, 0.14 m apart, above the ledge/slope boundary.
 Initial horizontal speed is 2 m/s; masses use material density and radius .0625 m.
 Drop collision probes retains the older independent-particle test scene. Pause

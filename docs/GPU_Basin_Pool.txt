@@ -1,0 +1,59 @@
+LIVE BASIN SAND COMMAND POOL (macOS / Metal)
+
+Launch ParticleWorld.app with --terrain-preview. Add sand creates an empty
+1,024-slot interacting pool on first use, then queues a lattice brush. Subsequent
+Add sand clicks preserve existing particles. Brush centre, half width, requested
+count and velocity are adjustable. Remove in brush and Apply impulse use the
+same closed box; Clear sand queues removal across the entire resident domain.
+Only Sand is exposed. Reset sand pool replaces the simulation with an empty pool
+and clears faults, counters, queued commands and settling history. Rebuild basin
+also removes the simulation. Both operations retain the pause preference.
+
+Commands are stamped with the next fixed tick and consumed in insertion order.
+Pause retains pending commands without changing particle state; resume executes
+them. Limits are the existing 32 commands/tick, 256 pending commands,
+4,096 spawn requests/command and 8,192 requests/tick. The UI offers up to 1,024
+requests per brush and a vector whose length is below the 12 m/s velocity limit.
+Host validation restricts brush/impulse vector magnitude to 12 m/s and rejects
+unsupported commands/materials. Physics retains its own 12 m/s speed cap.
+
+At each tick, current occupancy is checked before consuming any commands.
+Each spawn constructs a fresh GPU sparse index of current particles, rejects
+sphere overlaps, validates terrain clearance and allocates remaining free slots.
+Earlier commands are visible to later commands in the same tick. New candidates
+use the global .125 m lattice; blocked candidates are rejected without retries.
+A small brush may contain fewer sites than requested. Capacity overflow also
+rejects requests. Counts and rejection totals are asynchronously sampled from
+the GPU; they are delayed observations, not CPU ownership or allocation inputs.
+The pool rebuilds membership after physics, including lifetime expiration.
+
+The four-substep granular/voxel tick runs after commands. Physics failure rolls
+back to the post-command state, latches a fault and invalidates settling history.
+It does not undo commands already applied at that tick boundary. Reset is needed
+to recover. The CPU fault indicator is delayed by diagnostics readback.
+Settling runs once per completed tick, with generation changes and inactive slots
+clearing old dwell/candidate state. Candidates remain active physical particles.
+Inactive slots produce zero-sized transparent render instances.
+
+Drop interacting diagnostics preserves the original fixed 256-grain regression
+scene; Drop collision probes retains terrain-only motion. Either replaces the
+pool and its pending commands. No capture/replay or hot reload is exposed here.
+Terrain editing, mass conversion, deposition, rebasing and persistence remain
+open. The 1,024-slot preview is a functional integration, not a performance gate.
+
+GPU integration tests exercise empty/paused-equivalent queued state, command
+ordering, duplicate spawn rejection, clear/refill, impulses, expiry, quotas,
+stale occupancy without command consumption, full capacity reuse and settling
+generation reset. Existing fixed-scene 600-tick regressions remain unchanged.
+
+Dense-brush correction regression
+The default 256-request brush previously exhausted voxel correction's 16-event
+budget near tick 156. The first failing phase was position correction, bit 64;
+subsequent phase bits reflected propagation and rollback. When a correction
+revisits a retained voxel, it now gathers the complete nearby .062504 m contact
+shell before projecting the remaining displacement. This includes surfaces that
+have not yet been hit, preventing alternating tangent endpoints in narrow gaps.
+The eight-normal and sixteen-event limits remain explicit, every movement leg
+is swept and the correction distance budget remains enforced. Ordinary contacts
+retain their previous path. A 600-tick default-brush regression checks no faults,
+all 256 identities, age, bounded speed and independent CPU terrain clearance.
