@@ -26,6 +26,14 @@ inline FrictionVector positionFriction(const FrictionVector& displacement,const 
     for(auto& value:tangent)value*=-fraction;
     return tangent;
 }
+// Unspent floor traction after a swept impact has already spent friction on
+// incoming tangential velocity. Inputs are effective velocities after force/cap.
+inline double floorStaticBudget(double tangentSpeed,double normalSpeed,double dt,double mu){
+    if(!std::isfinite(tangentSpeed) || tangentSpeed<0 || !std::isfinite(normalSpeed) || normalSpeed<0 ||
+       !std::isfinite(dt) || dt<0 || dt>1 || !std::isfinite(mu) || mu<0 || mu>1)
+        throw std::invalid_argument("Invalid floor traction budget");
+    return std::max(0.0,mu*normalSpeed-tangentSpeed)*dt;
+}
 struct PositionFrictionPair {FrictionVector a{},b{};};
 inline PositionFrictionPair positionFrictionPair(const FrictionVector& relativeDisplacement,const FrictionVector& normal,
     double supportDepth,double inverseMassA,double inverseMassB,double staticFriction,double kineticFriction) {

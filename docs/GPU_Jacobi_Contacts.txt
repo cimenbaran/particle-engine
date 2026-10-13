@@ -112,3 +112,9 @@ validation and the static_traction_v1 profile. The pack pass precedes contact
 traversal on every iteration; the original state remains immutable. GPU fixtures
 now total 85, including snapshot rollback, coefficient endpoints, unequal masses,
 dense iterations, six wall planes and a two-plane corner.
+
+FloorTractionProfile optionally supplies gravity, substep seconds and speed limit
+for the unspent resting-floor budget. The live coordinator supplies it. Defaults
+keep isolated normal/static-pair callers unchanged. See the v2 section of
+Position_Friction_Reference.txt for activation, budget accounting and limitations.
+The current GPU test total is 100 fixtures.

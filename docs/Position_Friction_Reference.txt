@@ -53,3 +53,36 @@ The wall-pile fixture fails with tail speed 0.16091604284441838 m/s at tick 510;
 its overlap gate passes. The other six stability scenes pass. This supersedes
 the earlier resting-pile failure as the current blocker. The ten-minute Windows
 soak was not reached. See tests/results/ci-38321953983-static-friction.txt.
+
+Unspent floor traction candidate (static_traction_floor_v2)
+The end-of-tick Metal trace exposed floor particles moving laterally under sloped
+contacts. Swept floor response has already removed gravity's inward velocity before
+Jacobi sees the predicted pose. The positional wall pass only saw penetration from
+particle correction, omitting any unused part of that gravity-supported traction.
+
+The coordinator now supplies gravity, substep duration and speed cap to Jacobi.
+For an original substep pose exactly on the floor, with zero vertical velocity,
+compute incoming normal/tangent speeds after material drag and the existing cap.
+The available positional budget is max(0, mu*normalSpeed - tangentSpeed)*dt.
+Subtracting incoming tangent speed reserves the friction already spent by the
+sweep: a still-sliding body has no remaining budget. No kinetic correction is
+added. The existing all-or-nothing static constraint uses the remainder only if
+the current body is still exactly on the floor and there is no simultaneous side
+projection. Unsupported, moving-away, zero-gravity, fully damped, zero-friction
+and exhausted-budget cases receive no additional traction. Very large externally
+injected tangent speeds outside the cap conservatively receive none.
+
+This reuses a reserved packed lane and adds a uniform; no extra particle storage,
+GPU pass, neighbor cap or sleeping rule is introduced. Original velocity and drag
+must be finite and drag must lie in [0,100] when the floor profile is active;
+invalid input uses the existing snapshot error bit 32 and whole-iteration rollback.
+All ordinary combined correction limits and whole-tick rollback remain intact.
+
+The independent CPU budget checks distinguish unused, partially used and exhausted
+traction. GPU fixtures compare one/four iterations, prior sliding, zero gravity or
+friction, drag, incoming vertical motion, speed caps and invalid baseline/drag.
+Total Jacobi fixtures: 100. On Metal128 all seven unchanged stability scenes pass;
+wall-pile tail maximum is 0.011631010079263555 m/s, versus 0.022653669133305222
+for the prior profile. Resting-pile results are unchanged. This is a candidate
+correction, not proof that the Windows wall-pile failure is fixed. A fresh WARP
+run must pass the same 0.1 m/s gate before cross-backend stability can be closed.

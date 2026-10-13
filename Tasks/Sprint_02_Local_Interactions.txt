@@ -20,7 +20,9 @@ settling and sampled-energy gates. See ../docs/Granular_Stability.txt for exact
 limits. Static_traction_v1 passes all seven on Metal128/256. Windows WARP run
 38321953983 passes the full correctness suite and now passes resting_pile_64,
 but wall_pile_64 reaches 0.160916 m/s at tick 510 in the final settling window
-(limit 0.1). Both workgroups reproduce it; penetration coverage passes. See
+(limit 0.1). Both workgroups reproduce it; penetration coverage passes. A candidate unspent
+floor-traction budget (static_traction_floor_v2) improves Metal settling; Windows
+validation remains required. See
 ../tests/results/ci-38321953983-static-friction.txt. Do not widen the gate.
 These fixtures do not complete the broad stability or ten-minute soak gates.
 Interior terrain has a tested CPU sphere-sweep oracle in

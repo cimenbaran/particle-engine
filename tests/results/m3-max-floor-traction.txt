@@ -1,0 +1,33 @@
+UNSPENT FLOOR TRACTION — METAL CANDIDATE
+Development worktree based on c0c48e6 with accompanying v2 floor-traction change.
+Both workgroup sizes pass all 14 CTests, complete GPU suite (100 Jacobi fixtures),
+and all seven unchanged stability scenes. Default WG128 restored.
+Five-second live granular allocation soak passes. Windows failure remains unverified.
+WG128 stability report preceded the profile-label update; its physics is identical.
+No threshold change, new neighbor cap or sleeping/deposition shortcut was introduced.
+
+out/floor-traction128.log sha256=9ce5f9ec0f392a572095b09f8886fc0c6470c95f32f9f112010718e8a26979d9
+out/floor-traction256.log sha256=9b5008337a097fb0f97eaa01402ea68fadddc9cbaa85a2efffee4ff86470e30e
+out/floor-traction-ctest128.log sha256=4d9483f16147608465039d9d102eb6ce27648854f0925547a29d8bdf3f9400f4
+out/floor-traction-ctest256.log sha256=ba0390a89440cf4857c1d4925bc98ba78f492767f23eacf75e7e2b0fda172d8d
+out/floor-traction-stability128.json sha256=c6031d4a1a7b66b7d3f2d64f753344e4cb56a93c1245fcbd2e137e2eec3f96f8
+build={"binary_sha256": "8835aa6c5f7d482d2aad0cef6c146ccd6e5667d2645fd1a9fd8b326902b864b9", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "c0c48e63a6d47e7c690ff43c776d7848c14f60ca", "schema": 1, "worktree_dirty": true}
+{"name": "falling_column_16", "passed": true, "tail_max_speed": 4.861690104007721e-05, "tail_overlap_passed": true}
+{"name": "resting_pile_64", "passed": true, "tail_max_speed": 3.3391017950634705e-06, "tail_overlap_passed": true}
+{"name": "wall_pile_64", "passed": true, "tail_max_speed": 0.011631010079263555, "tail_overlap_passed": true}
+{"name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.777768387270639, "tail_overlap_passed": true}
+{"name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}
+out/floor-traction-stability256.json sha256=bbf601cf492eb6475325461a813b43ddcadd720c7f9c42a5809fb71cfd1b9a30
+build={"binary_sha256": "0570aef277b3600419612c48518b321b7d17269db92dda2e025609f4df7d7692", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "c0c48e63a6d47e7c690ff43c776d7848c14f60ca", "schema": 1, "worktree_dirty": true}
+{"name": "falling_column_16", "passed": true, "tail_max_speed": 4.861690104007721e-05, "tail_overlap_passed": true}
+{"name": "resting_pile_64", "passed": true, "tail_max_speed": 3.3391017950634705e-06, "tail_overlap_passed": true}
+{"name": "wall_pile_64", "passed": true, "tail_max_speed": 0.011631010079263555, "tail_overlap_passed": true}
+{"name": "coincident_spawn_64", "passed": true, "tail_max_speed": 6.686896085739136e-07, "tail_overlap_passed": true}
+{"name": "closed_dissipative_64", "passed": true, "tail_max_speed": 1.777768387270639, "tail_overlap_passed": true}
+{"name": "high_speed_wall_129", "passed": true, "tail_max_speed": 0.0, "tail_overlap_passed": true}
+{"name": "grazing_floor", "passed": true, "tail_max_speed": 3.0, "tail_overlap_passed": true}
+out/floor-traction-soak-smoke.json sha256=55166ac624645ac3c923b8928cab79dd3c2d71c8bd10cf74de83977b35f15dd0
+build={"binary_sha256": "039fcc4755025c417d2a7675d2af5287f29a19a49a76fb0965eb39007c0a5b51", "compiler_id": "AppleClang", "compiler_version": "21.0.0.21000099", "git_commit": "c0c48e63a6d47e7c690ff43c776d7848c14f60ca", "schema": 1, "worktree_dirty": true}
+{"completed_cycles": 1, "elapsed_seconds": 5.083951334, "failure": "", "final_snapshot": {"active": 129, "checked_slots": 129, "free": 0, "identity_error": false, "ownership_error": false, "rejected_spawns": 2137080, "state_error": false, "tick": 321}, "passed": true, "ticks": 321}

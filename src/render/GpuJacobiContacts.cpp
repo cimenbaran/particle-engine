@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <limits>
 namespace pw {
 GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::uint32_t capacity,float relaxation,float maxCorrection,bool bounded)
     :capacity_(capacity),relaxation_(relaxation),maxCorrection_(maxCorrection),bounded_(bounded),keys_(assets,capacity),sort_(assets,capacity),ranges_(assets,capacity),hash_(assets,capacity) {
@@ -21,9 +22,10 @@ GpuJacobiContacts::GpuJacobiContacts(const std::filesystem::path& assets,std::ui
         neighborParams_=bgfx::createUniform("u_neighbors",bgfx::UniformType::Vec4);
         contactParams_=bgfx::createUniform("u_contacts",bgfx::UniformType::Vec4);
         boundsParams_=bgfx::createUniform("u_contact_bounds",bgfx::UniformType::Vec4);
+        floorParams_=bgfx::createUniform("u_contact_floor",bgfx::UniformType::Vec4);
         frictionParams_=bgfx::createUniform("u_contact_friction",bgfx::UniformType::Vec4);
         if(!bgfx::isValid(states_[0]) || !bgfx::isValid(states_[1]) || !bgfx::isValid(corrections_) ||
-           !bgfx::isValid(packed_) || !bgfx::isValid(frictionParams_) || !bgfx::isValid(status_) || !bgfx::isValid(neighborParams_) || !bgfx::isValid(contactParams_) || !bgfx::isValid(boundsParams_))
+           !bgfx::isValid(floorParams_) || !bgfx::isValid(packed_) || !bgfx::isValid(frictionParams_) || !bgfx::isValid(status_) || !bgfx::isValid(neighborParams_) || !bgfx::isValid(contactParams_) || !bgfx::isValid(boundsParams_))
             throw std::runtime_error("Jacobi resources unavailable");
     }catch(...) {release();throw;}
 }
@@ -34,9 +36,13 @@ void GpuJacobiContacts::release() {
     if(bgfx::isValid(packed_)) bgfx::destroy(packed_);
     if(bgfx::isValid(status_)) bgfx::destroy(status_);
     for(auto h:{clear_,solve_,reduce_,apply_,pack_}) if(bgfx::isValid(h)) bgfx::destroy(h);
-    for(auto h:{neighborParams_,contactParams_,boundsParams_,frictionParams_}) if(bgfx::isValid(h)) bgfx::destroy(h);
+    for(auto h:{neighborParams_,contactParams_,boundsParams_,frictionParams_,floorParams_}) if(bgfx::isValid(h)) bgfx::destroy(h);
 }
-void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,bgfx::DynamicVertexBufferHandle start) {
+void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,bgfx::DynamicVertexBufferHandle start,FloorTractionProfile floor) {
+    if(!std::isfinite(floor.gravity) || floor.gravity<0 || floor.gravity>100 || !std::isfinite(floor.substepSeconds) || floor.substepSeconds<0 || floor.substepSeconds>1 ||
+       !std::isfinite(floor.speedLimit) || floor.speedLimit<0.001f || floor.speedLimit>1000000 ||
+       (floor.gravity>0 && (!bounded_ || !bgfx::isValid(start) || floor.substepSeconds<std::numeric_limits<float>::min())))
+        throw std::invalid_argument("Invalid floor traction profile");
     if(!bgfx::isValid(input) || !bgfx::isValid(materials) || input.idx==materials.idx || input.idx==corrections_.idx ||
        materials.idx==corrections_.idx || materials.idx==states_[0].idx || materials.idx==states_[1].idx || !materialCount || materialCount>65536)
         throw std::invalid_argument("Invalid Jacobi input or material buffer");
@@ -50,6 +56,7 @@ void GpuJacobiContacts::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandl
     ranges_.submit(view,sort_.output(),keys_.status());hash_.submit(view,ranges_.ranges(),ranges_.metadata());
     bgfx::setBuffer(0,hash_.metadata(),bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(!capacity_) return;
+    const float floorParameters[]{floor.gravity,floor.substepSeconds,floor.speedLimit,0};bgfx::setUniform(floorParams_,floorParameters);
     const float friction[]{float(capacity_),float(materialCount),bgfx::isValid(start)?1.0f:0.0f,0};
     bgfx::setUniform(frictionParams_,friction);bgfx::setBuffer(0,input,bgfx::Access::Read);
     bgfx::setBuffer(1,bgfx::isValid(start)?start:input,bgfx::Access::Read);bgfx::setBuffer(2,materials,bgfx::Access::Read);

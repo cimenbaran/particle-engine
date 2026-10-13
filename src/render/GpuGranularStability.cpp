@@ -148,7 +148,7 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
     Scene shots;shots.name="high_speed_wall_129";shots.ticks=30;shots.settling=false;shots.requiresCap=true;shots.gravity=0;
     for(unsigned i=0;i<129;++i){auto p=body(i,7.8f,1+float(i/8)*0.15f,-1+float(i%8)*0.15f);p.velocityInvMass[0]=1000;shots.state.push_back(p);}scenes.push_back(shots);
     Scene grazing;grazing.name="grazing_floor";grazing.gravity=0;grazing.settling=false;grazing.closed=true;grazing.ticks=60;auto p=body(0,0,0.0625f,0);p.velocityInvMass[0]=3;grazing.state.push_back(p);scenes.push_back(grazing);
-    Json report={{"schema_version",1},{"workload","granular_stability_v1"},{"position_friction","static_traction_v1"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
+    Json report={{"schema_version",1},{"workload","granular_stability_v1"},{"position_friction","static_traction_floor_v2"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
     for(const auto& scene:scenes){
         Json result;
         try {result=sceneCheck(assets,scene);}

@@ -77,7 +77,12 @@ void main() {
         if(normalDelta.x!=0.0)tangent.x=0.0;
         if(normalDelta.y!=0.0)tangent.y=0.0;
         if(normalDelta.z!=0.0)tangent.z=0.0;
-        if(length(tangent)<=b_state[slot*8u+5u].y*length(normalDelta))projected-=tangent;
+        float remainingFloor=0.0;
+        if(position.y==lo.y && b_state[slot*8u+4u].y==lo.y && normalDelta.x==0.0 && normalDelta.z==0.0) {
+          remainingFloor=b_state[slot*8u+6u].x;
+          if(remainingFloor>0.0)tangent.y=0.0;
+        }
+        if(length(tangent)<=b_state[slot*8u+5u].y*length(normalDelta)+remainingFloor)projected-=tangent;
       }
       proposed=clamp(projected,lo,hi);correction=proposed-position;
       // Friction may restore an earlier substep position. Bound the combined

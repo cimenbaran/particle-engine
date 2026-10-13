@@ -66,5 +66,16 @@ int main() {
     CHECK(rejects([&]{positionFriction({1,0,0},{0,2,0},1,0.5,0.3);}));
     CHECK(rejects([&]{positionFriction({1,0,0},up,1,0.3,0.5);}));
     CHECK(rejects([&]{positionFriction({1,0,0},up,1,1.1,0.5);}));
+    CHECK(std::abs(floorStaticBudget(0,0.1,0.01,0.5)-0.0005)<1e-15);
+    CHECK(std::abs(floorStaticBudget(0.02,0.1,0.01,0.5)-0.0003)<1e-15);
+    CHECK(floorStaticBudget(0.05,0.1,0.01,0.5)==0);
+    CHECK(floorStaticBudget(1,0.1,0.01,0.5)==0);
+    CHECK(floorStaticBudget(0,0,0.01,0.5)==0 && floorStaticBudget(0,1,0.01,0)==0);
+    for(double bad:{-1.0,std::numeric_limits<double>::infinity(),std::numeric_limits<double>::quiet_NaN()}){
+        CHECK(rejects([&]{floorStaticBudget(bad,1,0.01,0.5);}));
+        CHECK(rejects([&]{floorStaticBudget(0,bad,0.01,0.5);}));
+        CHECK(rejects([&]{floorStaticBudget(0,1,bad,0.5);}));
+        CHECK(rejects([&]{floorStaticBudget(0,1,0.01,bad);}));
+    }
     std::cout<<"Position friction: analytic traction, 10000-step incline drift regression and 1024 pair invariants passed; velocity-only drift="<<expectedDrift<<" m\n";
 }

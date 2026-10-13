@@ -806,7 +806,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         {"notes",Json::array({"One 1/60-second tick per frame; duration is wall-clock time.","Every tick audits every slot; error flags remain latched across readback intervals.","256-tick cycles cover fill/overflow, duplicate removal, reuse, short lifetimes and impulses.","This is a correctness soak, not a performance benchmark or reference-machine certification."})}};
     if(particles.granular) {
         const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
-        report["granular"]={{"position_friction","static_traction_v1"},{"radius",0.0625},{"speed_limit",12},{"substeps",4},{"iterations",4},{"saw_settling_candidates",sawSettling},
+        report["granular"]={{"position_friction","static_traction_floor_v2"},{"radius",0.0625},{"speed_limit",12},{"substeps",4},{"iterations",4},{"saw_settling_candidates",sawSettling},
             {"solver_error",g.active},{"tracking_error",h.active},{"final_candidates",h.free},{"final_acquiring",h.reserved},{"final_contact_grace",h.rejected},
             {"initial_scene",{{"name",particles.scene.name},{"count",particles.scene.count},{"minimum",particles.scene.minimum},{"maximum",particles.scene.maximum},{"materials",particles.scene.materials}}}};
         report["notes"].push_back("Granular solver and settling faults latch every tick; synchronized samples check candidates remain bounded by active matter.");

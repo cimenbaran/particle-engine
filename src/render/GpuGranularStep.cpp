@@ -75,7 +75,7 @@ void GpuGranularStep::submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle 
         sweep_.submit(view,forced_,materials,count,status_,plan_.substepSeconds,profile_.speedLimit);collect(view,sweep_.status(),2,1);
         const auto substepStart=current;
         const auto predicted=sweep_.output();current=predicted;
-        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart);current=contacts_.output();collect(view,contacts_.status(),4,2);}
+        for(std::uint32_t i=0;i<iterations_;++i){contacts_.submit(view,current,materials,count,substepStart,{gravity_,plan_.substepSeconds,profile_.speedLimit});current=contacts_.output();collect(view,contacts_.status(),4,2);}
         velocity_.submit(view,predicted,current,materials,count,status_,plan_.substepSeconds,VelocityReconstructionMode::Correction);collect(view,velocity_.status(),8,0);
         response_.submit(view,predicted,velocity_.output(),materials,count,status_);collect(view,response_.status(),16,2);
         bgfx::setBuffer(0,zero_,bgfx::Access::Read);bgfx::setBuffer(1,phaseStatus_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);

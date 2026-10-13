@@ -6,6 +6,7 @@ BUFFER_RO(b_start,vec4,1);
 BUFFER_RO(b_materials,vec4,2);
 BUFFER_RW(b_packed,vec4,3);
 uniform vec4 u_contact_friction; // capacity, material count, static friction enabled
+uniform vec4 u_contact_floor; // gravity, substep seconds, speed limit
 NUM_THREADS(PW_WORKGROUP_SIZE,1,1)
 void main() {
   uint id=gl_GlobalInvocationID.x;if(id>=uint(u_contact_friction.x))return;
@@ -21,6 +22,19 @@ void main() {
     all(greaterThanEqual(p.xyz,vec3(-8.0,0.0,-8.0))) && all(lessThan(p.xyz,vec3(8.0,16.0,8.0))) &&
     p.w==b_current[id*4u].w && floatBitsToUint(b_start[id*4u+1u].w)==floatBitsToUint(b_current[id*4u+1u].w) &&
     magnitude<=0x3f800000u && ((bits&0x80000000u)==0u || magnitude==0u);
+  if(u_contact_floor.x>0.0) {
+    vec3 velocity=b_start[id*4u+1u].xyz;float drag=b_materials[identity.x*4u].w;
+    valid=valid && contactFinite3(velocity) && contactFinite(drag) && drag>=0.0 && drag<=100.0;
+    if(valid && p.y==p.w && velocity.y==0.0 && abs(velocity.x)<=u_contact_floor.z && abs(velocity.z)<=u_contact_floor.z) {
+      float damping=max(0.0,1.0-drag*u_contact_floor.y);
+      float tangent=length(velocity.xz)*damping,normal=u_contact_floor.x*u_contact_floor.y*damping;
+      float speed=sqrt(tangent*tangent+normal*normal);
+      if(speed>u_contact_floor.z){float scale=(u_contact_floor.z/speed)*0.9999995231628418;tangent*=scale;normal*=scale;}
+      // The sweep spent min(tangent,mu*normal) stopping existing sliding.
+      // Only the unused static traction may resist later position corrections.
+      b_packed[id*8u+6u].x=max(0.0,mu*normal-tangent)*u_contact_floor.y;
+    }
+  }
   b_packed[id*8u+4u]=p;
   // enabled, material friction, validation error, reserved
   b_packed[id*8u+5u]=vec4(1.0,mu,valid?0.0:1.0,0.0);
