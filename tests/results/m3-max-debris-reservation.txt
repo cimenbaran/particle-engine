@@ -1,0 +1,31 @@
+GPU DEBRIS RESERVATION — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+PW_WORKGROUP_SIZE=128 and 256: full --gpu-test suite passes.
+Both configurations: 22/22 native CTest tests pass.
+Default installed workgroup restored to 128.
+
+The new reservation fixture covers 360 cases and 778,788 slot checks per
+configuration, for capacities 0,1,127,128,129,255,256,257,4096,16384.
+
+Each case checks the complete private particle snapshot and ordered claim
+records against a CPU allocator, the 16-byte GPU status, and unchanged input
+particle bytes. Sources include empty, mixed, full, generation-exhausted and
+invalid identities. Requests include exact fit, zero, one past available,
+partial use and UINT_MAX. Reusing one allocator across successful and failed
+requests verifies that stale claims do not survive. Host aliases reject.
+Generation zero increments to one; UINT_MAX-1 reserves the last generation;
+UINT_MAX is excluded without wrapping. Invalid alive slot IDs, zero-generation
+live particles and already-reserved flags reject the whole batch.
+
+The reservation is isolated from live state and terrain. It is not yet a
+coordinated physical conversion. Debris initialization/clearance, base-tick
+freshness, mass accounting and joint publication remain required. No normal
+ParticlePool may consume the private reserved snapshot before activation.
+
+Raw ignored logs:
+  out/debris-reservation-gpu128.log
+  out/debris-reservation-gpu256.log
+  out/debris-reservation-ctest128.log
+  out/debris-reservation-ctest256.log
+No Windows or reference-performance gate is claimed.

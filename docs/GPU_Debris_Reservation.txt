@@ -1,0 +1,62 @@
+GPU DEBRIS CAPACITY RESERVATION — macOS / Metal
+
+GpuDebrisReservation prepares an isolated transaction snapshot. It never writes
+to the live input or terrain. This is the allocation prerequisite for physical
+terrain conversion; no interactive removal or explosion is enabled by it alone.
+
+A submit runs four stages on one sequential view:
+1. Clear status, classify eligible dead slots, validate ownership identities and
+   clear claim records. Dead slots with generation UINT_MAX cannot be reused.
+2. Exclusive prefix scan over eligibility flags, with a GPU total.
+3. Compare the entire requested count with that total. Insufficient capacity or
+   invalid identity rejects the whole batch. No partial reservation is made.
+4. Copy every input particle lane into private snapshot storage. On success,
+   reserve the first requested eligible slots in ascending slot order. Their
+   identities receive flag 2 (reserved, not alive), their own slot index and the
+   next generation. All other bytes and slots remain unchanged.
+
+Claims are uvec4 records: slot, new generation, previous generation, zero.
+Unused rows within capacity are UINT_MAX,0,0,0, including after failed/repeated
+requests. The status buffer contains error bits, requested count, eligible count,
+and reserved count. Error 1 means insufficient capacity; error 2 means invalid
+identity. Errors may combine. A nonzero error always implies zero reservations.
+Requested counts use bit-preserving uint32 uniforms, including UINT_MAX.
+
+Live identities must use flags 0 or 1. Alive particles require their own slot ID
+and nonzero generation. Dead generation zero is eligible; UINT_MAX-1 may reserve
+the final usable generation; UINT_MAX never wraps. A previously reserved snapshot
+is not accepted as a live source. Dead slot IDs need not be initialized because
+a successful reservation assigns them. This allocator checks identity ownership,
+not particle geometry, material properties, mass or numeric simulation validity.
+
+The input stays immutable and alive through GPU execution. Private outputs are
+valid until the next submit and are reusable without per-submit allocations or
+synchronous CPU readback. Input cannot alias either private output. Capacity is
+0 through 1,048,576; the zero-capacity case still returns status. Only rows below
+capacity have initialized snapshot/claim contents.
+
+Commit contract (not yet integrated)
+The reserved snapshot is NOT a normal ParticlePool input: ordinary free-list
+classification does not understand transaction-only flag 2. It must remain
+private. A future coordinator must either freeze simulation/commands during the
+transaction or reject an obsolete base tick before adopting the candidate.
+Reservation in a private snapshot is not a lock on a live pool that continues to
+change. Before publication it must validate material mass and spawn clearance,
+initialize all reserved debris and replace reserved flags with alive flags.
+
+Only after all those gates and the terrain upload acknowledgement succeed may
+terrain occupancy/rendering and active particle state advance together. If any
+gate fails, discard the candidate; keep live particles and unconverted terrain.
+Oversized explosions must split proposals across ticks, with each proposal fully
+reserved before its removals commit. Failed deposits likewise remain dynamic.
+This primitive neither alters voxel mass nor claims complete destruction,
+deposition, snapshot persistence or transaction acknowledgement for particles.
+
+Validation
+GPU tests compare all output bytes and ordered claims with a CPU allocator for
+capacities 0,1,127,128,129,255,256,257,4096,16384. Empty, mixed, full and malformed
+sources run exact-fit, zero, overflowing, partial and UINT_MAX requests, including
+reused outputs after success and failure. Every source is read back unchanged.
+Generation exhaustion, last-generation reservation, invalid live IDs/flags,
+zero-generation live rejection and host alias rejection are covered. Both Metal
+workgroup configurations run the same test. Performance gates remain open.
