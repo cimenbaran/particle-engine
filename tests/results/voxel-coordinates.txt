@@ -1,0 +1,13 @@
+VOXEL COORDINATE FOUNDATION VALIDATION
+
+Development source based on 9b0c970; AppleClang21, macOS arm64.
+CPU-only CTest: 11/11 passed. Native configuration CTest: 16/16 passed.
+Coordinate suite: all32768 local indices, signed/extreme inputs, boundary
+nextafter/subnormal cases,4096 seeded origin round trips and resident-layout
+limits passed. Standalone UndefinedBehaviorSanitizer execution also passed.
+No application/GPU voxel terrain or rebase transaction is implemented here.
+The installed9b0c970 sphere soak was left running and unchanged.
+
+out/voxel-coordinates-test.log sha256=b46f47c9067dcab3ab52b0c9003570f86115b8e663d4e075957ea8624cb259d3
+out/voxel-coordinates-native-test.log sha256=d5486f12915913d4ed3d46263ca4d25273891ad0b6e85a3bb442ebd83f6dea53
+out/voxel-coordinates-ubsan.log sha256=c98a78573f83be5d84eab076f0964eeaa962464a9c5409e217d70d598831bbb2

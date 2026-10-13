@@ -1,0 +1,41 @@
+VOXEL WORLD ADDRESSING FOUNDATION
+
+core/VoxelCoordinates.hpp defines 32x32x32-cell chunks at 0.125 m spacing. A
+chunk spans 4 m. VoxelAddress contains signed int32 chunk coordinates and three
+local cell coordinates in [0,32). Local indexing is x-fastest: x+32*y+1024*z.
+This is CPU addressing preparation for S3-01/S3-02, not resident terrain storage,
+a GPU collider, a terrain renderer or a completed origin-rebasing system.
+
+Global voxel coordinates use signed int64. addressOf uses Euclidean division:
+voxel-1 maps to chunk-1/local31, voxel-32 to chunk-1/local0, and voxel-33 to
+chunk-2/local31. It handles INT64_MIN without negation or signed shifts and
+rejects coordinates outside the int32 chunk domain before narrowing. Invalid
+local coordinates and out-of-range indices return no address rather than wrap.
+
+relativeCorner subtracts integer chunk coordinates before converting to metres.
+addressAtRelative floors in voxel units before adding the integer origin, so a
+negative subnormal position stays on the negative side of a chunk face even at
+a large origin. Nonfinite values and coordinates beyond the chunk domain are
+rejected. Supported integer differences and 0.125 m corners are exactly representable
+in double. This does not mean arbitrary large relative positions are accurate in
+GPU float; the eventual upload path must enforce the resident precision domain.
+Changing the origin only changes the returned coordinates, never world identity.
+
+ResidentChunkLayout maps a finite region to x-fastest uint32 slots, with checked
+dimensions, coordinate endpoints and total slot count. It allocates nothing and
+has no camera or visibility input. A 32x16x32 m basin spans 8x4x8 chunks. The test
+layout uses minimum chunk (-4,0,-4), has 256 chunks and 8,388,608 voxel addresses,
+and covers [-16,16)x[0,16)x[-16,16) metres. The running particle solver retains
+its existing smaller bounded grid; expanding or replacing that index is still
+required before the full basin can be simulated.
+
+Tests exhaust all 32,768 local addresses, check signed boundaries and neighbors,
+minimum/maximum integer inputs, nonfinite and nextafter positions, negative
+subnormals, 4,096 seeded origin round trips/covariance checks, all 256 basin chunk
+slots and malformed/overflowing resident layouts. UndefinedBehaviorSanitizer
+also runs the coordinate suite to check arithmetic at signed limits.
+
+Next integration work: sparse material occupancy and active thermal detail;
+explicit authoritative/collision/render revisions; tick-boundary CPU/GPU origin
+publication; out-of-resident-region policy; GPU occupancy uploads and current-
+revision voxel collision. None of these is implied by passing address tests.

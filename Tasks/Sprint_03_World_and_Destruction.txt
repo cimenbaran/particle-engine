@@ -5,6 +5,13 @@ Planning window: Weeks 7-8.
 Dependencies: Sprint 2 granular and spatial-index gates.
 Source: Particle_World_Design.docx, sections 2, 6, 8 and 10-13.
 
+Preparation status
+CPU chunk/voxel addressing and a checked resident layout are implemented and
+covered by exhaustive local-index, signed-boundary, extreme-value and origin
+round-trip tests; see ../docs/Voxel_Coordinates.txt. This does not allocate voxel
+terrain or publish a CPU/GPU rebase. All runtime and transaction gates below
+remain open. Existing Metal/WARP granular validation continues separately.
+
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,
     material occupancy, persistent edits and thermal detail for active regions.
