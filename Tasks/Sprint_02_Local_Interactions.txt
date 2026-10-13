@@ -68,13 +68,16 @@ passed 600 seconds, 38763 ticks and 151 lifecycle cycles; evidence is in
 See ../tests/results/m3-max-static-friction-soak-600.txt. D3D11 and controlled
 performance comparisons remain open.
 
-Latest Windows checkpoint: source9c6bc0a passes the full D3D11 WARP GPU
-correctness stage at both workgroup sizes, including the sphere event fix and
-live contact-normal view. Run38331795863 also passes stability at workgroup256;
-workgroup128 stability and overall replay/soak success remain unproven. See
-../tests/results/ci-38331795863-correctness-stage.txt.
-Custom sphere-scene lifecycle soaks and independent per-tick sphere-containment
-audits now have Metal smoke coverage; their new ten-minute gates are pending.
+Latest Windows checkpoint: source9c6bc0a passes the full run38331795863,
+including GPU correctness, all stability scenes, replay and ten-minute enclosure
+soaks at both workgroup sizes. This is D3D11 WARP software coverage, not physical
+hardware certification. See ../tests/results/ci-38331795863-completed.txt.
+Custom sphere-scene lifecycle soaks pass short Metal smoke coverage, but the
+600-second Metal128 gate at source9b0c970 FAILED after 593.21 seconds / 32313 ticks.
+The independent state/ownership/identity audit remained clean; contact geometry
+faults and subsequent solver/index faults latched. Root cause remains open.
+See ../tests/results/m3-max-sphere-soak-600-failure.json. The sphere long-run gate
+must be repaired and rerun; earlier enclosure results do not establish it.
 
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,

@@ -1,0 +1,200 @@
+{
+  "build": {
+    "binary_sha256": "1acabdf7c02d845959765953d5dceb646e3db0f8a3793653efbbac6775289d08",
+    "compiler_id": "AppleClang",
+    "compiler_version": "21.0.0.21000099",
+    "git_commit": "9b0c9707febede9911010c1a51d442c4cfa29dd6",
+    "schema": 1,
+    "worktree_dirty": false
+  },
+  "backend": "Metal",
+  "workgroup_size": 128,
+  "capacity": 257,
+  "requested_seconds": 600,
+  "elapsed_seconds": 593.21180025,
+  "ticks": 32313,
+  "completed_cycles": 126,
+  "slot_checks": 8304441,
+  "failure": "Granular neighborhood or occupancy diagnostic fault",
+  "passed": false,
+  "granular": {
+    "final_acquiring": 0,
+    "final_candidates": 0,
+    "final_contact_grace": 0,
+    "initial_scene": {
+      "count": 256,
+      "materials": [
+        "Sand"
+      ],
+      "maximum": [
+        0.75,
+        5.5,
+        0.75
+      ],
+      "minimum": [
+        -0.75,
+        4.0,
+        -0.75
+      ],
+      "name": "Sand over sphere"
+    },
+    "iterations": 4,
+    "position_friction": "static_traction_approach_v3",
+    "radius": 0.0625,
+    "saw_settling_candidates": true,
+    "solver_error": 31,
+    "speed_limit": 12,
+    "substeps": 4,
+    "tracking_error": 1
+  },
+  "final_snapshot": {
+    "active": 257,
+    "checked_slots": 257,
+    "free": 0,
+    "identity_error": false,
+    "ownership_error": false,
+    "rejected_spawns": 204085644,
+    "state_error": false,
+    "tick": 32313
+  },
+  "scene": {
+    "count": 256,
+    "materials": [
+      "Sand"
+    ],
+    "maximum": [
+      0.75,
+      5.5,
+      0.75
+    ],
+    "minimum": [
+      -0.75,
+      4.0,
+      -0.75
+    ],
+    "name": "Sand over sphere",
+    "schema_version": 2,
+    "seed": 42,
+    "sphere": {
+      "centre": [
+        0.0,
+        2.0,
+        0.0
+      ],
+      "radius": 1.25
+    }
+  },
+  "workload": "granular_scene_256_tick_pool_cycle_v1",
+  "source_report_sha256": "6ad327a0cbc637314669dcd1854c93b3f3e4b170b6a55d153395545ef9ca0e3f",
+  "last_clean_sample": {
+    "active": 0,
+    "checked_slots": 257,
+    "contact_totals": {
+      "candidate_visits": 0,
+      "directed_contacts": 0
+    },
+    "elapsed_seconds": 592.181720166,
+    "free": 257,
+    "granular": {
+      "acquiring": 0,
+      "boundary_events": 0,
+      "contact_grace": 0,
+      "maximum_contact_degree": 0,
+      "settling_candidates": 0,
+      "solver_error": 0,
+      "speed_caps": 0,
+      "tracking_error": 0
+    },
+    "identity_error": false,
+    "neighborhood": {
+      "contact_solves": 20,
+      "error": 0,
+      "maximum_candidates": 0,
+      "maximum_probes": 0
+    },
+    "occupancy": {
+      "error": 0,
+      "indexed_solids": 0,
+      "maximum_cell_population": 0,
+      "occupied_cells": 0
+    },
+    "ownership_error": false,
+    "rejected_spawns": 203635341,
+    "state_error": false,
+    "tick": 32258
+  },
+  "first_fault_sample": {
+    "active": 257,
+    "checked_slots": 257,
+    "contact_totals": {
+      "candidate_visits": 18352,
+      "directed_contacts": 676
+    },
+    "elapsed_seconds": 593.181894375,
+    "free": 0,
+    "granular": {
+      "acquiring": 0,
+      "boundary_events": 0,
+      "contact_grace": 0,
+      "maximum_contact_degree": 2,
+      "settling_candidates": 0,
+      "solver_error": 31,
+      "speed_caps": 0,
+      "tracking_error": 1
+    },
+    "identity_error": false,
+    "neighborhood": {
+      "contact_solves": 20,
+      "error": 16,
+      "maximum_candidates": 11,
+      "maximum_probes": 53
+    },
+    "occupancy": {
+      "error": 2,
+      "indexed_solids": 0,
+      "maximum_cell_population": 0,
+      "occupied_cells": 0
+    },
+    "ownership_error": false,
+    "rejected_spawns": 204069260,
+    "state_error": false,
+    "tick": 32311
+  },
+  "final_sample": {
+    "active": 257,
+    "checked_slots": 257,
+    "contact_totals": {
+      "candidate_visits": 18352,
+      "directed_contacts": 676
+    },
+    "elapsed_seconds": 593.211747166,
+    "free": 0,
+    "granular": {
+      "acquiring": 0,
+      "boundary_events": 0,
+      "contact_grace": 0,
+      "maximum_contact_degree": 2,
+      "settling_candidates": 0,
+      "solver_error": 31,
+      "speed_caps": 0,
+      "tracking_error": 1
+    },
+    "identity_error": false,
+    "neighborhood": {
+      "contact_solves": 20,
+      "error": 16,
+      "maximum_candidates": 11,
+      "maximum_probes": 53
+    },
+    "occupancy": {
+      "error": 2,
+      "indexed_solids": 0,
+      "maximum_cell_population": 0,
+      "occupied_cells": 0
+    },
+    "ownership_error": false,
+    "rejected_spawns": 204085644,
+    "state_error": false,
+    "tick": 32313
+  }
+}

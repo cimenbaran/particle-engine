@@ -1,0 +1,15 @@
+Completed CI validation: run 38331795863
+Source: 9c6bc0a845af51db72b8b63936ee27492d9250b4
+URL: https://github.com/cimenbaran/particle-engine/actions/runs/38331795863
+Overall GitHub conclusion: success. Both macOS and both Windows jobs passed.
+Windows renderer: D3D11 WARP (software correctness, not physical hardware performance).
+Artifacts downloaded and inspected locally; this run predates the sphere-scene soak gate.
+
+WG128 granular-soak.json: {"backend": "Direct3D 11", "completed_cycles": 43, "elapsed_seconds": 600.2612581, "passed": true, "ticks": 11117, "workload": "granular_256_tick_pool_cycle_v2"}; SHA256 912c62d03a925f2d15efe58407db27d3a75ec1dddd91a5972892c71a849b5b19
+WG128 granular-stability.json: {"backend": "Direct3D 11", "passed": true, "workload": "granular_stability_sphere_v2"}; SHA256 363da5f8e96356f0d1850218b76a93134bb1e17551dbdf605dbd684a40ac6723
+WG128 replay-regression/default.json: {"backend": "Direct3D 11", "passed": true}; SHA256 ed71d24b74d37c729c44835a3c8229323a4783c1ab543112627808b3eac0f9fe
+WG128 replay-regression/masked.json: {"backend": "Direct3D 11", "passed": true}; SHA256 3696ac5c4c405b4876e39e41f6af82952d6217cf2f4d001efe1c563b3b6452bc
+WG256 granular-soak.json: {"backend": "Direct3D 11", "completed_cycles": 60, "elapsed_seconds": 600.0572745, "passed": true, "ticks": 15364, "workload": "granular_256_tick_pool_cycle_v2"}; SHA256 308b84ed80a0d566c482a23517f9787f6b19e4473007956b4012c68f76d3a93a
+WG256 granular-stability.json: {"backend": "Direct3D 11", "passed": true, "workload": "granular_stability_sphere_v2"}; SHA256 f3884e0a45b989e28509f466e2d4a834cf2c263e261e9c199d8dfe723638de9e
+WG256 replay-regression/default.json: {"backend": "Direct3D 11", "passed": true}; SHA256 8b948dedc78f61a471dfaca503d8a39411668b6f981e860043b96163849042a6
+WG256 replay-regression/masked.json: {"backend": "Direct3D 11", "passed": true}; SHA256 83269b0a95a49843cf607adacbfe6af477adb70433c95428fb31cba7dd517909
