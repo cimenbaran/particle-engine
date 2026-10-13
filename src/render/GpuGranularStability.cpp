@@ -12,6 +12,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 #include <utility>
@@ -24,6 +25,7 @@ template<class T> struct Handle {
 };
 struct Scene {
     std::string name;std::vector<ParticleGpu> state;float gravity=9.81f;
+    AnalyticSphere obstacle{};
     unsigned ticks=600;bool settling=true,closed=false,requiresCap=false;
 };
 ParticleGpu body(unsigned id,float x,float y,float z) {return {{x,y,z,0.0625f},{0,0,0,1},{293.15f,0,0,0},{0,1,id,1}};}
@@ -76,6 +78,7 @@ Json inspectSample(const std::vector<ParticleGpu>& state) {
 Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
     const auto started=std::chrono::steady_clock::now();const auto count=std::uint32_t(scene.state.size());
     Json result={{"name",scene.name},{"capacity",count},{"requested_ticks",scene.ticks},{"gravity",scene.gravity},{"settling_required",scene.settling},{"closed_energy_required",scene.closed},{"cap_required",scene.requiresCap},{"samples",Json::array()},{"passed",false},{"failure",""}};
+    result["sphere"]={{"centre",scene.obstacle.centre},{"radius",scene.obstacle.radius}};
     result["initial_state"]=Json::array();
     for(const auto& p:scene.state)result["initial_state"].push_back({{"position",{p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]}},{"velocity",{p.velocityInvMass[0],p.velocityInvMass[1],p.velocityInvMass[2]}}});
     bgfx::VertexLayout layout;layout.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
@@ -90,7 +93,7 @@ Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
     Handle oldStaging(bgfx::createTexture2D(4,std::uint16_t(count),false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
     Handle statImage(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_COMPUTE_WRITE));
     Handle statStaging(bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::RGBA32U,BGFX_TEXTURE_READ_BACK|BGFX_TEXTURE_BLIT_DST));
-    GpuGranularStep solver(assets,count,{},4,scene.gravity,true);auto current=input.value;
+    GpuGranularStep solver(assets,count,{},4,scene.gravity,true,scene.obstacle);auto current=input.value;
     std::vector<ParticleGpu> state(count),original(count);std::array<std::uint32_t,4> status{};
     const double initialEnergy=energy(scene.state);double tailEnergy=initialEnergy,maxEnergy=initialEnergy;bool sawCap=false;
     Metrics final;unsigned tick=0;float expectedAge=0;double tailMaxSpeed=0;bool tailOverlapPassed=true;
@@ -111,16 +114,23 @@ Json sceneCheck(const std::filesystem::path& assets,const Scene& scene) {
             while(bgfx::frame()<ready)SDL_PumpEvents();
             if(status[0])throw std::runtime_error("Latched solver phase error "+std::to_string(status[0]));
             if(std::memcmp(original.data(),scene.state.data(),count*sizeof(ParticleGpu)))throw std::runtime_error("Original fixture mutated");
+            double minimumSphereGap=std::numeric_limits<double>::infinity();
             for(unsigned i=0;i<count;++i){const auto& p=state[i];
                 if(std::memcmp(p.identity,scene.state[i].identity,16) || p.positionRadius[3]!=0.0625f || p.velocityInvMass[3]!=1 ||
                    p.thermalState[0]!=293.15f || p.thermalState[1]!=0 || p.thermalState[2]!=0)throw std::runtime_error("Persistent identity/material/mass changed");
                 for(unsigned a=0;a<4;++a)if(!std::isfinite(p.positionRadius[a]) || !std::isfinite(p.velocityInvMass[a]) || !std::isfinite(p.thermalState[a]))throw std::runtime_error("Nonfinite state");
                 for(unsigned a=0;a<3;++a)if(p.positionRadius[a]<(a==1?0.0625f:-7.9375f) || p.positionRadius[a]>(a==1?15.9375f:7.9375f))throw std::runtime_error("Sphere escaped enclosure");
+                if(scene.obstacle.radius>0) {
+                    double squared=0;for(unsigned a=0;a<3;++a){double d=double(p.positionRadius[a])-scene.obstacle.centre[a];squared+=d*d;}
+                    minimumSphereGap=std::min(minimumSphereGap,std::sqrt(squared)-scene.obstacle.radius-0.0625);
+                }
                 if(std::abs(double(p.thermalState[3])-expectedAge)>1e-6)throw std::runtime_error("Lifetime clock differs from float substeps");
             }
             final=measure(state,scene.gravity);maxEnergy=std::max(maxEnergy,final.kinetic);sawCap|=status[1]>0;
             result["samples"].push_back({{"tick",tick},{"age_error_seconds",double(state[0].thermalState[3])-tick/60.0},{"energy",final.kinetic},{"potential_energy",final.potential},{"mechanical_energy",final.kinetic+final.potential},{"max_speed",final.maxSpeed},{"contacts",final.contacts},{"deep_contacts",final.deep},{"max_penetration",final.maxPenetration},{"solver_caps",status[1]},{"solver_max_degree",status[2]},{"boundary_events",status[3]}});
             result["samples"].back().update(inspectSample(state));
+            result["samples"].back()["minimum_sphere_gap"]=scene.obstacle.radius>0?Json(minimumSphereGap):Json(nullptr);
+            if(minimumSphereGap< -1e-6)throw std::runtime_error("Particle penetrated sphere terrain beyond float geometry allowance");
             if(final.maxSpeed>12.0001)throw std::runtime_error("Speed limit exceeded");
             if(tick==scene.ticks/2)tailEnergy=final.kinetic;
             if(tick>=scene.ticks-std::min(120u,scene.ticks)) {tailMaxSpeed=std::max(tailMaxSpeed,final.maxSpeed);tailOverlapPassed&=std::uint64_t(final.deep)*100<=final.contacts;}
@@ -148,7 +158,17 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
     Scene shots;shots.name="high_speed_wall_129";shots.ticks=30;shots.settling=false;shots.requiresCap=true;shots.gravity=0;
     for(unsigned i=0;i<129;++i){auto p=body(i,7.8f,1+float(i/8)*0.15f,-1+float(i%8)*0.15f);p.velocityInvMass[0]=1000;shots.state.push_back(p);}scenes.push_back(shots);
     Scene grazing;grazing.name="grazing_floor";grazing.gravity=0;grazing.settling=false;grazing.closed=true;grazing.ticks=60;auto p=body(0,0,0.0625f,0);p.velocityInvMass[0]=3;grazing.state.push_back(p);scenes.push_back(grazing);
-    Json report={{"schema_version",1},{"workload","granular_stability_v1"},{"position_friction","static_traction_floor_v2"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
+    Scene sphereDrop;sphereDrop.name="sphere_drop_64";sphereDrop.obstacle={{0,2,0},1.25f};
+    for(unsigned y=0;y<4;++y)for(unsigned z=0;z<4;++z)for(unsigned x=0;x<4;++x)
+        sphereDrop.state.push_back(body(unsigned(sphereDrop.state.size()),(float(x)-1.5f)*0.15f,4+y*0.15f,(float(z)-1.5f)*0.15f));
+    scenes.push_back(sphereDrop);
+    Scene sphereStack;sphereStack.name="sphere_resting_stack_4";sphereStack.obstacle={{0,2,0},1.25f};
+    for(unsigned i=0;i<4;++i)sphereStack.state.push_back(body(i,0,3.3125f+i*0.125f,0));scenes.push_back(sphereStack);
+    Scene sphereImpact;sphereImpact.name="sphere_dissipative_9";sphereImpact.obstacle={{0,4,0},0.9375f};
+    sphereImpact.gravity=0;sphereImpact.settling=false;sphereImpact.closed=true;sphereImpact.ticks=240;
+    for(unsigned y=0;y<3;++y)for(unsigned z=0;z<3;++z){auto shot=body(unsigned(sphereImpact.state.size()),-2,4+(float(y)-1)*0.25f,(float(z)-1)*0.25f);shot.velocityInvMass[0]=12;sphereImpact.state.push_back(shot);}
+    scenes.push_back(sphereImpact);
+    Json report={{"schema_version",1},{"workload","granular_stability_sphere_v2"},{"position_friction","static_traction_floor_v2"},{"backend",bgfx::getRendererName(bgfx::getCaps()->rendererType)},{"workgroup_size",workgroupSize},{"tick_seconds",1.0/60},{"substeps",4},{"iterations",4},{"speed_limit",12},{"radius",0.0625},{"restitution",0},{"friction",0.5},{"passed",true},{"scenes",Json::array()}};
     for(const auto& scene:scenes){
         Json result;
         try {result=sceneCheck(assets,scene);}
@@ -156,7 +176,7 @@ nlohmann::json runGpuGranularStability(const std::filesystem::path& assets) {
         if(!result["passed"].get<bool>())report["passed"]=false;report["scenes"].push_back(std::move(result));
     }
     const auto* caps=bgfx::getCaps();report["machine"]={{"platform",SDL_GetPlatform()},{"ram_mb",SDL_GetSystemRAM()},{"vendor_id",caps->vendorId},{"device_id",caps->deviceId}};
-    report["notes"]={"Snapshots at tick 1 and every 30 ticks; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark.","Each verified sample records all particle positions/velocities and the fastest particle nearby-contact geometry; these fields do not change gates.","Fastest-particle wall gaps are x-min, x-max, y-min, y-max, z-min, z-max; nearby normals point toward that particle, and negative normal speed means approach."};
+    report["notes"]={"Snapshots at tick 1 and every 30 ticks; solver errors latch every tick.","Settling over the final 120 ticks: sampled contact overlap <=10% radius for at least 99% of contacts, maximum speed <=0.1 m/s.","Closed energy is sampled, with 1e-4 relative-to-initial tolerance; not an every-tick energy proof.","Fixed short fixtures, not a ten-minute soak, general stability proof or performance benchmark.","Sphere scenes additionally require sampled surface gap >= -1e-6 m (float geometry allowance); disabled spheres report null gaps.","Each verified sample records all particle positions/velocities and the fastest particle nearby-contact geometry; these fields do not change gates.","Fastest-particle wall gaps are x-min, x-max, y-min, y-max, z-min, z-max; nearby normals point toward that particle, and negative normal speed means approach."};
     return report;
 }
 }

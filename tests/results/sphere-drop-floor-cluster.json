@@ -1,0 +1,69 @@
+{
+  "source_worktree_base": "16b5dd0",
+  "source_report": "out/sphere-stability128.json",
+  "scene": "sphere_drop_64",
+  "tick": 480,
+  "sphere": {
+    "centre": [
+      0.0,
+      2.0,
+      0.0
+    ],
+    "radius": 1.25
+  },
+  "gravity": 9.81,
+  "friction": 0.5,
+  "restitution": 0,
+  "radius": 0.0625,
+  "particles": [
+    {
+      "generation": 1,
+      "inverse_mass": 1.0,
+      "position": [
+        -1.4058891534805298,
+        0.0625,
+        -1.4058891534805298
+      ],
+      "radius": 0.0625,
+      "slot": 0,
+      "velocity": [
+        -0.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "generation": 1,
+      "inverse_mass": 1.0,
+      "position": [
+        -1.2682591676712036,
+        0.0625,
+        -1.2682591676712036
+      ],
+      "radius": 0.0625,
+      "slot": 32,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "generation": 1,
+      "inverse_mass": 1.0,
+      "position": [
+        -1.3370741605758667,
+        0.1408998966217041,
+        -1.3370741605758667
+      ],
+      "radius": 0.0625,
+      "slot": 48,
+      "velocity": [
+        -3.926095559769749e-13,
+        -0.0047509451396763325,
+        -3.926095559769749e-13
+      ]
+    }
+  ],
+  "note": "Observed three-body support cluster; diagnostic extract, not an executable replay. Other particles are omitted; independent reproduction remains to be verified."
+}

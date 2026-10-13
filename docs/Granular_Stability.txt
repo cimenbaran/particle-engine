@@ -13,7 +13,11 @@ friction 0.5, four substeps, four Jacobi iterations and a 12 m/s speed cap.
 Five fixtures run 600 ticks each: a falling column of 16, a resting cube of
 64, a cube against a wall, 64 coincident spawns, and 64 particles in a closed
 zero-gravity dissipative fixture. There are also 129 high-speed wall shots
-(30 ticks) and a grazing floor particle (60 ticks). Total: 3,090 ticks.
+(30 ticks) and a grazing floor particle (60 ticks). The sphere extension adds
+64 grains falling onto a radius-1.25 sphere (600 ticks), a four-body stack on
+the same sphere (600 ticks), and nine 12 m/s shots at a radius-0.9375 sphere
+with zero gravity (240 ticks). Total: ten scenes and 4,530 ticks. The original
+seven fixtures and thresholds are unchanged. Workload: granular_stability_sphere_v2.
 The initial arrays and deterministic seeded velocities are recorded in JSON.
 
 At tick 1, every 30 ticks and the final tick, readback checks finite state,
@@ -30,14 +34,14 @@ records gravitational potential and mechanical energy. A cube can collapse
 from a temporary symmetric arrangement, lowering gravitational energy; an
 early snapshot alone is not sufficient evidence of settling.
 
-The two closed-energy fixtures must never exceed initial kinetic energy at a
+The three closed-energy fixtures must never exceed initial kinetic energy at a
 sample and must finish no higher than their halfway sample, within 1e-4 times
 max(1, initial energy). This is sampled evidence, not an every-tick energy proof.
 Coincident initial overlaps can inject projection energy and are assessed for
 bounded speed and eventual settling, not conservation of initial energy.
 
 These small fixtures establish reproducible regression coverage. They do not
-certify arbitrary scene stability, physical D3D11 hardware, interior terrain,
+certify arbitrary scene stability, physical D3D11 hardware, voxel terrain,
 performance, or ten-minute soaks. Elapsed time includes readbacks and setup.
 See tests/results/m3-max-granular-stability.txt for local Metal measurements.
 
@@ -59,3 +63,17 @@ format and cannot yet be passed to the replay CLI. Existing initial_state and
 invariant metadata remain authoritative for the fixed workload. This information
 supports comparing backend trajectories and identifying the body responsible for
 a sampled settling violation, rather than inferring a cause from maximum speed.
+
+Sphere geometry gate
+Each scene records its sphere centre/radius (zero radius disables it). Each
+sample records minimum_sphere_gap, computed in double precision across all
+particles against sphere radius plus 0.0625 m. Negative values denote overlap;
+values below -1e-6 m fail immediately. This small allowance addresses float
+geometry evaluation and is independent of the existing particle-pair overlap
+gate. Disabled spheres report null. Sphere drop/stack must also pass the same
+final-120-tick settling window; sphere impacts must pass the existing closed
+energy check. No threshold is relaxed for terrain.
+
+Current Metal result: the sphere drop fails the settling speed window at tick570
+(0.239068 m/s). Both workgroups reproduce it; sphere containment, stack and
+impact-energy cases pass. See tests/results/m3-max-sphere-stability.txt.

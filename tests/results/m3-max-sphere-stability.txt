@@ -1,0 +1,23 @@
+SPHERE STABILITY REGRESSION
+Development worktree based on 16b5dd0; M3 Max 48 GiB, Metal.
+Both workgroup sizes reproduce a failing sphere_drop_64 settling window.
+No limits changed. This evidence is an open regression, not a passing gate.
+The original seven scenes, sphere stack and sphere dissipative shots pass.
+Sphere containment and particle overlap gates pass throughout the new scenes.
+
+WG128 report sha256=8228e392a97f0463ed209a4749d19c1d5fecf92b86a0702bd10ee432af319057
+{"name": "sphere_drop_64", "passed": false, "failure": "Settling window: >1% deep contacts or speed >0.1 m/s", "tail_max_speed": 0.23906825482845306, "last_solver_status": [0, 0, 2, 256], "minimum_sampled_sphere_gap": 1.82318977537399e-06}
+{"name": "sphere_resting_stack_4", "passed": true, "failure": "", "tail_max_speed": 2.287980169057846e-05, "last_solver_status": [0, 0, 2, 7], "minimum_sampled_sphere_gap": 1.9073486328125e-06}
+{"name": "sphere_dissipative_9", "passed": true, "failure": "", "tail_max_speed": 0.0, "last_solver_status": [0, 0, 0, 0], "minimum_sampled_sphere_gap": 9.5367431640625e-07}
+
+WG256 report sha256=3ba1e97c43262b0b4838179eb4cfd60cd7da9e09b1e71c143103fb02f210695d
+{"name": "sphere_drop_64", "passed": false, "failure": "Settling window: >1% deep contacts or speed >0.1 m/s", "tail_max_speed": 0.23906825482845306, "last_solver_status": [0, 0, 2, 256], "minimum_sampled_sphere_gap": 1.82318977537399e-06}
+{"name": "sphere_resting_stack_4", "passed": true, "failure": "", "tail_max_speed": 2.287980169057846e-05, "last_solver_status": [0, 0, 2, 7], "minimum_sampled_sphere_gap": 1.9073486328125e-06}
+{"name": "sphere_dissipative_9", "passed": true, "failure": "", "tail_max_speed": 0.0, "last_solver_status": [0, 0, 0, 0], "minimum_sampled_sphere_gap": 9.5367431640625e-07}
+
+At tick570 slot48 falls at 0.23906825482845306 m/s. Slots0/32 supporting it
+are on the floor away from the sphere. Their positions drift apart between
+ticks480 and540 despite sampled zero velocities; the upper grain then falls.
+The extracted tick480 cluster is in sphere-drop-floor-cluster.json. It is not
+yet an independently validated reproducer. Position-level floor traction and
+substep contact history require investigation; no proven root cause is claimed.

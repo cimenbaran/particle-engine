@@ -106,3 +106,10 @@ Validation and completion gates
 
 Handoff: Validated neighbor index, stable granular solver, measured settings
 and regression fixtures for resident terrain integration.
+
+New sphere stability gate (granular_stability_sphere_v2): ten scenes, 4530 ticks.
+Both Metal workgroups fail sphere_drop_64 at tick570 (0.239068 m/s, limit0.1).
+The sphere stack and dissipative shots pass; containment and overlap gates pass.
+The failure involves floor support after the drop, not observed sphere penetration.
+Keep the regression and investigate position-level floor drift. See
+../tests/results/m3-max-sphere-stability.txt and its extracted support cluster.
