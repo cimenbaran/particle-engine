@@ -59,10 +59,10 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
             width=w;height=h;bgfx::SwapChain swap;swap.nwh=window.nativeHandle();swap.width=std::uint32_t(w);swap.height=std::uint32_t(h);bgfx::reset(BGFX_RESET_VSYNC,&swap);
         }
         ImGui_ImplSDL3_NewFrame();ImGui::NewFrame();
-        ImGui::SetNextWindowPos({16,16},ImGuiCond_FirstUseEver);ImGui::SetNextWindowSize({360,420},ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos({16,16},ImGuiCond_FirstUseEver);ImGui::SetNextWindowSize({360,470},ImGuiCond_FirstUseEver);
         ImGui::Begin("Resident basin");
         ImGui::TextUnformatted("32 x 16 x 32 metres | 0.125 m voxels");
-        ImGui::TextWrapped("Terrain inspection with optional collision probes. Water, burning and grain-to-grain contacts are not enabled here.");
+        ImGui::TextWrapped("Terrain inspection with optional collision probes. Drop interacting sand to enable grain-to-grain contacts. Water and burning are not enabled here.");
         ImGui::TextWrapped("Stone ledge, sand slope, dry pool recess and wood fuel patch.");
         ImGui::Separator();
         ImGui::SliderAngle("Orbit",&yaw,-180,180);ImGui::SliderFloat("Distance",&distance,18,65,"%.1f m");ImGui::SliderFloat("Height",&elevation,5,50,"%.1f m");
@@ -71,8 +71,9 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
             try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
             catch(const std::exception& error){message=error.what();}
         }
+        if(ImGui::Button("Drop interacting sand")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);probes=std::move(candidate);clock.reset();paused=false;message="256 interacting grains; terrain and particle contacts";}catch(const std::exception& error){message=error.what();}}
         if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
-        if(probes){ImGui::Checkbox("Pause probes",&paused);ImGui::Text("Probe tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->fault())ImGui::TextWrapped("Probe response fault: motion rolled back. Drop probes to reset.");}
+        if(probes){ImGui::Checkbox("Pause simulation",&paused);ImGui::Text("Simulation tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->fault())ImGui::TextWrapped("Physics fault: the tick was rolled back. Drop particles to reset.");}
         ImGui::Text("%llu occupied voxels | %u faces",static_cast<unsigned long long>(basin->store->occupiedVoxelCount()),basin->mesh->faceCount());
         ImGui::Text("Terrain GPU payload: %.1f MiB",double(basin->occupancy->payloadBytes()+basin->mesh->payloadBytes())/1048576);
         if(!message.empty())ImGui::TextWrapped("%s",message.c_str());

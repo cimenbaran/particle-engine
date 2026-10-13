@@ -4,8 +4,8 @@ Open the installed Mac app's terrain inspection mode:
   open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-preview
 Or run its executable with --terrain-preview --frames 180 for a bounded smoke run.
 The normal launch still opens the particle sandbox. Inspection now includes
-optional GPU collision probes (see GPU_Voxel_Motion.txt), without grain-to-grain
-contacts or editing commands. Water, burning, destruction and deposition remain
+optional interacting sand (GPU_Basin_Tick.txt) and terrain-only GPU collision
+probes (GPU_Voxel_Motion.txt). Editing commands are not connected. Water, burning, destruction and deposition remain
 open. Escape closes it.
 
 The version 1 deterministic recipe uses 256 chunks across [-16,16) x [0,16) x
@@ -41,8 +41,9 @@ upload buffers. Rebuilds temporarily hold old and new publications concurrently.
 
 Material hot reload is not enabled in inspection mode.
 The panel offers orbit, distance, height and a nonnegative integer seed. Rebuild
-regenerates the basin and clears diagnostic probes. Drop collision probes starts
-256 grains under gravity against occupancy; Pause probes pauses them. Material
+regenerates the basin and clears live particles. Drop interacting sand starts
+256 grains with particle and terrain collisions. Drop collision probes retains
+the terrain-only diagnostic mode; Pause simulation pauses either mode. Material
 colors come from the existing material library.
 Native UI inspection confirmed the seed 1337 view and a successful seed 42 rebuild
 (404,578 voxels / 170,228 faces). GPU image tests read rendered pixels for all six
@@ -50,7 +51,8 @@ faces, including negative coordinates, depth ordering, solid material color,
 empty rebuilds and stale publication rejection. A chunk-seam fixture checks that
 two adjacent voxels produce ten exposed faces.
 
-Remaining integration: connect terrain response to the full granular predictor,
-pair position correction, velocity finishing and settling; the full basin simulation grid; consistent
-terrain edits and physical debris/deposition transactions; dirty chunk mesh reuse;
-origin rebases at tick boundaries, fluids, thermal state and persistence.
+Remaining integration: terrain static traction and support/settling; active
+particle command ownership; consistent terrain edits and physical debris /
+deposition transactions; dirty chunk mesh reuse; origin rebases at tick boundaries,
+fluids, thermal state and persistence. The complete particle/terrain tick now runs
+in the basin; see GPU_Basin_Tick.txt for tests and its current limits.

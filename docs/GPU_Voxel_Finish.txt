@@ -50,7 +50,6 @@ position preservation, stale context rejection and mixed-pool rollback.
 A seeded 256-body corner batch runs with friction and without it.
 See ../tests/results/m3-max-voxel-finish.txt for execution results.
 
-Remaining integration
-The live basin still needs its full force/prediction/pair/correction/response/
-finish coordinator, terrain static traction, and support/settling tracking.
-This pass does not enable grain-to-grain interaction in the probe UI yet.
+Live integration
+GPU_Basin_Tick.txt describes the full interacting sand tick using this pass.
+Terrain static traction and support/settling tracking remain open.

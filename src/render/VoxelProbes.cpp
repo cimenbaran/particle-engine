@@ -3,11 +3,12 @@
 #include "core/ParticleTypes.hpp"
 #include "core/ComputeDispatch.hpp"
 namespace pw {
-VoxelProbes::VoxelProbes(const std::filesystem::path& assets,const MaterialLibrary& materials)
+VoxelProbes::VoxelProbes(const std::filesystem::path& assets,const MaterialLibrary& materials,bool interacting)
     :motion_(assets,count),materials_(std::uint32_t(materials.entries.size())) {
     std::uint32_t sand=UINT32_MAX;for(unsigned i=0;i<materials_;++i)if(materials.entries[i].name=="Sand")sand=i;
     if(sand==UINT32_MAX)throw std::invalid_argument("Terrain probes require Sand material");
     try {
+        if(interacting)granular_=std::make_unique<GpuGranularStep>(assets,count,GranularStepProfile{},4,9.81f,true,AnalyticSphere{},true);
         diagnostics_=std::make_unique<PoolDiagnostics>(assets);
         bgfx::VertexLayout lanes;lanes.begin().add(bgfx::Attrib::TexCoord0,4,bgfx::AttribType::Float).end();
         for(auto& h:states_)h=bgfx::createDynamicVertexBuffer(count*4,lanes,BGFX_BUFFER_COMPUTE_READ_WRITE);
@@ -28,6 +29,7 @@ VoxelProbes::VoxelProbes(const std::filesystem::path& assets,const MaterialLibra
         std::array<ParticleGpu,count> input{};
         for(unsigned i=0;i<count;++i) {
             auto& p=input[i];p.positionRadius[0]=-11.5f+float(i%16)*.5f;p.positionRadius[1]=6;p.positionRadius[2]=-7.5f+float(i/16)*.25f;p.positionRadius[3]=.0625f;
+            if(interacting){p.positionRadius[0]=-6.5f+float(i%8)*.14f;p.positionRadius[1]=6+float(i/64)*.14f;p.positionRadius[2]=-5+float((i/8)%8)*.14f;}
             p.velocityInvMass[0]=2;p.velocityInvMass[3]=1.0f/(4.0f/3.0f*3.14159265f*.0625f*.0625f*.0625f*materials.entries[sand].gpu.mechanical[0]);p.thermalState[0]=293.15f;
             p.identity[0]=sand;p.identity[1]=1;p.identity[2]=i;p.identity[3]=1;
         }
@@ -48,6 +50,15 @@ void VoxelProbes::release(){
 }
 void VoxelProbes::tick(std::uint16_t view,const GpuVoxelWorld& world,const terrain::SparseVoxelStore& source) {
     if(!world.isCurrent(source,{}))throw std::invalid_argument("Stale voxel probe world");
+    if(granular_) {
+        const VoxelContactContext terrain{world,source,{}};
+        granular_->submit(view,states_[current_],materialBuffer_,materials_,&terrain);
+        bgfx::setBuffer(0,granular_->status(),bgfx::Access::Read);bgfx::setBuffer(1,latched_,bgfx::Access::ReadWrite);bgfx::dispatch(view,latch_,1);
+        const float p[]{float(count),1.0f/240,float(materials_),0};bgfx::setUniform(params_,p);
+        bgfx::setBuffer(0,states_[current_],bgfx::Access::Read);bgfx::setBuffer(1,granular_->output(),bgfx::Access::Read);
+        bgfx::setBuffer(2,latched_,bgfx::Access::Read);bgfx::setBuffer(3,states_[1-current_],bgfx::Access::Write);bgfx::dispatch(view,apply_,dispatchGroups(count));
+        current_=1-current_;++ticks_;return;
+    }
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);auto current=states_[current_];
     const float p[]{float(count),1.0f/240,float(materials_),0},q[]{9.81f,12,0,0};
     for(unsigned step=0;step<4;++step) {

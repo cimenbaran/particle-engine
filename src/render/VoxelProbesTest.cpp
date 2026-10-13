@@ -7,11 +7,12 @@
 #include <SDL3/SDL.h>
 #include <cstring>
 #include <iostream>
+#include <algorithm>
 namespace pw {
-void runVoxelProbesTest(const std::filesystem::path& assets) {
+static void voxelProbesCase(const std::filesystem::path& assets,bool interacting) {
     auto require=[](bool good,const char* message){if(!good)throw std::runtime_error(message);};
     const auto materials=loadMaterials(assets/"materials/default.json");auto store=terrain::buildBasin(1337,std::uint32_t(materials.entries.size()),0,1,3);GpuVoxelWorld world(*store,{});
-    VoxelProbes probes(assets,materials);auto frame=bgfx::frame();
+    VoxelProbes probes(assets,materials,interacting);auto frame=bgfx::frame();
     struct Handles {
         bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;bgfx::UniformHandle uniform=BGFX_INVALID_HANDLE;
         bgfx::TextureHandle image=BGFX_INVALID_HANDLE,staging=BGFX_INVALID_HANDLE;
@@ -25,15 +26,18 @@ void runVoxelProbesTest(const std::filesystem::path& assets) {
         const float p[]{0,float(VoxelProbes::count),0,4};bgfx::setUniform(h.uniform,p);bgfx::setBuffer(0,probes.state(),bgfx::Access::Read);bgfx::setImage(1,h.image,0,bgfx::Access::Write,bgfx::TextureFormat::RGBA32U);bgfx::dispatch(5,h.program,dispatchGroups(VoxelProbes::count));
         bgfx::TextureRegion src,dst;src.handle=h.image;dst.handle=h.staging;bgfx::blit(7,dst,src);std::array<ParticleGpu,VoxelProbes::count> result{};const auto ready=bgfx::read(dst,result.data());while((frame=bgfx::frame())<ready)SDL_PumpEvents();probes.poll(frame);return result;
     };
+    const auto initial=snapshot();
+    unsigned peakContacts=0;
     for(unsigned tick=0;tick<600;++tick) {
         probes.tick(1,world,*store);probes.prepare(5);probes.request(6);frame=bgfx::frame();probes.poll(frame);
-        if(probes.fault())throw std::runtime_error("Live voxel probe fault at tick "+std::to_string(tick)+" errors "+std::to_string(probes.errors()));
+        peakContacts=std::max(peakContacts,probes.contactDegree());
+        if(probes.fault())throw std::runtime_error(std::string(interacting?"Interacting basin":"Live voxel probe")+" fault at tick "+std::to_string(tick)+" errors "+std::to_string(probes.errors()));
     }
     const auto actual=snapshot();require(!probes.fault(),"Final voxel probe fault");
     unsigned belowLedge=0;
     for(unsigned id=0;id<actual.size();++id) {
-        const auto& p=actual[id];require(p.identity[0]==1 && p.identity[1]==1 && p.identity[2]==id && p.identity[3]==1,"Probe identity changed");
-        require(p.positionRadius[1]<4.3f && p.positionRadius[1]>=.5625f && std::abs(p.thermalState[3]-10.0f)<.001,"Probe did not advance under gravity");
+        const auto& p=actual[id];require(p.positionRadius[3]==initial[id].positionRadius[3] && p.velocityInvMass[3]==initial[id].velocityInvMass[3],"Basin particle radius or mass changed");require(p.identity[0]==1 && p.identity[1]==1 && p.identity[2]==id && p.identity[3]==1,"Probe identity changed");
+        require(p.positionRadius[1]<(interacting?5.0f:4.3f) && p.positionRadius[1]>=.5625f && std::abs(p.thermalState[3]-10.0f)<.001,"Probe did not advance under gravity");
         if(p.positionRadius[1]<3.8f)++belowLedge;
         reference::VoxelVector position{p.positionRadius[0],p.positionRadius[1],p.positionRadius[2]};
         terrain::GlobalVoxel lower{},upper{};
@@ -44,6 +48,16 @@ void runVoxelProbesTest(const std::filesystem::path& assets) {
                 require(reference::voxelDistance(position,*terrain::relativeCorner(*address,{}))>=.0625-1e-7,"Live probe penetrated basin terrain");
         }
     }
+    if(interacting) {
+        unsigned contacts=0,deep=0;double maxPenetration=0,maxSpeed=0;
+        for(unsigned i=0;i<actual.size();++i) {
+            maxSpeed=std::max(maxSpeed,std::hypot(double(actual[i].velocityInvMass[0]),actual[i].velocityInvMass[1],actual[i].velocityInvMass[2]));
+            for(unsigned j=0;j<i;++j){double squared=0;for(unsigned a=0;a<3;++a){const double d=double(actual[i].positionRadius[a])-actual[j].positionRadius[a];squared+=d*d;}const double overlap=.125-std::sqrt(squared);if(overlap>0){++contacts;if(overlap>.00625)++deep;maxPenetration=std::max(maxPenetration,overlap);}}
+        }
+        require(deep*100<=std::max(1u,contacts),"Basin has too many deep particle overlaps");require(maxSpeed<=12.00002,"Basin speed limit exceeded");
+        std::cout<<"Interacting basin final: peak degree "<<peakContacts<<", max penetration "<<maxPenetration<<", deep "<<deep<<"/"<<contacts<<", max speed "<<maxSpeed<<"\n";
+    }
+    if(interacting)require(peakContacts>0,"Interacting basin did not execute particle contacts");
     require(belowLedge>=16,"Live probes did not exercise the lower slope");
     // An occupancy edit invalidates the snapshot before any force/age work.
     store->setMaterial(*terrain::addressOf({0,4,0}),0,store->revision());bool stale=false;
@@ -54,6 +68,8 @@ void runVoxelProbesTest(const std::filesystem::path& assets) {
     GpuVoxelWorld overlapWorld(*store,{});probes.tick(1,overlapWorld,*store);probes.request(6);
     const auto rolledBack=snapshot();require(probes.fault(),"Overlapping terrain did not latch a probe fault");
     require(std::memcmp(actual.data(),rolledBack.data(),sizeof(actual))==0,"Probe failure did not roll back the entire tick");
-    std::cout<<"GPU live voxel probes passed: 256 particles, 600 ticks / 2400 substeps, gravity/drag, full basin containment, identity, stale-world rejection and whole-tick rollback\n";
+    std::cout<<(interacting?"GPU interacting basin":"GPU live voxel probes")<<" passed: 256 particles, 600 ticks / 2400 substeps, gravity/drag, full basin containment, identity, stale-world rejection and whole-tick rollback\n";
 }
+void runVoxelProbesTest(const std::filesystem::path& assets){voxelProbesCase(assets,false);voxelProbesCase(assets,true);}
+
 }

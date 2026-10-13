@@ -45,9 +45,9 @@ bounds intersect the resident box. An analytic sphere or analytic floor-traction
 budget cannot be combined with voxel constraints in one submission. The stage
 handles geometric position constraints only; it adds no restitution or duplicate
 kinetic-friction impulse. GPU_Voxel_Finish.txt describes the separate velocity constraint pass.
-Terrain-specific static traction, support/settling and full basin tick
-integration remain open.
-The terrain-preview probes still do not interact with each other.
+Terrain-specific static traction and support/settling remain open.
+GPU_Basin_Tick.txt describes the live interacting sand path; the separate
+terrain-preview collision probes retain their diagnostic behavior.
 
 Validation
 GPU tests compare face/edge/corner results with the independent double CPU voxel

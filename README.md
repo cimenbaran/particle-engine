@@ -4,8 +4,9 @@ Native C++20 GPU material sandbox based on the five sprint plans in `Tasks/`.
 The foundation includes ballistic simulation and an experimental GPU granular
 mode with pair contacts and bounded walls. Water, reactions and persistent terrain
 remain planned; cross-platform granular stability and release gates are still open.
-A resident voxel basin can be inspected with `--terrain-preview`, including GPU
-collision probes. Full terrain integration with the granular pair solver remains open. Development currently prioritizes macOS.
+A resident voxel basin runs with `--terrain-preview`, including interacting sand
+and diagnostic collision probes. Terrain settling, editing and mass conversion
+remain open. Development currently prioritizes macOS.
 
 ## Build
 
@@ -58,10 +59,11 @@ open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-pr
 ```
 
 Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
-panel controls the camera and rebuilds the seed. **Drop collision probes** runs
-256 particles against the terrain with gravity; **Pause probes** stops them. Probes
-do not collide with one another. The [basin-sized pair primitives](docs/GPU_Basin_Grid.txt)
-are tested separately; terrain integration remains open. See [resident basin status](docs/Resident_Basin.txt).
+panel controls the camera and rebuilds the seed. **Drop interacting sand** starts
+256 grains with both particle and terrain collisions. **Drop collision probes**
+keeps the terrain-only diagnostic mode. **Pause simulation** stops either mode;
+Rebuild clears the particles. See [basin physics](docs/GPU_Basin_Tick.txt) and
+[resident basin status](docs/Resident_Basin.txt).
 
 ## Controls and current limits
 

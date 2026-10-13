@@ -1,0 +1,62 @@
+INTERACTING RESIDENT BASIN TICK — MACOS / METAL
+
+Launch --terrain-preview and choose Drop interacting sand. This starts 256 Sand
+particles in an 8x8x4 arrangement, 0.14 m apart, above the ledge/slope boundary.
+Initial horizontal speed is 2 m/s; masses use material density and radius .0625 m.
+Drop collision probes retains the older independent-particle test scene. Pause
+simulation pauses either mode. Rebuild publishes new terrain and clears particles.
+
+GpuGranularStep now supports a construction-time voxel mode. Every submission
+requires a VoxelContactContext matching the exact source, revision and origin;
+analytic mode rejects one. Voxel mode uses the Basin grid in keys, sparse ranges,
+hash, pair corrections and material response. An analytic sphere cannot be mixed
+into this mode. The voxel predictor restricts speed to <=12 m/s and dt <=.01 s.
+
+The standard 60 Hz tick contains four 1/240 s substeps. Each substep applies:
+1. Gravity, material drag and age/lifetime updates.
+2. Swept resident voxel prediction with material impact response.
+3. Four immutable Jacobi iterations, rebuilding the complete particle index each
+   time and constraining the corrections against current occupancy.
+4. Correction-mode velocity reconstruction from the frozen prediction.
+5. Particle restitution/friction response against predicted incoming velocities.
+6. Inelastic voxel/resident-wall velocity finishing and final speed limiting.
+
+The whole input tick remains immutable until all stages succeed. Phase failures
+latch and copy the complete original tick, including age and identity. Subsequent
+ticks remain frozen until reset/recreation. The phase bits match the existing
+coordinator: force1, prediction2, position4, reconstruction8, response16, finish32.
+The final diagnostic event counter includes voxel impacts and finish changes.
+All particle state and index work remains on the GPU; the UI reads delayed
+16-byte diagnostics. No camera visibility test affects physics participation.
+
+Voxel prediction and finishing alternate output buffers even when the input is
+external. This keeps predicted positions/velocities available through response
+and diagnostics. Finished state has separate coordinator storage, so an immutable
+substep baseline cannot be overwritten by the next predictor. Existing analytic
+scenes retain their original default mode and tick profile.
+
+Integration uncovered narrow-gap separation and micrometre-scale cone issues.
+A normal skin may cross the opposite surface; the checked exact contact point
+is now tried before retreat, and the original clear point is a final fallback.
+Cone feasibility scales with the proposed vector, without an absolute tolerance
+floor that could accept repeatedly entering tiny corrections. Cross-product
+projection and retained-speed comparison preserve valid free tangent motion.
+Two captured prediction inputs remain as exact-bit regression fixtures, including
+an assertion that the first retains at least 3 mm of free X travel in one substep.
+The original contact event and displacement bounds were not increased.
+
+Validation includes independent terrain probes and interacting sand, each for
+600 ticks / 2400 substeps. The interacting case must report real pair contacts,
+retain identity/mass and expected age, remain outside every nearby occupied
+voxel, stay below the speed limit and have at most 1% deeply overlapping final
+contacts (deep means penetration >.00625 m). Stale snapshots are rejected before
+submission; injecting overlapping occupancy must roll back the entire tick.
+Native UI checks cover drop, pause, rebuild and normal exit. See execution evidence
+in ../tests/results/m3-max-voxel-tick.txt.
+
+Limits
+This remains a fixed-size basin demo. Terrain static traction and support/settling
+tracking are not implemented; moving grains at the end of the test are permitted
+and reported. There is no deposition, debris reservation, editing command pool,
+thermal reaction, water, scene persistence or terrain-origin rebase transaction.
+This test is not a ten-minute soak or reference-hardware performance acceptance.

@@ -30,13 +30,15 @@ The optional basin-sized sparse index and pair primitives now cover the full
 sweep current voxel occupancy before whole-iteration commit; see
 ../docs/GPU_Voxel_Contacts.txt. A terrain velocity finishing pass now removes newly inward motion and applies
 material friction after pair response; see ../docs/GPU_Voxel_Finish.txt. Static
-traction, tick integration and support tracking remain open.
+traction and support tracking remain open. The complete particle/terrain tick
+now powers Drop interacting sand in the basin preview, with whole-tick rollback;
+see ../docs/GPU_Basin_Tick.txt.
 A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed
 rebuilds and matching render/occupancy revision checks. See
 ../docs/Resident_Basin.txt. Inspection and collision probes have no thermal state, save files,
 active terrain transactions or tick-boundary origin publication yet. Dirty chunk
-mesh reuse and live physics remain open. Development prioritizes macOS.
+mesh reuse and terrain conversion remain open. Development prioritizes macOS.
 
 Tasks
 [ ] S3-01 Implement sparse 32x32x32 voxel chunks at 0.125-metre spacing,

@@ -1,0 +1,44 @@
+INTERACTING BASIN TICK — MACOS / METAL
+
+Apple M3 Max; workgroup sizes 128 and 256.
+Both complete --gpu-test suites and native CTest 21/21 passed.
+
+Each configuration ran both terrain-only probes and interacting sand through
+600 ticks / 2400 substeps (10 simulated seconds), with 256 particles per scene.
+The interacting scene uses four Jacobi iterations per substep, full-basin keys,
+voxel prediction and correction constraints, pair velocity response and voxel
+velocity finishing. Both configurations reported the same final measurements:
+- Maximum sampled pair-contact degree: 5.
+- Maximum final particle penetration: 0.0000711381 m (about 0.071 mm).
+- Deep final contacts: 0 / 112 (deep threshold: 0.00625 m).
+- Maximum final speed: 0.909643 m/s. Settling is not certified.
+
+Checks include finite state, radius/mass/identity retention, age advancing ten
+seconds, real pair contacts, terrain separation against nearby occupied voxels,
+speed limiting, deep-contact fraction, stale-source rejection before mutation
+and exact whole-tick rollback after injecting overlapping terrain occupancy.
+
+Integration exposed three narrow-gap cases. Checked exact contact points and
+an original-clear-point fallback fix separation failures. Relative cone
+feasibility and cross-product/retained-speed projection prevent tiny corrections
+from repeating contacts until budget exhaustion. Event/correction bounds were
+not increased. Two exact-bit captured prediction inputs now form motion
+regressions; one requires >3 mm of valid free X travel in its substep.
+Voxel-motion coverage is now 24 fixtures / 1750 particle records.
+
+The complete suites also rerun all existing voxel constraints/finishing,
+spatial indexing, sphere/granular, settling, rendering, pool and shader tests.
+Temporary GPU tracing used for diagnosis was removed before final validation.
+
+Native Metal128 UI verification: Drop interacting sand advanced without a shown
+fault; Pause simulation held tick 1573 across two observations; Rebuild basin
+cleared the live simulation; Escape exited normally. UI inspection preceded only
+a later test-strengthening change that checks initial/final radius and mass.
+
+Ignored logs: out/voxel-tick-{gpu128,gpu256,ctest128,ctest256,preview}.log.
+Default installed app uses 128-thread workgroups.
+
+Limits: fixed 256-grain demo. Terrain static traction, support/settling, active
+command-pool ownership, edits/debris/deposition, persistence, fluids and thermal
+reactions remain open. This is not a long soak, performance certification or
+Windows validation.

@@ -87,7 +87,8 @@ The _basin compute binaries compile the same sources with PW_BASIN_GRID=1.
 Cache fingerprints and manifests include both grid and workgroup defines; the
 loader rejects wrong-profile or wrong-workgroup assets even when their binary
 hashes are valid. This is a fixed second profile, not arbitrary GPU grids or
-runtime origin rebasing. Settling, debug normals and the interactive granular
-tick coordinator still use Legacy; voxel probes remain terrain-only.
+runtime origin rebasing. Settling, debug normals and the default interactive granular scenes still use
+Legacy. The optional basin tick uses Basin (GPU_Basin_Tick.txt); the separate
+collision probes remain terrain-only.
 
 See GPU_Basin_Grid.txt for validation and the remaining integration work.

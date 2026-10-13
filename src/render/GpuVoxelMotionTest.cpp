@@ -2,6 +2,8 @@
 #include "Shaders.hpp"
 #include "assets/Materials.hpp"
 #include "core/ParticleTypes.hpp"
+#include "core/BasinWorld.hpp"
+#include <bit>
 #include "core/ComputeDispatch.hpp"
 #include "../../tests/reference/SweptVoxel.hpp"
 #include <SDL3/SDL.h>
@@ -69,7 +71,7 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
     unsigned cases=0,particles=0;
     auto body=[](Vector p,Vector v,unsigned material=0) {ParticleGpu result{};for(unsigned a=0;a<3;++a){result.positionRadius[a]=float(p[a]);result.velocityInvMass[a]=float(v[a]);}result.positionRadius[3]=.0625f;result.velocityInvMass[3]=1;result.thermalState[0]=293.15f;result.identity[0]=material;result.identity[1]=1;result.identity[3]=1;return result;};
     auto check=[&](const SparseVoxelStore& store,const std::vector<VoxelAddress>& occupied,std::vector<ParticleGpu> input,
-                   float dt=.01f,unsigned expectedError=0,unsigned upstream=0,unsigned budget=16,GpuVoxelMotion* reuse=nullptr,bool wedge=false) {
+                   float dt=.01f,unsigned expectedError=0,unsigned upstream=0,unsigned budget=16,GpuVoxelMotion* reuse=nullptr,bool wedge=false,bool basinReplay=false) {
         for(unsigned i=0;i<input.size();++i)input[i].identity[2]=i;
         const auto count=std::uint32_t(input.size()),storage=std::max(1u,count);auto upload=input;if(upload.empty())upload.resize(1);
         GpuVoxelWorld world(store,{});auto owned=reuse?nullptr:std::make_unique<GpuVoxelMotion>(assets,count);auto& motion=reuse?*reuse:*owned;
@@ -99,7 +101,10 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
             require(std::memcmp(&old[i],&input[i],64)==0,"Voxel motion mutated input");const auto& source=input[i];const auto& result=actual[i];
             if(expectedError || !(source.identity[1]&1) || source.identity[0]==2 || source.velocityInvMass[3]==0){require(std::memcmp(&source,&result,64)==0,"Voxel rollback/excluded particle changed");continue;}
             ReferenceResult expected;
-            if(wedge) {
+            if(basinReplay) {
+                expected.p={result.positionRadius[0],result.positionRadius[1],result.positionRadius[2]};expected.v={result.velocityInvMass[0],result.velocityInvMass[1],result.velocityInvMass[2]};
+                if(source.velocityInvMass[0]>.8f)require(result.positionRadius[0]-source.positionRadius[0]>.003f,"Captured basin skin case lost free X travel");
+            } else if(wedge) {
                 // Opposing rounded edges constrain XY, leaving the Z direction
                 // free. A zero-all-velocity workaround must fail this fixture.
                 require(std::abs(result.velocityInvMass[0])<5e-4 && std::abs(result.velocityInvMass[1])<5e-4 && std::abs(result.velocityInvMass[2]-1)<1e-5,"Contact cone removed free tangential motion");
@@ -116,7 +121,7 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
             for(auto address:occupied)require(reference::voxelDistance(position,*relativeCorner(address,{}))>=.0625-1e-7,"Voxel motion published penetration");
         }
         if(wedge)require(stats[2]>=2 && stats[2]<=16 && stats[3]==stats[2],"Narrow gap did not exercise multiple contacts");
-        if(!expectedError && !wedge)require(stats[1]==capped && stats[2]==events && stats[3]==normals,"Voxel motion counters disagree");
+        if(!expectedError && !wedge && !basinReplay)require(stats[1]==capped && stats[2]==events && stats[3]==normals,"Voxel motion counters disagree");
         ++cases;particles+=count;
     };
     SparseVoxelStore voxel(ResidentChunkLayout({-1,-1,-1},{2,2,2}),3);const auto single=*addressOf({0,0,0});voxel.setMaterial(single,1,0);
@@ -153,6 +158,18 @@ void runGpuVoxelMotionTest(const std::filesystem::path& assets) {
     for(int z=-60;z< -56;++z)for(int x:{-47,-45}){auto address=*addressOf({x,30,z});wedgeCells.push_back(address);wedgeWorld.setMaterial(address,1,wedgeWorld.revision());}
     materials[0].mechanical[2]=materials[1].mechanical[2]=0;
     check(wedgeWorld,wedgeCells,{body({std::nextafter(-5.6875f,0.0f),3.8755f,-7.1875f},{0,-1,1})},.01f,0,0,16,nullptr,true);
+    // Exact prediction inputs captured from the dense interacting basin.
+    const std::array<std::array<std::uint32_t,16>,2> basinCases{{
+        {3225596409u,1075316310u,3230793729u,1031798784u,1063122435u,3173475230u,0u,1058829479u,1133679411u,0u,0u,1068883462u,1u,1u,95u,1u},
+        {3227779071u,1076104597u,3231187343u,1031798784u,952768685u,3204461930u,3171002964u,1058829479u,1133679411u,0u,0u,1070491300u,1u,1u,86u,1u}
+    }};
+    auto basin=buildBasin(1337,3,0,1,2);materials[0].mechanical[1]=.7f;materials[0].mechanical[2]=.18f;materials[1].mechanical[1]=.5f;materials[1].mechanical[2]=.12f;
+    for(auto words:basinCases) {
+        auto particle=std::bit_cast<ParticleGpu>(words);std::vector<VoxelAddress> local;
+        GlobalVoxel centre{};for(unsigned a=0;a<3;++a)centre[a]=std::int64_t(std::floor(particle.positionRadius[a]*8));
+        for(int z=-4;z<=4;++z)for(int y=-4;y<=4;++y)for(int x=-4;x<=4;++x){auto a=*addressOf({centre[0]+x,centre[1]+y,centre[2]+z});auto m=basin->materialAt(a);if(m && *m!=SparseVoxelStore::empty)local.push_back(a);}
+        check(*basin,local,{particle},1.0f/240,0,0,16,nullptr,false,true);
+    }
     auto bad=body({.0625,.0625,.0625},{1,0,0});check(voxel,{single},{faces.front(),bad},.01f,2);
     bad=body({1,1,1},{1,0,0});bad.positionRadius[0]=std::numeric_limits<float>::quiet_NaN();check(voxel,{single},{faces.front(),bad},.01f,2);
     check(voxel,{single},{faces.front()},.01f,1,8);check(voxel,{single},{},.01f);

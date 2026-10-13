@@ -155,4 +155,5 @@ Optional voxel constraints
 A current VoxelContactContext now inserts a swept terrain constraint before
 whole-iteration reduction and publication. See GPU_Voxel_Contacts.txt for the
 revision contract, numerical bounds and validation. This is a reusable pair
-primitive; the interactive basin tick still needs velocity/support integration.
+primitive now used by the live basin tick (GPU_Basin_Tick.txt). Terrain support
+and static traction remain open.

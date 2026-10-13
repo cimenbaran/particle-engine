@@ -1,14 +1,15 @@
 #pragma once
 #include "GpuVoxelMotion.hpp"
+#include "GpuGranularStep.hpp"
 #include "assets/Materials.hpp"
 #include "PoolDiagnostics.hpp"
 namespace pw {
-// Fixed diagnostic probes for terrain response, intentionally no pair solver,
-// command pool, deposition or physical terrain conversion.
+// Fixed basin particles, optionally using the complete pair/terrain tick.
+// No command pool, deposition or physical terrain conversion yet.
 class VoxelProbes {
 public:
     static constexpr std::uint32_t count=256;
-    VoxelProbes(const std::filesystem::path& assets,const MaterialLibrary& materials);
+    VoxelProbes(const std::filesystem::path& assets,const MaterialLibrary& materials,bool interacting=false);
     ~VoxelProbes();
     VoxelProbes(const VoxelProbes&)=delete;VoxelProbes& operator=(const VoxelProbes&)=delete;
     void tick(std::uint16_t view,const GpuVoxelWorld& world,const terrain::SparseVoxelStore& source);
@@ -18,12 +19,14 @@ public:
     void request(std::uint16_t view){diagnostics_->request(view,latched_,ticks_);}
     std::uint32_t errors() const{return diagnostics_->latest().active;}
     bool fault() const{return diagnostics_->latest().valid && diagnostics_->latest().active!=0;}
+    std::uint32_t contactDegree() const{return granular_?diagnostics_->latest().reserved:0;}
     std::uint64_t ticks() const{return ticks_;}
     bgfx::DynamicVertexBufferHandle state() const{return states_[current_];}
     bgfx::DynamicIndexBufferHandle status() const{return latched_;}
 private:
     void release();
     GpuVoxelMotion motion_;
+    std::unique_ptr<GpuGranularStep> granular_;
     std::unique_ptr<PoolDiagnostics> diagnostics_;
     std::uint32_t materials_,current_=0;
     std::uint64_t ticks_=0;

@@ -46,7 +46,9 @@ void GpuVoxelMotion::run(std::uint16_t view,bgfx::DynamicVertexBufferHandle inpu
     if(input.idx==materials.idx || input.idx==candidate_.idx || input.idx==world.buffer().idx || materials.idx==candidate_.idx || materials.idx==world.buffer().idx)
         throw std::invalid_argument("Voxel motion input alias");
     for(auto h:outputs_)if(materials.idx==h.idx)throw std::invalid_argument("Voxel motion material/output alias");
-    output_=input.idx==outputs_[0].idx?outputs_[1]:outputs_[0];
+    // Alternate external-input submissions too, so prediction remains immutable
+    // while a following finish pass publishes into the other buffer.
+    output_=input.idx==outputs_[0].idx || (input.idx!=outputs_[1].idx && output_.idx==outputs_[0].idx)?outputs_[1]:outputs_[0];
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);
     bgfx::setBuffer(0,upstream,bgfx::Access::Read);bgfx::setBuffer(1,status_,bgfx::Access::Write);bgfx::dispatch(view,clear_,1);
     if(!capacity_)return;

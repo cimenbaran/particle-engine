@@ -1,5 +1,7 @@
 #pragma once
 #include "GpuSweptBounds.hpp"
+#include "GpuVoxelMotion.hpp"
+#include <memory>
 #include "GpuCellOccupancy.hpp"
 #include "GpuJacobiContacts.hpp"
 #include "GpuVelocityReconstruction.hpp"
@@ -10,14 +12,17 @@ namespace pw {
 class GpuGranularStep {
 public:
     GpuGranularStep(const std::filesystem::path& assets,std::uint32_t capacity,
-        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f,bool latchFailures=false,AnalyticSphere obstacle={});
+        GranularStepProfile profile={},std::uint32_t iterations=4,float gravity=9.81f,bool latchFailures=false,AnalyticSphere obstacle={},bool voxelTerrain=false);
     ~GpuGranularStep();
     GpuGranularStep(const GpuGranularStep&)=delete;
     GpuGranularStep& operator=(const GpuGranularStep&)=delete;
+    // Voxel mode requires a current context on every submit and uses the Basin
+    // grid. Analytic mode rejects a context; no mode switch occurs mid-tick.
     void submit(std::uint16_t view,bgfx::DynamicVertexBufferHandle input,
-        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount);
+        bgfx::DynamicVertexBufferHandle materials,std::uint32_t materialCount,const VoxelContactContext* terrain=nullptr);
     bgfx::DynamicVertexBufferHandle output() const{return output_;}
     // Phase error mask, proposed speed caps, max contact degree, boundary events.
+    // Voxel mode: the last counter includes prediction events and finish changes.
     bgfx::DynamicIndexBufferHandle status() const{return latchFailures_?latched_:status_;}
     // Current tick: contact-phase error mask, max candidates/query (includes self),
     // max hash probes/query, collected contact solves. Never a total pair count.
@@ -31,7 +36,7 @@ public:
     // the next submit; consume in a later sequential view. No readback/allocation.
     // Force, swept prediction, corrected pose, reconstructed velocity, response, finish.
     std::array<bgfx::DynamicVertexBufferHandle,6> diagnosticStates() const {
-        return {forced_,sweep_.output(),contacts_.output(),velocity_.output(),response_.output(),finished_};
+        return {forced_,voxel_?prediction_:sweep_.output(),contacts_.output(),velocity_.output(),response_.output(),finished_};
     }
 private:
     void release();
@@ -45,6 +50,8 @@ private:
     AnalyticSphere obstacle_;
     GpuCellOccupancy occupancy_;
     GpuSweptBounds sweep_;
+    std::unique_ptr<GpuVoxelMotion> voxel_;
+    bgfx::DynamicVertexBufferHandle prediction_=BGFX_INVALID_HANDLE;
     GpuJacobiContacts contacts_;
     GpuVelocityReconstruction velocity_;
     GpuContactVelocity response_;
