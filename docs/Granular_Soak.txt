@@ -11,7 +11,8 @@ least one 256-tick cycle and observe full/empty/overflow and settling coverage.
 
 --granular --soak uses the live granular solver and settling tracker. It preserves
 the interactive default capacity of 512 unless --capacity is given. Cosmetics,
-custom scene files, frame limits, warmup, benchmark and replay options are rejected.
+frame limits, warmup, benchmark and replay options are rejected. Custom scene
+files are supported only with explicit --granular.
 The original --soak workload remains ballistic unless --granular is specified.
 The workload name is granular_256_tick_pool_cycle_v2 so reports cannot be confused.
 
@@ -39,7 +40,7 @@ build identity, requested resource payload and sampled driver memory estimates.
 
 This extends lifecycle coverage to the granular pipeline; it does not replace the
 fixed pile penetration and closed-energy fixtures. It does not prove arbitrary
-scene stability, continuous particle-particle collision, interior terrain, or the
+scene stability, continuous particle-particle collision, arbitrary terrain, or the
 reference-hardware frame-time budget. Geometric candidate support is local evidence,
 not terrain deposition. A fault, invalid audit or missing coverage returns failure.
 Closing, resizing or minimizing the test window cancels the soak. Exceptions during
@@ -60,3 +61,29 @@ tests/results/m3-max-soak-diagnostic-rings.txt. The clean ddd2640 ten-minute Met
 5022615 slot checks with all 1497 synchronized snapshots valid. See
 tests/results/m3-max-soak-all-diagnostics-600.txt. Windows v2 validation remains
 open; earlier v1 soak evidence does not certify the additional readbacks.
+
+Sphere scene workload
+  --granular --scene assets/scenes/sphere_drop.json --capacity 257 --soak 600
+  --report out/sphere-soak.json
+Add --software-gpu for WARP. Windows CI runs this after the enclosure soak at
+both workgroup sizes, with separate sphere-soak JSON/log artifacts. The provided
+scene has256 initial grains; capacity257 leaves one initial free slot and tests
+partial workgroups. Scene count must fit capacity, as in interactive mode.
+
+Custom-scene lifecycle spawns use the validated scene minimum/maximum, which
+keeps the sphere preset's new grains above the expanded collider. The cycle's
+removals, overflows, reuse, short lifetimes and impulses are unchanged. The report
+uses workload granular_scene_256_tick_pool_cycle_v1 and records the full scene,
+seed, material definitions and actual spawn bounds. The original enclosure
+workload retains its wide spawn box and identifier. Ballistic scene/soak mixing
+remains rejected.
+
+For enabled sphere scenes the independent ownership/state audit checks every
+live slot against the sphere expanded by that particle's radius on every tick.
+It compares squared distance with a1e-6 m contact allowance; violations latch
+the existing state-error flag even if the solver failed to report them. Dead
+slots are excluded from the geometric check. Injected penetration, boundary
+allowance, disabled collider, dead-slot exclusion and reset/latching fixtures
+validate this audit independently from the production contact stages. Existing
+solver/tracker errors and all synchronized diagnostic checks remain required.
+This is sustained sphere-scene lifecycle coverage, not general terrain proof.

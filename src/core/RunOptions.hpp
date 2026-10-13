@@ -57,8 +57,8 @@ inline RunOptions parseOptions(int argc,char** argv) {
     if(!options.replay.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() ||
        !options.capabilities.empty() || !options.scene.empty() || options.frames || specifiedWarmup || specifiedCapacity))
         throw std::runtime_error("--replay uses recorded capacity/ticks and cannot combine with other execution modes");
-    if(!options.scene.empty() && (options.gpuTest || options.soakSeconds || !options.benchmark.empty() || !options.capabilities.empty()))
-        throw std::runtime_error("--scene is for interactive or bounded-frame runs only");
+    if(!options.scene.empty() && (options.gpuTest || (options.soakSeconds && !options.granular) || !options.benchmark.empty() || !options.capabilities.empty()))
+        throw std::runtime_error("--scene supports interactive, bounded-frame or explicit granular soak runs");
     if(!options.capabilities.empty() && (options.soakSeconds || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup || !options.report.empty()))
         throw std::runtime_error("--capabilities cannot combine with execution modes or timing/report options");
     if(options.soakSeconds && (options.report.empty() || options.gpuTest || !options.benchmark.empty() || options.frames || specifiedWarmup))

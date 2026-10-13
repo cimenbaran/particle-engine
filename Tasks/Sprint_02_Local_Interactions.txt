@@ -68,6 +68,14 @@ passed 600 seconds, 38763 ticks and 151 lifecycle cycles; evidence is in
 See ../tests/results/m3-max-static-friction-soak-600.txt. D3D11 and controlled
 performance comparisons remain open.
 
+Latest Windows checkpoint: source9c6bc0a passes the full D3D11 WARP GPU
+correctness stage at both workgroup sizes, including the sphere event fix and
+live contact-normal view. Run38331795863 also passes stability at workgroup256;
+workgroup128 stability and overall replay/soak success remain unproven. See
+../tests/results/ci-38331795863-correctness-stage.txt.
+Custom sphere-scene lifecycle soaks and independent per-tick sphere-containment
+audits now have Metal smoke coverage; their new ten-minute gates are pending.
+
 Tasks
 [ ] S2-01 Define the bounded local domain, floor-based signed cell coordinates,
     collision-free flattened keys and explicit remove/reflect exit policy.

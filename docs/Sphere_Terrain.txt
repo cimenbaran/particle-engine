@@ -34,3 +34,8 @@ loads an empty preset and removes terrain resources. Native Metal UI validation
 loaded the preset both through CLI and the menu, observed 256 active particles and
 256 settling candidates at paused tick 1412 without a displayed solver fault,
 and reloaded the preset to tick zero. This is not a stability/performance gate.
+
+Sustained lifecycle validation can now use the same preset with --granular
+--scene assets/scenes/sphere_drop.json --capacity 257 --soak 600 --report FILE.
+See Granular_Soak.txt for the command schedule, independent containment audit
+and report identity. Smoke runs do not certify the ten-minute gate.

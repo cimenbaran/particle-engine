@@ -1,0 +1,16 @@
+WINDOWS CORRECTNESS STAGE PASSED, RUN STILL IN PROGRESS
+
+Source9c6bc0a845af51db72b8b63936ee27492d9250b4, run38331795863.
+Windows workgroup128 job115082955243 and workgroup256 job115082955215 both
+complete CPU invariants and D3D11 WARP correctness successfully. The workflow
+runs capabilities and the full --gpu-test command and preserves nonzero exits.
+This includes153 sweep fixtures and the live contact-normal path.
+
+The successful stages support the convex-sphere repeat-event fix on WARP.
+At observation time workgroup256 also passed the fixed stability fixtures;
+workgroup128 is still executing them. Replay and ten-minute enclosure soaks
+have not yet been certified by this snapshot.
+The new sphere-scene soak/audit is later development and is not covered here.
+Do not treat this partial result as an overall green run or physical GPU proof.
+
+Stage snapshot: out/ci-38331795863-correctness-stage.json

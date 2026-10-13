@@ -836,7 +836,8 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         const auto phase=ticks%256;
         pw::Command spawn;spawn.type=pw::CommandType::SpawnBrush;spawn.count=4096;
         spawn.material=particles.liveMaterialIds[(ticks/8)%particles.liveMaterialIds.size()];
-        spawn.minimum={-6,1,-6};spawn.maximum={6,11,6};
+        spawn.minimum=options.scene.empty()?std::array<float,3>{-6,1,-6}:particles.scene.minimum;
+        spawn.maximum=options.scene.empty()?std::array<float,3>{6,11,6}:particles.scene.maximum;
         if(phase==0) {
             enqueue(spawn);
             auto invalid=spawn;invalid.tick=particles.commands.nextTick();invalid.count=4097;
@@ -854,7 +855,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
             auto impulse=spawn;impulse.type=pw::CommandType::ApplyImpulse;impulse.count=0;impulse.parameters={1,2,-1,0};enqueue(impulse);
         }
         particles.tick(1);++ticks;
-        audit.prepare(4,particles.state[particles.current],particles.pool->activeSlots(),particles.pool->freeSlots(),particles.pool->counts(),uint32_t(particles.materials.entries.size()));
+        audit.prepare(4,particles.state[particles.current],particles.pool->activeSlots(),particles.pool->freeSlots(),particles.pool->counts(),uint32_t(particles.materials.entries.size()),particles.scene.obstacle);
         particles.visibility->prepare(5,particles.instances,particles.pool->activeSlots(),particles.pool->counts(),frustum);
         if(elapsed()>=nextSample || phase==0 || phase==1 || phase==129 || phase==130 || phase==131 || phase==215) {
             request();
@@ -879,7 +880,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true);
     if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=320;resources.diagnosticHost+=240;}
     if(particles.terrain)resources.terrainGeometry=pw::SphereTerrain::payloadBytes;
-    Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v2":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+    Json report={{"schema_version",1},{"workload",particles.granular?(options.scene.empty()?"granular_256_tick_pool_cycle_v2":"granular_scene_256_tick_pool_cycle_v1"):"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",particles.scene.seed},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"resources",pw::resourceReport(resources,*bgfx::getStats())},
         {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
@@ -890,11 +891,16 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         {"backend",bgfx::getRendererName(caps->rendererType)},{"resolution",{{"width",width},{"height",height}}},
         {"indirect",indirect},{"vsync",false},{"build",build},{"shader_fingerprints",shaderFingerprints},{"materials",materials},{"samples",samples},{"discarded_samples",discardedSamples},
         {"notes",Json::array({"One 1/60-second tick per frame; duration is wall-clock time.","Every tick audits every slot; error flags remain latched across readback intervals.","256-tick cycles cover fill/overflow, duplicate removal, reuse, short lifetimes and impulses.","This is a correctness soak, not a performance benchmark or reference-machine certification."})}};
+    report["scene"]=Json::parse(pw::encodeScene(particles.scene));
+    report["spawn_bounds"]={{"minimum",options.scene.empty()?std::array<float,3>{-6,1,-6}:particles.scene.minimum},
+        {"maximum",options.scene.empty()?std::array<float,3>{6,11,6}:particles.scene.maximum}};
+    report["sphere_containment_audited_every_tick"]=particles.scene.obstacle.radius>0;
     if(particles.granular) {
         const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
         report["granular"]={{"position_friction","static_traction_approach_v3"},{"radius",0.0625},{"speed_limit",12},{"substeps",4},{"iterations",4},{"saw_settling_candidates",sawSettling},
             {"solver_error",g.active},{"tracking_error",h.active},{"final_candidates",h.free},{"final_acquiring",h.reserved},{"final_contact_grace",h.rejected},
             {"initial_scene",{{"name",particles.scene.name},{"count",particles.scene.count},{"minimum",particles.scene.minimum},{"maximum",particles.scene.maximum},{"materials",particles.scene.materials}}}};
+        if(particles.scene.obstacle.radius>0)report["notes"].push_back("Every live slot independently checks sphere separation with 1e-6 m float allowance; scene spawn bounds remain outside the expanded collider.");
         report["notes"].push_back("All five granular diagnostic rings are sampled at the ownership-audit tick; occupancy describes the last position-solve input. Contact totals count repeated directed visits, not unique pairs.");
         report["notes"].push_back("Granular solver and settling faults latch every tick; synchronized samples check candidates remain bounded by active matter.");
     }

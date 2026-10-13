@@ -4,6 +4,7 @@ BUFFER_RO(b_state,vec4,0);
 BUFFER_RO(b_owners,uint,1);
 BUFFER_RW(b_result,uint,2);
 uniform vec4 u_audit;
+uniform vec4 u_audit_sphere;
 // Exponent bits detect NaN/Inf without depending on fast-math comparisons.
 bool finiteComponent(float value) {return (floatBitsToUint(value)&0x7f800000u)!=0x7f800000u;}
 bool finiteLane(vec4 value) {
@@ -25,6 +26,11 @@ void main() {
       position.y>=position.w-0.001 && abs(position.x)<=8.0-position.w+0.001 &&
       abs(position.z)<=8.0-position.w+0.001 && thermal.x>=0.0 &&
       thermal.y>=0.0 && thermal.y<=1.0 && thermal.z>=0.0 && thermal.w>=0.0;
+  }
+  if(alive && u_audit_sphere.w>0.0) {
+    vec3 offset=position.xyz-u_audit_sphere.xyz;
+    float minimum=u_audit_sphere.w+position.w-0.000001;
+    valid=valid && dot(offset,offset)>=minimum*minimum;
   }
   if(!valid) atomicOr(b_result[2],1u);
   if(identity.z!=slot || (alive && (identity.w==0u || identity.x>=uint(u_audit.y)))) atomicOr(b_result[3],1u);

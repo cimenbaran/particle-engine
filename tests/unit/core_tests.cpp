@@ -94,6 +94,7 @@ int main() {
     CHECK(parse({"app","--granular","--capacity","129","--frames","8"}).capacity==129);
     CHECK(parse({"app","--granular","--soak","600","--report","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--granular","--soak","600","--report","x"}).capacity==512);
+    CHECK(parse({"app","--granular","--scene","sphere.json","--soak","600","--report","x","--software-gpu"}).scene=="sphere.json");
     CHECK(parse({"app","--gpu-test","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--replay","x","--software-gpu"}).softwareGpu);
     CHECK(parse({"app","--capabilities","x","--software-gpu"}).softwareGpu);

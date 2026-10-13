@@ -1,0 +1,17 @@
+SPHERE SCENE SOAK SMOKE VALIDATION
+
+Development source based on9c6bc0a. Apple M3 Max, Metal.
+Sphere preset: centre(0,2,0), radius1.25; capacity257, initial256 grains.
+Independent sphere-containment audit runs every tick; shader fault injection
+checks contact allowance, live penetration, dead exclusion and latched/reset faults.
+
+WG128: passed 30.082927s, 1622 ticks, 6 complete cycles, 416854 slot checks.
+out/sphere-soak-smoke128.json sha256=e5401b054dcda14c5e285ef9ca9fc940e71e8f9153f8eb6aecd5bec701fef8d2
+WG256: passed 30.102280s, 1583 ticks, 6 complete cycles, 406831 slot checks.
+out/sphere-soak-smoke256.json sha256=ea0b5729be90733b89c1bf0e8ad7e00f34f02f5d21d6005e46cd43bce18bebed
+WG256 ballistic regression: 603 ticks, 2 cycles, passed; workload bounded_256_tick_pool_cycle_v1.
+WG256 enclosure regression: 767 ticks, 2 cycles, passed; workload granular_256_tick_pool_cycle_v2.
+
+CTest15/15 passes both sizes. actionlint1.7.12 passes the updated workflow.
+These are smoke runs, not ten-minute sphere certification. Fresh Metal600s and
+D3D11 WARP sphere soaks remain required. Neither is hardware-performance proof.

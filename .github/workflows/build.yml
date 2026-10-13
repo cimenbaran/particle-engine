@@ -82,6 +82,15 @@ jobs:
           $executable = Join-Path $PWD "out/${{ matrix.preset }}/ParticleWorld.exe"
           & $executable --software-gpu --granular --capacity 129 --soak 600 --report "out/granular-soak.json" 2>&1 | Tee-Object -FilePath "out/granular-soak.txt"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: D3D11 WARP ten-minute sphere scene soak
+        if: runner.os == 'Windows'
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          $executable = Join-Path $PWD "out/${{ matrix.preset }}/ParticleWorld.exe"
+          $scene = Join-Path $PWD "out/${{ matrix.preset }}/assets/scenes/sphere_drop.json"
+          & $executable --software-gpu --granular --scene $scene --capacity 257 --soak 600 --report "out/sphere-soak.json" 2>&1 | Tee-Object -FilePath "out/sphere-soak.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows' && always()
         with:
@@ -93,6 +102,8 @@ jobs:
             out/granular-stability.txt
             out/granular-soak.json
             out/granular-soak.txt
+            out/sphere-soak.json
+            out/sphere-soak.txt
             out/replay-regression/
       - uses: actions/upload-artifact@v4
         with:
