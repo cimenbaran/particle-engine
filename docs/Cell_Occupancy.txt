@@ -28,7 +28,9 @@ The class owns one 16-byte result buffer and two compute programs. Its maximum
 compute binding count is four. submit allocates nothing and performs no CPU
 readbacks. The live UI samples through a 64-byte GPU/48-byte host diagnostic ring,
 with epoch invalidation on reset and a displayed tick to identify delayed data.
-Soak mode allocates this ring but keeps its existing synchronized samples unchanged.
+Soak mode samples this ring at the same tick as ownership, solver, settling,
+neighborhood and contact-total diagnostics. It rejects error flags and impossible
+occupancy counts. The snapshot still describes the last position-solve input.
 
 Tests augment all range fixtures: zero, workgroup boundaries, dense single-cell
 inputs, mixed exclusions, sparse keys through 1,048,576 records, failed indices,

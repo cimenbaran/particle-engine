@@ -1,0 +1,22 @@
+Granular soak diagnostic ring coverage
+
+Base source: 7a01fe2 plus runSoak diagnostic sampling changes.
+Apple M3 Max, Metal, workgroup 128, capacity 129.
+Command: ParticleWorld --granular --capacity 129 --soak 30
+  --report out/soak-diagnostics-30-metal128.json
+
+Passed: 1931 ticks, 7 complete pool lifecycle cycles,
+249099 slot audits, 30.075959 wall-clock seconds.
+All 76 retained samples contain synchronized occupancy, neighborhood
+and exact contact totals alongside solver, settling and ownership results.
+The run covers full/empty/overflow, settling, removals, reuse and expiration.
+All diagnostic bounds and error checks passed.
+
+CTest macos-release: 14/14 passed.
+Logs/reports: out/soak-diagnostics-30-metal128.log/.json and
+out/soak-diagnostics-ctest.log.
+This 30-second smoke check is not ten-minute soak certification or a benchmark.
+Windows validation and sustained v2 soak validation remain outstanding.
+
+Ballistic regression smoke: 5 seconds, 599 ticks, passed.
+Report: out/soak-diagnostics-ballistic.json.

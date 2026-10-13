@@ -725,7 +725,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         memoryPeaks.observe(pw::reportedMemory(*bgfx::getStats()));
         audit.poll(frame);particles.diagnostics->poll(frame);
         if(particles.granularDiagnostics) {
-            particles.granularDiagnostics->poll(frame);particles.settlingDiagnostics->poll(frame);
+            for(auto* ring:{particles.granularDiagnostics.get(),particles.settlingDiagnostics.get(),particles.neighborhoodDiagnostics.get(),particles.occupancyDiagnostics.get(),particles.totalDiagnostics.get()}) ring->poll(frame);
             const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
             if((g.valid && g.active) || (h.valid && h.active)) failure="Latched granular solver or settling fault";
         }
@@ -733,6 +733,8 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         if(!a.valid || !pool.valid || a.tick!=pool.tick || a.sequence==lastSample) return;
         if(particles.granularDiagnostics && (!particles.granularDiagnostics->latest().valid || !particles.settlingDiagnostics->latest().valid ||
             particles.granularDiagnostics->latest().tick!=a.tick || particles.settlingDiagnostics->latest().tick!=a.tick)) return;
+        if(particles.granularDiagnostics) for(auto* ring:{particles.neighborhoodDiagnostics.get(),particles.occupancyDiagnostics.get(),particles.totalDiagnostics.get()})
+            if(!ring->latest().valid || ring->latest().tick!=a.tick) return;
         lastSample=a.sequence;
         const bool valid=a.active==options.capacity && !a.free && !a.reserved && !a.rejected && uint64_t(pool.active)+pool.free==options.capacity;
         if(!valid) failure="GPU ownership, numeric state or identity audit failed";
@@ -743,6 +745,25 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         else ++discardedSamples;
         if(particles.granularDiagnostics) {
             const auto& g=particles.granularDiagnostics->latest();const auto& h=particles.settlingDiagnostics->latest();
+            const auto& n=particles.neighborhoodDiagnostics->latest();const auto& o=particles.occupancyDiagnostics->latest();
+            const auto& t=particles.totalDiagnostics->latest();
+            const uint64_t candidates=uint64_t(t.active)+(uint64_t(t.free)<<32);
+            const uint64_t contacts=uint64_t(t.reserved)+(uint64_t(t.rejected)<<32);
+            // Four position iterations and two response candidate walks per substep.
+            const uint64_t candidateBound=uint64_t(particles.granular->plan().substeps)*6*options.capacity*options.capacity;
+            if(n.active || o.active) failure="Granular neighborhood or occupancy diagnostic fault";
+            if(n.free>options.capacity || n.rejected!=particles.granular->plan().substeps*5)
+                failure="Granular neighborhood diagnostic bounds failed";
+            if(o.free>o.reserved || o.reserved>options.capacity || o.rejected>o.reserved ||
+                ((o.reserved==0)!=(o.free==0)) || ((o.reserved==0)!=(o.rejected==0)))
+                failure="Granular occupancy diagnostic bounds failed";
+            if(contacts>candidates || candidates>candidateBound)
+                failure="Granular contact totals bounds failed";
+            if(samples.size() && samples.back()["tick"]==a.tick) {
+                samples.back()["neighborhood"]={{"error",n.active},{"maximum_candidates",n.free},{"maximum_probes",n.reserved},{"contact_solves",n.rejected}};
+                samples.back()["occupancy"]={{"error",o.active},{"occupied_cells",o.free},{"indexed_solids",o.reserved},{"maximum_cell_population",o.rejected}};
+                samples.back()["contact_totals"]={{"candidate_visits",candidates},{"directed_contacts",contacts}};
+            }
             sawSettling|=h.free>0;
             if(uint64_t(h.free)+h.reserved>pool.active || h.rejected>h.free) failure="Settling counts exceed active matter";
             if(samples.size() && samples.back()["tick"]==a.tick) samples.back()["granular"]={{"solver_error",g.active},{"speed_caps",g.free},{"maximum_contact_degree",g.reserved},{"boundary_events",g.rejected},
@@ -756,11 +777,14 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         if(particles.granularDiagnostics) {
             const bool g=particles.granularDiagnostics->request(6,particles.granular->status(),ticks);
             const bool h=particles.settlingDiagnostics->request(6,particles.settling->status(),ticks);
-            if(g!=accepted || h!=accepted) throw std::runtime_error("Granular soak snapshot rings lost synchronization");
+            const bool n=particles.neighborhoodDiagnostics->request(6,particles.granular->neighborhoodStatus(),ticks);
+            const bool o=particles.occupancyDiagnostics->request(6,particles.granular->occupancyStatus(),ticks);
+            const bool t=particles.totalDiagnostics->request(6,particles.granular->contactTotals(),ticks);
+            if(g!=accepted || h!=accepted || n!=accepted || o!=accepted || t!=accepted) throw std::runtime_error("Granular soak snapshot rings lost synchronization");
         }
     };
     auto pending=[&]{return audit.pending() || particles.diagnostics->pending() ||
-        (particles.granularDiagnostics && (particles.granularDiagnostics->pending() || particles.settlingDiagnostics->pending()));};
+        (particles.granularDiagnostics && (particles.granularDiagnostics->pending() || particles.settlingDiagnostics->pending() || particles.neighborhoodDiagnostics->pending() || particles.occupancyDiagnostics->pending() || particles.totalDiagnostics->pending()));};
     pw::CommandLimits limits;limits.materialCount=uint32_t(particles.materials.entries.size());
     auto enqueue=[&](pw::Command command) {
         command.tick=particles.commands.nextTick();
@@ -814,12 +838,12 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
     if(failure.empty() && particles.granular && !sawSettling) failure="Granular soak did not observe settling candidates";
     const auto& finalAudit=audit.latest();const auto& finalPool=particles.diagnostics->latest();
     if(failure.empty() && (!finalAudit.valid || !finalPool.valid || finalAudit.tick!=ticks || finalPool.tick!=ticks ||
-        (particles.granularDiagnostics && (particles.granularDiagnostics->latest().tick!=ticks || particles.settlingDiagnostics->latest().tick!=ticks))))
+        (particles.granularDiagnostics && (particles.granularDiagnostics->latest().tick!=ticks || particles.settlingDiagnostics->latest().tick!=ticks || particles.neighborhoodDiagnostics->latest().tick!=ticks || particles.occupancyDiagnostics->latest().tick!=ticks || particles.totalDiagnostics->latest().tick!=ticks))))
         failure="Soak final snapshots do not match the final tick";
     auto resources=pw::resourceUsage(particles.particleCount,uint32_t(particles.materials.entries.size()),particles.visibility->supportsIndirect(),true);
     if(particles.granular){resources.granular=pw::granularPayloadBytes(particles.particleCount)+pw::settlingPayloadBytes(particles.particleCount);resources.diagnosticTextures+=320;resources.diagnosticHost+=240;}
     if(particles.terrain)resources.terrainGeometry=pw::SphereTerrain::payloadBytes;
-    Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v1":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
+    Json report={{"schema_version",1},{"workload",particles.granular?"granular_256_tick_pool_cycle_v2":"bounded_256_tick_pool_cycle_v1"},{"software_renderer_requested",options.softwareGpu},{"seed",42},{"tick_seconds",1.0/60.0},{"workgroup_size",pw::workgroupSize},{"audit_every_tick",true},{"passed",failure.empty()},{"failure",failure},{"capacity",options.capacity},
         {"resources",pw::resourceReport(resources,*bgfx::getStats())},
         {"reported_memory_peaks",pw::resourcePeakReport(memoryPeaks,"soak_submission_and_final_readback_snapshots")},
         {"requested_seconds",options.soakSeconds},{"elapsed_seconds",elapsed()},{"ticks",ticks},
@@ -835,6 +859,7 @@ int runSoak(pw::Window& window,Particles& particles,const std::filesystem::path&
         report["granular"]={{"position_friction","static_traction_approach_v3"},{"radius",0.0625},{"speed_limit",12},{"substeps",4},{"iterations",4},{"saw_settling_candidates",sawSettling},
             {"solver_error",g.active},{"tracking_error",h.active},{"final_candidates",h.free},{"final_acquiring",h.reserved},{"final_contact_grace",h.rejected},
             {"initial_scene",{{"name",particles.scene.name},{"count",particles.scene.count},{"minimum",particles.scene.minimum},{"maximum",particles.scene.maximum},{"materials",particles.scene.materials}}}};
+        report["notes"].push_back("All five granular diagnostic rings are sampled at the ownership-audit tick; occupancy describes the last position-solve input. Contact totals count repeated directed visits, not unique pairs.");
         report["notes"].push_back("Granular solver and settling faults latch every tick; synchronized samples check candidates remain bounded by active matter.");
     }
     std::filesystem::path path=options.report;if(!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());

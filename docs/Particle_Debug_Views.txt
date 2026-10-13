@@ -50,8 +50,9 @@ not only colors. Tests cover speed scale points and overflow, negative/subnormal
 cell boundaries, domain exits, all settling colors, stale generations and tracker
 faults. Original particle and history bytes are checked unchanged after all modes.
 
-These views do not complete S2-10: collision-normal visualization, total
-pair instrumentation and per-pass timing remain open. Interactive_Granular.txt
+These views do not complete S2-10: collision-normal visualization and
+per-pass timing remain open. Contact_Totals.txt describes the implemented exact
+candidate-visit and directed-contact totals. Interactive_Granular.txt
 describes the separate maximum candidates/query and probes/query diagnostics;
 Cell_Occupancy.txt describes the occupied-cell snapshot. Windows run 38320049311 passes the original 42 mode changes at both workgroup
 sizes (material, speed, cells and settling). Its separate pile stability check

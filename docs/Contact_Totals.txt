@@ -38,3 +38,10 @@ global carries. A fourth, failed phase must leave sums unchanged. Coordinator
 checks cover exact closed-pair candidate totals (96), nonzero contacts, empty
 reset, tick reuse, fault paths and all-pairs upper bounds. The live app fixture
 checks the delayed totals snapshot alongside ownership/solver diagnostics.
+
+Granular soak workload v2 requests all five granular diagnostic rings together
+with the ownership audit. Samples are accepted only at matching ticks. The soak
+checks occupancy/count bounds, contact-solve counts and exact 64-bit total bounds,
+and drains all rings at shutdown. Per-sample JSON retains these values. The
+ballistic workload and simulation commands are unchanged. A short smoke soak
+checks the readback path; the ten-minute CI soak remains the sustained gate.
