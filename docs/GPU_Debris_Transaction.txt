@@ -110,4 +110,5 @@ blit without an initial frame flush (see Metal_Compute_Encoder.txt).
 A radial explosion plan also passes the real publication gate: 32 voxels become
 61 grains with measured initial GPU kinetic energy below the reserved bound,
 followed by 240 healthy ticks. See Terrain_Explosion.txt for the remaining
-interactive scheduling and command-energy ownership work.
+existing-particle impulse and cosmetic budget work. Staged_Explosion.txt covers
+the live multi-batch coordinator and its command-energy ownership tests.

@@ -1,0 +1,73 @@
+LIVE STAGED TERRAIN EXPLOSIONS — macOS / Metal
+
+Open --terrain-preview, collapse Terrain editing if more panel space is needed,
+and expand Explosion. Choose Blast centre, Blast radius, Debris speed and Terrain
+energy, then Start blast. A new command snapshots these settings; changing the
+sliders does not change an in-flight command. The preview converts up to 32
+voxels per accepted batch. Existing-particle blast impulses and cosmetic blast
+emissions remain open; the current energy budget funds terrain conversion and
+its new physical debris only.
+
+The preview uses calibrated fracture resistance in J/m^3: Sand 100, Wood 300,
+Ash 50, other materials 1000. Density, solid phase and fuel come from the loaded
+material table. The coordinator checks that energy-profile density and phase
+match the physical material table exactly; a lower-density budget cannot fund
+heavier GPU grains. Persisting resistance in material JSON is still pending.
+See Terrain_Explosion.txt for radial selection, placement and energy arithmetic.
+
+Coordinator and ordering
+StagedExplosion owns the immutable request, material profiles, remaining budget,
+owner identity and expected terrain publication. pump runs before simulation and
+rendering. It submits one PendingDebrisTransaction at the late preparation view,
+then waits for both GPU acknowledgements. A successful early-view publication
+adopts terrain and grains first, charges the downward-rounded remaining budget,
+and records committed batch/voxel/grain totals. The same call never prepares the
+next batch. At least one simulation tick must pass before the next preparation.
+
+A pending batch freezes simulation through the existing transaction lease.
+A paused scene may finish an already submitted batch; it does not start another
+at that same tick. Pending particle commands run before the next preparation.
+This lets users clear or move blocking grains without a blast overtaking their
+queued command. At most one batch is attempted at a tick, with fixed CPU scan,
+voxel and product quotas. The UI bounds radius to two metres; the API supports
+up to four metres under its scan limit.
+
+Capacity and particle-overlap rejections leave terrain, particles and energy
+unchanged. The coordinator releases the freeze and retries only after 30 new
+simulation ticks. Paused commands therefore do not spin expensive preparations.
+The panel reports whether it is waiting for capacity or debris clearance.
+Clearing the blocking material, or letting it move away, allows later batches
+to proceed. The deterministic placement does not search alternate particle-free
+sites on the GPU; a settled obstruction can keep a blast deferred indefinitely
+until the user changes particle space or cancels it. No terrain is discarded to
+force progress. A CPU placement failure stops with NoSpace. Other validation or
+physics faults stop the command instead of retrying endlessly.
+
+Empty terrain, an unaffordable remainder or an impossible product quota ends the
+command with a distinct reason. Cancel discards only a pending batch; already
+published edits and their charges remain. Reset/rebuild and switching diagnostic
+modes cancel the command before replacing the pool. Different terrain or particle
+owner identities invalidate a command even when revision/tick numbers happen to
+match. Terminal commands release retained world resources. Another terrain edit
+cannot be started from the preview while a blast is active.
+
+Validation
+Seven real Metal coordinator scenarios cover three automatic one-voxel batches,
+no pre-ACK energy charge, freeze and same-tick/paused gates, cancellation before
+and after publication, full 1024-slot capacity rejection and recovery, a bounded
+30-tick retry, terrain/pool replacement, density/phase mismatch, exhausted energy,
+impossible quota, queued command ordering, latched physics faults and buried
+placement failure. The existing twelve transaction scenarios and planner tests
+remain in the full suite.
+
+Live seed-1337 check, workgroup 128:
+- default 2000 J blast: batch one removes 32 voxels, activates 61 grains and
+  leaves 1498.47 J; an overlapping next batch waits without further spending;
+- pause holds the tick and budget; Clear Stone queues without running;
+- resume consumes the clear and automatically commits batch two: 64 total voxels,
+  742.94 J remaining;
+- clearing blocking Stone again allows batch three: 84 total voxels, 160 total
+  generated grains across batches, 16.72 J remaining; no affordable voxel remains;
+- terrain count is 404462; the last batch leaves 38 active grains;
+- a separate cancellation check retains an accepted batch and its remaining
+  energy without later commits. Rebuild restores the 404546-voxel initial basin.

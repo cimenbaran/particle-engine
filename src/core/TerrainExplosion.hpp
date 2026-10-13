@@ -53,12 +53,7 @@ inline double explosionEnergyRemainder(double remaining,double committedCharge) 
     if(committedCharge==0)return remaining;
     return std::nextafter(remaining-committedCharge,0.);
 }
-// Read-only removal/capacity/energy proposal. Local placement is included. The caller must
-// reserve slots and obtain the joint GPU acknowledgement before applying edits
-// or charging reservedJoules. Retry a failed batch with the unchanged budget.
-inline ExplosionPlan planExplosion(const SparseVoxelStore& source,const ExplosionRequest& request,
-    std::uint64_t tick,std::span<const ExplosionMaterial> materials) {
-    validateExplosion(request,tick);
+inline void validateExplosionMaterials(std::span<const ExplosionMaterial> materials) {
     if(materials.empty() || materials.size()>65536)throw std::invalid_argument("Invalid explosion materials");
     for(const auto& material:materials) {
         conversionMassProfile(material.density);
@@ -66,6 +61,14 @@ inline ExplosionPlan planExplosion(const SparseVoxelStore& source,const Explosio
            !std::isfinite(material.fuel) || material.fuel<0 || material.fuel>1)
             throw std::invalid_argument("Invalid explosion material resistance");
     }
+}
+// Read-only removal/capacity/energy proposal. Local placement is included. The caller must
+// reserve slots and obtain the joint GPU acknowledgement before applying edits
+// or charging reservedJoules. Retry a failed batch with the unchanged budget.
+inline ExplosionPlan planExplosion(const SparseVoxelStore& source,const ExplosionRequest& request,
+    std::uint64_t tick,std::span<const ExplosionMaterial> materials) {
+    validateExplosion(request,tick);
+    validateExplosionMaterials(materials);
     ExplosionPlan plan;plan.revision=source.revision();plan.tick=tick;plan.sequence=request.sequence;
     plan.grainsPerMaterial.resize(materials.size());
     struct Candidate {VoxelAddress address;unsigned material;double distanceSquared,falloff;int x,y,z;};

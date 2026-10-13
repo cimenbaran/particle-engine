@@ -1,9 +1,9 @@
 BOUNDED TERRAIN EXPLOSION PLANNING — macOS development
 
 TerrainExplosion.hpp provides a read-only, typed ExplosionRequest and a plan
-that can be passed to PendingDebrisTransaction. This is the planning/transaction
-foundation; the preview still exposes excavation only. Interactive blast controls,
-automatic scheduling, existing-particle impulses and cosmetic quotas remain open.
+that can be passed to PendingDebrisTransaction. StagedExplosion now owns live
+batched execution and command energy in the preview; see Staged_Explosion.txt.
+Existing-particle blast impulses and cosmetic blast quotas remain open.
 
 Request and bounds
 The request contains tick, stable sequence, centre, radius, maximum debris speed
@@ -60,8 +60,8 @@ math helper does not authorize publication. A rejected, cancelled or stale batch
 leave that budget unchanged. Replan against the newly published terrain and
 remaining energy for the next bounded batch; unconverted voxels stay intact.
 Do not fund existing-particle impulses or other physical effects from the same
-already reserved energy. A future coordinator must explicitly partition those
-budgets and schedule at most its configured batch work per tick.
+already reserved energy. The live coordinator schedules at most one bounded batch per tick. Extending
+it to existing-particle impulses still requires an explicit budget partition.
 
 Validation
 150 deterministic CPU plans check radial membership, resistance, capacity,

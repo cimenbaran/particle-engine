@@ -47,6 +47,7 @@ public:
     bgfx::DynamicIndexBufferHandle status() const{return latched_;}
 private:
     friend class PendingDebrisTransaction;
+    friend class StagedExplosion;
     // Shared identity prevents reset/ABA; the weak lease freezes tick submission
     // only while its transaction exists. It never keeps the scene alive.
     std::shared_ptr<const int> transactionOwner_=std::make_shared<const int>(0);

@@ -4,6 +4,7 @@
 #include "core/FixedStep.hpp"
 #include "core/TerrainExcavation.hpp"
 #include "render/PendingDebrisTransaction.hpp"
+#include "render/StagedExplosion.hpp"
 #include "render/VoxelProbes.hpp"
 #include <chrono>
 #include "render/VoxelPublication.hpp"
@@ -45,6 +46,14 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
     int width=0,height=0;std::string message;
     std::unique_ptr<VoxelProbes> probes;FixedStep clock;auto previous=std::chrono::steady_clock::now();std::uint32_t completed=0;bool paused=false;int spawnCount=256;float brushCentre[]{-6,6,-4.5f},brushHalf=.5f,brushVelocity[]{2,0,0};
     std::unique_ptr<PendingDebrisTransaction> excavation;
+    std::unique_ptr<StagedExplosion> blast;
+    std::vector<terrain::ExplosionMaterial> blastMaterials;
+    for(const auto& m:materials.entries) {
+        const double resistance=m.name=="Sand"?100:m.name=="Wood"?300:m.name=="Ash"?50:1000;
+        blastMaterials.push_back({m.gpu.mechanical[0],m.gpu.identity[1]==0,resistance,m.gpu.thermal[3]>0?1.f:0.f});
+    }
+    float blastCentre[]{-8,3.875f,-4},blastRadius=.5f,blastSpeed=2,blastEnergy=2000;
+
     std::vector<terrain::ExcavationMaterial> excavationMaterials;
     for(const auto& material:materials.entries)excavationMaterials.push_back({material.gpu.mechanical[0],material.gpu.identity[1]==0,material.gpu.thermal[3]>0?1.f:0.f});
     float excavationCentre[]{-8,3.875f,-4},excavationHalf=.25f,debrisLift=2;
@@ -67,6 +76,12 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                 message=(errors&32)?"Physics fault: reset the pool before excavating.":(errors&1)?"Not enough particle slots. Terrain was kept.":(errors&8)?"Debris space is occupied. Let grains move or adjust the brush; terrain was kept.":"Debris placement was rejected. Terrain was kept.";
                 std::cout<<"Terrain excavation rejected: "<<errors<<std::endl;excavation.reset();clock.reset();
             }
+        }
+        if(blast && probes) {
+            try {if(blast->pump(completed,*probes,basin->publication)) {
+                basin->refresh();clock.reset();message="Blast batch committed.";
+                std::cout<<"Blast batch "<<blast->batches()<<": "<<blast->removedVoxels()<<" voxels total; "<<blast->remainingJoules()<<" J remaining"<<std::endl;
+            }}catch(const std::exception& error){blast->cancel();message=error.what();}
         }
         auto now=std::chrono::steady_clock::now();double elapsed=std::chrono::duration<double>(now-previous).count();previous=now;
         SDL_Event event;
@@ -93,7 +108,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
         ImGui::SliderAngle("Orbit",&yaw,-180,180);ImGui::SliderFloat("Distance",&distance,18,65,"%.1f m");ImGui::SliderFloat("Height",&elevation,5,50,"%.1f m");
         ImGui::InputInt("Seed",&seed);seed=std::max(0,seed);
         if(ImGui::Button("Rebuild basin")) {
-            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));excavation.reset();probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
+            try {auto candidate=std::make_unique<BasinPublication>(assets,materials,std::uint32_t(seed));blast.reset();excavation.reset();probes.reset();basin=std::move(candidate);clock.reset();message="Basin rebuilt";}
             catch(const std::exception& error){message=error.what();}
         }
         }
@@ -132,7 +147,7 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
             ImGui::SliderFloat("Cut half width",&excavationHalf,.125f,1,"%.3f m");
             ImGui::SliderFloat("Debris lift",&debrisLift,0,6,"%.1f m/s");
             ImGui::TextWrapped("Excavate up to 32 voxels per click. Terrain stays intact if debris cannot fit. Unsupported overhangs stay static.");
-            ImGui::BeginDisabled(bool(excavation));
+            ImGui::BeginDisabled(bool(excavation) || (blast && blast->active()));
             if(ImGui::Button("Excavate brush")) {
                 try {
                     if(probes && probes->hasPool() && probes->pendingCommands())throw std::invalid_argument("Let queued particle commands run before excavating.");
@@ -163,9 +178,47 @@ int runTerrainPreview(Window& window,const std::filesystem::path& assets,std::ui
                 ImGui::Text("Mass: %.3f -> %.3f kg (delta %+.3f)",mass.sourceKilograms,mass.destinationKilograms,mass.quantizationKilograms);
             }
         }
-        if(ImGui::Button("Reset particle pool")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);excavation.reset();probes=std::move(candidate);clock.reset();message="Empty particle pool; counters and faults reset";}catch(const std::exception& error){message=error.what();}}
-        if(ImGui::Button("Drop interacting diagnostics")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 fixed diagnostic grains";}catch(const std::exception& error){message=error.what();}}
-        if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::CollapsingHeader("Explosion")) {
+            ImGui::SliderFloat3("Blast centre",blastCentre,-15,15,"%.3f m");blastCentre[1]=std::max(0.f,blastCentre[1]);
+            ImGui::SliderFloat("Blast radius",&blastRadius,.125f,2,"%.3f m");
+            ImGui::SliderFloat("Debris speed",&blastSpeed,0,12,"%.1f m/s");
+            ImGui::SliderFloat("Terrain energy",&blastEnergy,10,10000,"%.0f J");
+            ImGui::TextWrapped("Converts terrain in batches of up to 32 voxels. Energy is charged after each successful commit.");
+            ImGui::BeginDisabled(bool(excavation) || (blast && blast->active()));
+            if(ImGui::Button("Start blast")) {
+                try {
+                    if(probes && probes->fault())throw std::invalid_argument("Reset the particle pool after its physics fault.");
+                    terrain::ExplosionRequest request;request.centre={blastCentre[0],blastCentre[1],blastCentre[2]};request.radius=blastRadius;request.impulse=blastSpeed;request.energyJoules=blastEnergy;request.sequence=excavationSequence;
+                    if(!probes || !probes->hasPool()) {
+                        auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);
+                        auto command=std::make_unique<StagedExplosion>(assets,*candidate,basin->publication,materials,request,blastMaterials);
+                        probes=std::move(candidate);blast=std::move(command);clock.reset();
+                    }else {request.tick=probes->ticks();blast=std::make_unique<StagedExplosion>(assets,*probes,basin->publication,materials,request,blastMaterials);}
+                    ++excavationSequence;blast->pump(completed,*probes,basin->publication);message="Blast queued.";
+                }catch(const std::exception& error){if(blast)blast->cancel();message=error.what();}
+            }
+            ImGui::EndDisabled();
+            if(blast) {
+                if(blast->active()){ImGui::SameLine();if(ImGui::Button("Cancel blast")){blast->cancel();clock.reset();message="Blast cancelled; committed batches retained.";}}
+                const char* status="";
+                switch(blast->state()) {
+                case StagedExplosion::State::WaitingForTick:status="Waiting for next simulation tick";break;
+                case StagedExplosion::State::WaitingForGpu:status="Validating batch";break;
+                case StagedExplosion::State::Deferred:status=(blast->errors()&1)?"Waiting for particle capacity":"Waiting for debris clearance";break;
+                case StagedExplosion::State::Complete:status=blast->completion()==StagedExplosion::Completion::Empty?"Complete":blast->completion()==StagedExplosion::Completion::Energy?"Stopped: no affordable voxels":"Stopped: product quota";break;
+                case StagedExplosion::State::NoSpace:status="Stopped: no room for required debris";break;
+                case StagedExplosion::State::Cancelled:status="Cancelled";break;
+                case StagedExplosion::State::Stale:status="Stopped: scene replaced";break;
+                case StagedExplosion::State::Faulted:status="Stopped: validation failed";break;
+                }
+                ImGui::TextWrapped("%s",status);
+                ImGui::Text("Blast: %llu batches | %llu voxels",static_cast<unsigned long long>(blast->batches()),static_cast<unsigned long long>(blast->removedVoxels()));
+                ImGui::Text("Energy: %.1f J left | %.1f J charged",blast->remainingJoules(),blast->chargedJoules());
+            }
+        }
+        if(ImGui::Button("Reset particle pool")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true,true);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();message="Empty particle pool; counters and faults reset";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::Button("Drop interacting diagnostics")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials,true);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 fixed diagnostic grains";}catch(const std::exception& error){message=error.what();}}
+        if(ImGui::Button("Drop collision probes")){try{auto candidate=std::make_unique<VoxelProbes>(assets,materials);blast.reset();excavation.reset();probes=std::move(candidate);clock.reset();paused=false;message="256 terrain probes; no grain-to-grain contacts";}catch(const std::exception& error){message=error.what();}}
         if(probes){ImGui::Checkbox("Pause simulation",&paused);ImGui::Text("Simulation tick: %llu",static_cast<unsigned long long>(probes->ticks()));if(probes->hasSettling()) {
             const auto& settling=probes->settlingSnapshot();
             if(settling.valid){ImGui::Text("Settling candidates: %u / %u",settling.free,probes->capacity());if(settling.active)ImGui::TextWrapped("Settling tracker fault. Reset the particle pool to recover.");}

@@ -13,8 +13,9 @@ validated removals, particles and per-material conversion totals together.
 Use [Excavate brush](docs/Terrain_Excavation.txt) to turn up to 32 terrain voxels
 into physical debris per click, with conversion mass totals shown in the panel.
 A [bounded explosion planner](docs/Terrain_Explosion.txt) now supplies radial
-debris and conservative energy budgets to the transaction API. Live explosion
-controls, automatic staging, deposition and save/load remain open.
+debris and conservative energy budgets to [live staged blasts](docs/Staged_Explosion.txt).
+Existing-particle blast impulses, cosmetic blast effects, deposition and save/load
+remain open.
 Development currently prioritizes macOS.
 
 ## Build
@@ -70,6 +71,8 @@ open -n ~/particleengine/out/macos-release/ParticleWorld.app --args --terrain-pr
 Inspect the stone ledge, seeded sand slope, dry pool recess and wood patch. The
 panel controls the camera and rebuilds the seed under **Camera and world**.
 **Excavate brush** converts up to 32 voxels into debris after GPU validation.
+Expand **Explosion** to start a radial blast with a bounded energy budget and
+automatic batches; **Cancel blast** retains already committed edits.
 **Add sand** queues a brush in the 1,024-slot interactive pool; **Particle material**
 chooses the target for clear, remove and impulse. **Drop interacting diagnostics** starts
 256 fixed grains with both particle and terrain collisions. **Drop collision probes**

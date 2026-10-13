@@ -29,8 +29,10 @@ plans local debris sites and commits up to 32 voxels per click, with conversion
 totals and material-targeted particle controls (../docs/Terrain_Excavation.txt).
 A typed explosion planner now computes radial falloff, calibrated resistance,
 conservative fracture/kinetic budgets and complete locally placed debris batches
-(../docs/Terrain_Explosion.txt). Live blast controls, automatic scheduling,
-existing-particle impulse budgeting and cosmetic quotas remain open.
+(../docs/Terrain_Explosion.txt). Live controls now schedule acknowledged batches,
+charge only successful commits and defer under capacity/clearance pressure
+(../docs/Staged_Explosion.txt). Existing-particle blast impulse budgeting,
+cosmetic blast quotas and persisted material resistance remain open.
 Pure mass plans choose
 nearest product counts with explicit signed per-material quantization capped at
 5% (../docs/Terrain_Mass_Quantization.txt); committed debris conversion totals
@@ -65,7 +67,7 @@ A deterministic full basin recipe
 and exposed-surface GPU renderer now run in --terrain-preview, including seed
 rebuilds and matching render/occupancy revision checks. See
 ../docs/Resident_Basin.txt. Thermal simulation, save files and tick-boundary
-origin publication are not connected. Dirty chunk mesh reuse, live explosion scheduling
+origin publication are not connected. Dirty chunk mesh reuse, existing-particle blast impulses
 and deposition remain open. Development prioritizes macOS.
 
 Tasks

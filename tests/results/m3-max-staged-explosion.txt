@@ -1,0 +1,42 @@
+LIVE STAGED EXPLOSIONS — APPLE M3 MAX / METAL
+
+Apple M3 Max, 48 GB; AppleClang 21.0.0.21000099.
+Both workgroups 128 and 256 pass the complete --gpu-test suite and 25 native
+CTests. All 20 core tests pass. Default workgroup restored to 128 for installation.
+
+Seven real GPU coordinator scenarios:
+- three one-voxel batches commit on distinct ticks, retaining all six grains;
+- pending preparation freezes the tick and does not charge energy before ACK;
+- repeated pump calls at the same paused tick do not prepare or charge again;
+- cancellation before ACK leaves the original world/budget; cancellation after
+  publication retains its accepted terrain, particles and energy charge;
+- a fully occupied 1024-slot pool rejects intact/unspent; paused calls do not
+  retry; clearing capacity and advancing 30 ticks allows the batch to commit;
+- replacement terrain/pool identities stop stale commands;
+- mismatched density/phase energy profiles reject at construction;
+- zero energy and impossible quota stop without mutation;
+- queued particle commands run before blast preparation;
+- a latched GPU physics error terminates without publication or charge;
+- buried terrain without complete product space stops without freezing/spending.
+The complete suite retains twelve underlying transaction scenarios, 150 explosion
+plans, 138 excavation plans, physical collision, mass, pool and rendering gates.
+
+Live macOS workgroup-128 preview, clean seed-1337 rebuild:
+1. Start default .5 m, 2 m/s, 2000 J blast at (-8,3.875,-4).
+   First batch: 32 voxels, 61 grains, 1498.47 J remaining.
+2. Next batch waits for debris clearance. At paused tick 339, budget and terrain
+   remain unchanged. Clear Stone queues one command without advancing the tick.
+3. Resume: queued clear runs and the same blast automatically publishes batch 2.
+   Total: 64 voxels, 742.94 J remaining, terrain count 404482.
+4. Clear blocking Stone again. Batch 3 raises totals to 84 converted voxels and
+   160 generated grains across the three batches, leaving 38 active grains.
+   Remaining energy: 16.7194 J; terminal reason: no affordable voxels.
+   Terrain count: 404462; surface faces: 170260; no displayed physics fault.
+A separate cancellation run retains its accepted batch and budget. Rebuild clears
+blast state and restores 404546 terrain voxels. Live counts continue updating.
+
+The coordinator schedules automatic bounded retries, not alternate geometric
+placement. Settled debris may indefinitely obstruct the fixed proposal; the user
+can move/clear it or cancel. Existing-particle blast impulses, cosmetic blast
+quotas, persisted resistance, deposition and remaining Sprint 3 work stay open.
+Windows is deferred.
