@@ -1,0 +1,32 @@
+CONTACT NORMAL DEBUG ORACLE
+
+The independent all-pairs CPU oracle in tests/reference/ContactNormal.hpp is
+preparation for the remaining S2-10 collision-normal view. It does not add the
+GPU pass or UI mode; those remain to be implemented and checked against it.
+
+For a live dynamic solid with radius 0.0625 m, select the smallest signed surface
+gap among the six enclosure planes, optional analytic sphere and other live solid
+particles. Include contacts up to 0.002 m apart, including penetration. A static
+solid may supply a contact but is not a dynamic query. Dead/non-solid bodies are
+excluded. This describes current geometric proximity, not an impulse history,
+settling support classification or the sum of simultaneous contact normals.
+
+Return a unit normal pointing from the selected collider toward the query, source
+kind, feature ID and signed gap. No nearby contact returns source None and a zero
+vector. Exact gap ties prefer planes in x-/x+/y-/y+/z-/z+ order, then sphere, then
+ascending particle slot. The future GPU reduction must compare this explicit
+priority rather than depend on hash traversal order. Near ties are still subject
+to float rounding; numerical fixtures must distinguish this from exact ties.
+
+Coincident particle centres use the solver's deterministic antisymmetric slot
+axis for distances at most 1e-6 m. Exact sphere-centre coincidence has no outward
+normal and is rejected, as are nonfinite eligible positions and unsupported
+sphere profiles. The oracle is bounded test geometry, not arbitrary-scale math.
+It does not mutate particle state or settling history.
+
+Tests cover six signed plane normals, corner and equal-distance particle ties,
+deeper-contact selection, contact-band boundaries, static/dead/non-solid cases,
+antisymmetric coincidence, sphere normals across eight octants and invalid input.
+Core CTest now contains ten tests. Native GPU view tests must additionally prove
+correct full render records, immutable simulation/history, paused refresh/reset,
+workgroup boundaries, failed-index handling and both backend implementations.
